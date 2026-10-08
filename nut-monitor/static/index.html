@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="author" content="Gonzalo Valenzuela <gonzalo@rave.cl>">
-<meta name="description" content="Pi Console — Homelab dashboard · NUT Monitor module">
+<meta name="description" content="Pi Console — Homelab dashboard · UPS Monitor module">
 <meta name="version" content="1.0.4">
 <title>UPS Monitor</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iI2VhYjMwOCIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQsNCkgc2NhbGUoMSkiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik01IDlWNWEyIDIgMCAwIDEgMi0yaDEwYTIgMiAwIDAgMSAyIDJ2NCBNMyA5aDE4djExYTIgMiAwIDAgMS0yIDJINWEyIDIgMCAwIDEtMi0yVjl6IE0xMiAxM3YzIi8+PHJlY3QgeD0iMyIgeT0iOSIgd2lkdGg9IjE4IiBoZWlnaHQ9IjExIiByeD0iMiIvPjxsaW5lIHgxPSIxMiIgeTE9IjEzIiB4Mj0iMTIiIHkyPSIxNiIvPgogIDwvZz4KPC9zdmc+">
@@ -395,7 +395,7 @@ canvas.vchart{width:100%;height:140px;display:block}
     <div id="ups-ob-banner" style="display:none;margin-bottom:16px;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);border-radius:var(--r-sm);padding:10px 16px;align-items:center;gap:12px">
       <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--orange);fill:none;stroke-width:2;flex-shrink:0"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
       <div style="flex:1">
-        <span style="font-size:13px;font-weight:600;color:var(--orange)" id="ups-ob-msg">En batería</span>
+        <span style="font-size:13px;font-weight:600;color:var(--orange)" id="ups-ob-msg" data-i18n="onBattMsg">On battery</span>
         <span style="font-size:11px;color:var(--text-dim);margin-left:10px" id="ups-ob-timer"></span>
       </div>
     </div>
@@ -449,7 +449,7 @@ canvas.vchart{width:100%;height:140px;display:block}
         </div>
         <!-- Log -->
         <div class="card">
-          <div class="card-hd"><span class="card-title">Actividad</span><button class="btn-link" onclick="clearLog()">Limpiar</button></div>
+          <div class="card-hd"><span class="card-title" data-i18n="filterActivity">Activity</span><button class="btn-link" onclick="clearLog()" data-i18n="filterClear">Clear</button></div>
           <div id="log-out"></div>
         </div>
       </div>
@@ -480,7 +480,23 @@ const LANG={
     criticalBatt:'Critical battery!',onBattMsg:'On battery',
     noUPS:'No UPS found',details:'Details',close:'Close',cancel:'Cancel',
     permReadonly:'Read-only',permExecute:'Execute',permAdmin:'Administrator',
-    sessionExpired:'Session expired'
+    sessionExpired:'Session expired',
+    statusOnline:'Online',statusOnBatt:'On battery',statusLowBatt:'Low battery',
+    statusUnknown:'Unknown',
+    gaugeLabel_battery:'Battery',gaugeLabel_load:'Load',gaugeLabel_runtime:'Runtime',
+    gaugeUnit_minLeft:'min left',
+    gaugeLabel_power:'Power',gaugeLabel_temp:'Temperature',gaugeLabel_current:'Current',
+    varLabel_inputV:'Input voltage',varLabel_outputV:'Output voltage',
+    varLabel_battV:'Battery voltage',varLabel_temp:'Temperature',
+    varLabel_outCurr:'Output current',varLabel_freq:'Frequency',
+    clientsLabel:'Clients',
+    alertCritBatt:'Critical battery — connect to power immediately',
+    alertOnBatt:'On battery —',alertMinLeft:'min left',
+    chartTitle_voltage:'Input vs output voltage',
+    chartLegend_input:'Input',chartLegend_output:'Output',chartLegend_watts:'Watts',
+    chartTitle_power:'Power consumption',
+    filterAll:'All',filterActivity:'Activity',filterClear:'Clear',
+    noDataChart:'No consumption data for this period'
   },
   es:{
     loginTitle:'Iniciar sesión',loginSub:'Ingresa tus credenciales para continuar.',
@@ -496,7 +512,23 @@ const LANG={
     criticalBatt:'¡Batería crítica!',onBattMsg:'En batería',
     noUPS:'Sin UPS encontradas',details:'Detalles',close:'Cerrar',cancel:'Cancelar',
     permReadonly:'Solo lectura',permExecute:'Ejecución',permAdmin:'Administrador',
-    sessionExpired:'Sesión expirada'
+    sessionExpired:'Sesión expirada',
+    statusOnline:'En línea',statusOnBatt:'En batería',statusLowBatt:'Batería baja',
+    statusUnknown:'Desconocido',
+    gaugeLabel_battery:'Batería',gaugeLabel_load:'Carga',gaugeLabel_runtime:'Autonomía',
+    gaugeUnit_minLeft:'min restantes',
+    gaugeLabel_power:'Consumo',gaugeLabel_temp:'Temperatura',gaugeLabel_current:'Corriente',
+    varLabel_inputV:'Tensión entrada',varLabel_outputV:'Tensión salida',
+    varLabel_battV:'Tensión batería',varLabel_temp:'Temperatura',
+    varLabel_outCurr:'Corriente salida',varLabel_freq:'Frecuencia',
+    clientsLabel:'Clientes',
+    alertCritBatt:'Batería crítica — conectar a corriente inmediatamente',
+    alertOnBatt:'En batería —',alertMinLeft:'min restantes',
+    chartTitle_voltage:'Voltaje entrada vs salida',
+    chartLegend_input:'Entrada',chartLegend_output:'Salida',chartLegend_watts:'Watts',
+    chartTitle_power:'Consumo',
+    filterAll:'Todo',filterActivity:'Actividad',filterClear:'Limpiar',
+    noDataChart:'Sin datos de consumo en este período'
   }
 };
 let _lang=localStorage.getItem('pi-lang')||'en';
@@ -704,13 +736,13 @@ function renderDashboard(){
         if(!_obStartTs[key]) _obStartTs[key]=Date.now();
         const elapsed=Math.round((Date.now()-_obStartTs[key])/1000);
         const m=Math.floor(elapsed/60), s=elapsed%60;
-        obMsg=`${upsName} en batería — ${Math.round(runtime/60)} min restantes · Tiempo: ${m}:${s.toString().padStart(2,'0')}`;
+        obMsg=`${upsName} ${t('alertOnBatt')} ${Math.round(runtime/60)} ${t('alertMinLeft')} · ${m}:${s.toString().padStart(2,'0')}`;
       } else {
         delete _obStartTs[`${srv.id}:${upsName}`];
       }
       if(charge>0 && charge<30 && !rs.includes('OB')){
         hasCrit=true;
-        critMsg=`¡Batería crítica! ${upsName}: ${Math.round(charge)}% — conectar a corriente de inmediato`;
+        critMsg=`${t('criticalBatt')} ${upsName}: ${Math.round(charge)}% — ${t('alertCritBatt')}`;
       }
     });
     const obBanner=document.getElementById('ups-ob-banner');
@@ -743,10 +775,10 @@ function renderDashboard(){
     const barColor=charge>60?'var(--green)':charge>25?'var(--yellow)':'var(--red)';
     const isExp=expanded===key;
     const rs=(row.v['ups.status']||'').toUpperCase();
-    let badgeCls='badge-unknown',badgeTxt=rs||'Desconocido';
-    if(rs.includes('OL')){badgeCls='badge-online';badgeTxt='En línea';}
-    if(rs.includes('OB')){badgeCls='badge-onbatt';badgeTxt='En batería';}
-    if(rs.includes('LB')){badgeCls='badge-lowbatt';badgeTxt='Batería baja';}
+    let badgeCls='badge-unknown',badgeTxt=rs||t('statusUnknown');
+    if(rs.includes('OL')){badgeCls='badge-online';badgeTxt=t('statusOnline');}
+    if(rs.includes('OB')){badgeCls='badge-onbatt';badgeTxt=t('statusOnBatt');}
+    if(rs.includes('LB')){badgeCls='badge-lowbatt';badgeTxt=t('statusLowBatt');}
 
     // Main row
     const tr=document.createElement('tr');
@@ -775,7 +807,7 @@ function renderDashboard(){
     if(rs.includes('OB')||rs.includes('LB')){
       const atr=document.createElement('tr');atr.className='alert-row show';
       const cls2=rs.includes('LB')?'crit':'';
-      atr.innerHTML=`<td colspan="7" class="alert-cell ${cls2}">⚠ ${rs.includes('LB')?'Batería crítica — conectar a corriente inmediatamente':'En batería — '+Math.round(runtime/60)+' min restantes'}</td>`;
+      atr.innerHTML=`<td colspan="7" class="alert-cell ${cls2}">⚠ ${rs.includes('LB')?t('alertCritBatt'):t('alertOnBatt')+' '+Math.round(runtime/60)+' '+t('alertMinLeft')}</td>`;
       newTbody.appendChild(atr);
     }
 
@@ -784,17 +816,17 @@ function renderDashboard(){
     dtr.className='detail-row'+(isExp?' show':'');
     dtr.id='detail-'+key.replace(/[^a-z0-9]/gi,'-');
     const VARS=[
-      ['input.voltage',     'Tensión entrada',  'V'],
-      ['output.voltage',    'Tensión salida',   'V'],
-      ['battery.voltage',   'Tensión batería',  'V'],
-      ['ups.temperature',   'Temperatura',      '°C'],
-      ['output.current',    'Corriente salida', 'A'],
-      ['input.frequency',   'Frecuencia',       'Hz'],
+      ['input.voltage',     t('varLabel_inputV'),  'V'],
+      ['output.voltage',    t('varLabel_outputV'),  'V'],
+      ['battery.voltage',   t('varLabel_battV'),  'V'],
+      ['ups.temperature',   t('varLabel_temp'),      '°C'],
+      ['output.current',    t('varLabel_outCurr'), 'A'],
+      ['input.frequency',   t('varLabel_freq'),       'Hz'],
     ];
     dtr.innerHTML=`<td colspan="7" class="detail-cell">
       <div class="detail-inner">
         <div class="gauge-box">
-          <span class="gauge-lbl">Batería</span>
+          <span class="gauge-lbl">${t('gaugeLabel_battery')}</span>
           <div class="circle-wrap">
             <svg viewBox="0 0 36 36"><circle class="circle-bg" cx="18" cy="18" r="15.9"/>
             <circle class="circle-fill" cx="18" cy="18" r="15.9"
@@ -804,7 +836,7 @@ function renderDashboard(){
           <span class="gauge-unit">%</span>
         </div>
         <div class="gauge-box">
-          <span class="gauge-lbl">Carga</span>
+          <span class="gauge-lbl">${t('gaugeLabel_load')}</span>
           <div class="circle-wrap">
             <svg viewBox="0 0 36 36"><circle class="circle-bg" cx="18" cy="18" r="15.9"/>
             <circle class="circle-fill" cx="18" cy="18" r="15.9"
@@ -814,10 +846,10 @@ function renderDashboard(){
           <span class="gauge-unit">%</span>
         </div>
         <div class="gauge-box">
-          <span class="gauge-lbl">Autonomía</span>
+          <span class="gauge-lbl">${t('gaugeLabel_runtime')}</span>
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:72px;gap:4px">
             <span class="runtime-num">${runtime?Math.round(runtime/60):'—'}</span>
-            <span class="gauge-unit">min restantes</span>
+            <span class="gauge-unit">${t('gaugeUnit_minLeft')}</span>
           </div>
           <span class="gauge-unit">&nbsp;</span>
         </div>
@@ -835,21 +867,21 @@ function renderDashboard(){
             const temp=parseFloat(row.v['ups.temperature']||row.v['battery.temperature']||0);
             return `
             <div style="text-align:center">
-              <div class="gauge-lbl">Consumo</div>
+              <div class="gauge-lbl">${t('gaugeLabel_power')}</div>
               <div style="font-family:var(--mono);font-size:28px;font-weight:700;color:var(--orange);line-height:1;margin:8px 0">
                 ${watts>0?Math.round(watts):'—'}
               </div>
               <div class="gauge-unit">${watts>0?'W ('+source+')':''}</div>
             </div>
             <div style="text-align:center">
-              <div class="gauge-lbl">Temperatura</div>
+              <div class="gauge-lbl">${t('gaugeLabel_temp')}</div>
               <div style="font-family:var(--mono);font-size:28px;font-weight:700;color:${temp>40?'var(--red)':temp>35?'var(--orange)':'var(--blue)'};line-height:1;margin:8px 0">
                 ${temp?temp.toFixed(1):'—'}
               </div>
               <div class="gauge-unit">${temp?'°C':''}</div>
             </div>
             <div style="text-align:center">
-              <div class="gauge-lbl">Corriente</div>
+              <div class="gauge-lbl">${t('gaugeLabel_current')}</div>
               <div style="font-family:var(--mono);font-size:28px;font-weight:700;color:var(--text);line-height:1;margin:8px 0">
                 ${amp?amp:'—'}
               </div>
@@ -861,21 +893,21 @@ function renderDashboard(){
           ${VARS.map(([k,l,u])=>{const val=row.v[k];return`<div class="var-cell"><span class="var-key">${l}</span><span class="var-val">${val?val+' '+u:'<span style="opacity:.3">—</span>'}</span></div>`;}).join('')}
         </div>
         ${row.clients.length?`<div class="clients-section">
-          <span class="clients-lbl">Clientes</span>
+          <span class="clients-lbl">${t('clientsLabel')}</span>
           <div class="client-chips">${row.clients.map(c=>`<span class="client-chip">${esc(c)}</span>`).join('')}</div>
         </div>`:''}
         <div class="vchart-section">
           <div class="vchart-header">
-            <span class="vchart-title">Voltaje entrada vs salida</span>
+            <span class="vchart-title">${t('chartTitle_voltage')}</span>
             <div class="vchart-legend">
-              <div class="vchart-legend-item"><div class="vchart-legend-dot" style="background:#4361ee"></div>Entrada</div>
-              <div class="vchart-legend-item"><div class="vchart-legend-dot" style="background:#22c55e"></div>Salida</div>
+              <div class="vchart-legend-item"><div class="vchart-legend-dot" style="background:#4361ee"></div>${t('chartLegend_input')}</div>
+              <div class="vchart-legend-item"><div class="vchart-legend-dot" style="background:#22c55e"></div>${t('chartLegend_output')}</div>
             </div>
             <div class="vchart-filters" id="vchart-filters-${key.replace(/[^a-z0-9]/gi,'-')}">
-              <button class="vchart-filter active" data-range="all"   onclick="setVChartRange(this,'${key}','v')">Todo</button>
+              <button class="vchart-filter active" data-range="all"   onclick="setVChartRange(this,'${key}','v')">${t('filterAll')}</button>
               <button class="vchart-filter"         data-range="1h"   onclick="setVChartRange(this,'${key}','v')">1h</button>
               <button class="vchart-filter"         data-range="1d"   onclick="setVChartRange(this,'${key}','v')">1d</button>
-              <button class="vchart-filter"         data-range="1mo"  onclick="setVChartRange(this,'${key}','v')">1mes</button>
+              <button class="vchart-filter"         data-range="1mo"  onclick="setVChartRange(this,'${key}','v')">1mo</button>
             </div>
           </div>
           <div class="vchart-body" style="position:relative">
@@ -887,15 +919,15 @@ function renderDashboard(){
         </div>
         <div class="vchart-section">
           <div class="vchart-header">
-            <span class="vchart-title">Consumo</span>
+            <span class="vchart-title">${t('chartTitle_power')}</span>
             <div class="vchart-legend">
-              <div class="vchart-legend-item"><div class="vchart-legend-dot" style="background:#f97316"></div>Watts</div>
+              <div class="vchart-legend-item"><div class="vchart-legend-dot" style="background:#f97316"></div>${t('chartLegend_watts')}</div>
             </div>
             <div class="vchart-filters" id="wchart-filters-${key.replace(/[^a-z0-9]/gi,'-')}">
-              <button class="vchart-filter active" data-range="all"   onclick="setVChartRange(this,'${key}','w')">Todo</button>
+              <button class="vchart-filter active" data-range="all"   onclick="setVChartRange(this,'${key}','w')">${t('filterAll')}</button>
               <button class="vchart-filter"         data-range="1h"   onclick="setVChartRange(this,'${key}','w')">1h</button>
               <button class="vchart-filter"         data-range="1d"   onclick="setVChartRange(this,'${key}','w')">1d</button>
-              <button class="vchart-filter"         data-range="1mo"  onclick="setVChartRange(this,'${key}','w')">1mes</button>
+              <button class="vchart-filter"         data-range="1mo"  onclick="setVChartRange(this,'${key}','w')">1mo</button>
             </div>
           </div>
           <div class="vchart-body" style="position:relative">
@@ -1102,7 +1134,7 @@ function drawWattsChart(canvasId, history, range, hoverIdx=-1){
   const withWatts = filtered ? filtered.filter(p=>p.watts>0) : [];
   if(!filtered||filtered.length<2||!withWatts.length){
     ctx.fillStyle=cDim; ctx.font='11px DM Mono,monospace'; ctx.textAlign='center';
-    ctx.fillText('Sin datos de consumo en este período',W/2,H/2);
+    ctx.fillText(t('noDataChart'),W/2,H/2);
     ctx.scale(1/dpr,1/dpr); return;
   }
 
@@ -1296,13 +1328,13 @@ function onVChartMove(e, canvas, key, type){
 
   if(type==='w'){
     tip.innerHTML = `<div style="color:var(--text-dim);margin-bottom:4px;font-size:10px">${timeStr}</div>`+
-      `<div style="color:#f97316">⚡ Consumo: <strong>${pt.watts!=null?Math.round(pt.watts)+' W':'—'}</strong></div>`+
-      (pt.load?`<div style="color:var(--text-mid)">Carga: ${Math.round(pt.load)}%</div>`:'');
+      `<div style="color:#f97316">⚡ ${t('gaugeLabel_power')}: <strong>${pt.watts!=null?Math.round(pt.watts)+' W':'—'}</strong></div>`+
+      (pt.load?`<div style="color:var(--text-mid)">${t('gaugeLabel_load')}: ${Math.round(pt.load)}%</div>`:'');
   } else {
     tip.innerHTML = `<div style="color:var(--text-dim);margin-bottom:4px;font-size:10px">${timeStr}</div>`+
-      (pt.vin?`<div style="color:#4361ee">↓ Entrada: <strong>${parseFloat(pt.vin).toFixed(1)} V</strong></div>`:'') +
-      (pt.vout?`<div style="color:#22c55e">↑ Salida: <strong>${parseFloat(pt.vout).toFixed(1)} V</strong></div>`:'') +
-      (pt.charge?`<div style="color:var(--text-mid)">🔋 Batería: ${Math.round(pt.charge)}%</div>`:'');
+      (pt.vin?`<div style="color:#4361ee">↓ ${t('chartLegend_input')}: <strong>${parseFloat(pt.vin).toFixed(1)} V</strong></div>`:'') +
+      (pt.vout?`<div style="color:#22c55e">↑ ${t('chartLegend_output')}: <strong>${parseFloat(pt.vout).toFixed(1)} V</strong></div>`:'') +
+      (pt.charge?`<div style="color:var(--text-mid)">🔋 ${t('gaugeLabel_battery')}: ${Math.round(pt.charge)}%</div>`:'');
   }
 
   const tipW = 170;

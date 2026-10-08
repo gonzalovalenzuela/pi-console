@@ -344,19 +344,19 @@ td{padding:10px 14px;vertical-align:middle}
   <div class="modal" style="max-width:420px">
     <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px;display:flex;align-items:center;gap:8px">
       <svg style="width:18px;height:18px;stroke:var(--teal);fill:none;stroke-width:2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-      Integración Pi-hole
+      <span data-i18n="piholeIntegration">Pi-hole Integration</span>
     </div>
-    <div style="font-size:12px;color:var(--text-dim);margin-bottom:18px;line-height:1.6">
-      Pi-hole v6 API para resolución de nombres y vendor MAC. Las credenciales se guardan en el servidor.
+    <div style="font-size:12px;color:var(--text-dim);margin-bottom:18px;line-height:1.6" data-i18n="piholeDesc">
+      Pi-hole v6 API for name resolution and MAC vendor. Credentials are stored on the server.
     </div>
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px">
       <div class="lfield" style="margin-bottom:0">
-        <label style="font-size:11px;font-weight:600;color:var(--text-mid)">Hosts Pi-hole (separados por coma)</label>
+        <label style="font-size:11px;font-weight:600;color:var(--text-mid)" data-i18n="piholeHosts">Pi-hole hosts (comma separated)</label>
         <input type="text" id="ph-hosts" placeholder="192.168.0.2,192.168.0.5" autocomplete="off"
           style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 10px;outline:none;width:100%">
       </div>
       <div class="lfield" style="margin-bottom:0">
-        <label style="font-size:11px;font-weight:600;color:var(--text-mid)">Password Pi-hole admin</label>
+        <label style="font-size:11px;font-weight:600;color:var(--text-mid)" data-i18n="piholePass">Pi-hole admin password</label>
         <input type="password" id="ph-pass" placeholder="••••••••" autocomplete="new-password"
           style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:8px 10px;outline:none;width:100%">
       </div>
@@ -392,7 +392,10 @@ const LANG={
     sessionExpired:'Session expired',
     noHosts:'No hosts found',searchPlaceholder:'IP, hostname, OS, port...',
     piholeIntegration:'Pi-hole Integration',piholeDesc:'Pi-hole v6 API for name resolution and MAC vendor. Credentials are stored on the server.',
-    piholeHosts:'Pi-hole hosts (comma separated)',piholePass:'Pi-hole admin password'},
+    piholeHosts:'Pi-hole hosts (comma separated)',piholePass:'Pi-hole admin password',
+    osUnknown:'Unknown',newDevice:'NEW',
+    newDeviceMsg:(n,names,more)=>`${n} new device${n>1?'s':''} detected: ${names}${more?' and more':''}`,
+    osEditTitle:'Edit OS'},
   es:{loginTitle:'Iniciar sesión',loginSub:'Ingresa tus credenciales para continuar.',
     username:'Usuario',password:'Contraseña',loginBtn:'Entrar',
     navSection:'Navegación',osDetected:'OS detectado',
@@ -409,11 +412,15 @@ const LANG={
     sessionExpired:'Sesión expirada',
     noHosts:'Sin hosts encontrados',searchPlaceholder:'IP, hostname, OS, puerto...',
     piholeIntegration:'Integración Pi-hole',piholeDesc:'Pi-hole v6 API para resolución de nombres y vendor MAC. Las credenciales se guardan en el servidor.',
-    piholeHosts:'Hosts Pi-hole (separados por coma)',piholePass:'Password Pi-hole admin'}
+    piholeHosts:'Hosts Pi-hole (separados por coma)',piholePass:'Password Pi-hole admin',
+    osUnknown:'Desconocido',newDevice:'NUEVO',
+    newDeviceMsg:(n,names,more)=>`${n} nuevo${n>1?'s dispositivos':'dispositivo'} detectado${n>1?'s':''}: ${names}${more?' y más':''}`,
+    osEditTitle:'Editar OS'}
 };
 let _lang=localStorage.getItem('pi-lang')||'en';
 var _i18nReady=false;
-function t(k){return(LANG[_lang]||LANG.en)[k]||(LANG.en)[k]||k;}
+function t(k,...args){const v=(LANG[_lang]||LANG.en)[k]||(LANG.en)[k]||k;return typeof v==='function'?v(...args):v;}
+function tOs(os){return os==='Desconocido'||os==='Unknown'?t('osUnknown'):os;}
 function setLang(l){
   _lang=l;localStorage.setItem('pi-lang',l);document.documentElement.lang=l;
   document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.getAttribute('data-i18n')));
@@ -669,7 +676,7 @@ function renderOsFilters(){
     div.dataset.os=os;
     div.onclick=()=>setOsFilter(div);
     div.innerHTML=`<span class="os-dot dot-${os.replace(/\s/g,'')}"></span>
-      <span class="os-filter-name">${esc(os)}</span>
+      <span class="os-filter-name">${esc(tOs(os))}</span>
       <span class="os-count">${counts[os]}</span>`;
     container.appendChild(div);
   });
@@ -712,7 +719,7 @@ function renderTable(){
   const netBanner = document.getElementById('net-new-banner');
   if(netBanner && newDevices.length){
     const names = newDevices.slice(0,3).map(h=>h.alias||h.hostname||h.ip).join(', ');
-    document.getElementById('net-new-msg').textContent = `${newDevices.length} nuevo${newDevices.length>1?'s dispositivos':'dispositivo'} detectado${newDevices.length>1?'s':''}: ${names}${newDevices.length>3?' y más':''}`;
+    document.getElementById('net-new-msg').textContent = t('newDeviceMsg',newDevices.length,names,newDevices.length>3);
     netBanner.style.display='flex';
   }
 
@@ -734,13 +741,13 @@ function renderTable(){
       <td>
         <span class="host-name">${esc(name)}</span>
         ${sub!==name?`<span class="host-sub">${esc(sub)}</span>`:''}
-        ${h.new_device?'<span style="margin-left:5px;font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;background:rgba(67,97,238,.15);color:var(--blue);vertical-align:middle">NUEVO</span>':''}
+        ${h.new_device?`<span style="margin-left:5px;font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;background:rgba(67,97,238,.15);color:var(--blue);vertical-align:middle">${t('newDevice')}</span>`:''}
       </td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:4px">
           <span class="os-badge">
             <span style="font-size:12px">${OS_ICONS[os]||'❓'}</span>
-            <span class="os-${os.replace(/\s/g,'')}" style="font-size:11px;font-weight:600">${esc(os)}</span>
+            <span class="os-${os.replace(/\s/g,'')}" style="font-size:11px;font-weight:600">${esc(tOs(os))}</span>
           </span>
           ${h.os_manual?'<span class="os-manual-badge">manual</span>':''}
           <button onclick="editOs('${esc(h.ip)}')" title="Editar OS"
