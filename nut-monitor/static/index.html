@@ -497,6 +497,10 @@ const LANG={
     chartTitle_power:'Power consumption',
     filterAll:'All',filterActivity:'Activity',filterClear:'Clear',
     noDataChart:'No consumption data for this period',
+    accumulating:'Accumulating data…',
+    testConnected:(n,v)=>`✓ Connected — ${n} UPS${v?' · '+v:''}`,
+    calcVA:'V×A calculated',calcLoad:'VA×load',
+    upsCountUnit:(n)=>`${n} UPS`,nodeCountUnit:(n)=>`${n} node${n!==1?'s':''}`,
     addServerTitle:'Add NUT server',addServerName:'Name',addServerHost:'Host / IP',
     addServerPort:'Port',addServerTest:'Test',addServerBtn:'Add',
     deleteServerTitle:'Delete server',deleteServerConfirm:(name)=>`Delete server "${name}"? Monitoring will stop.`,
@@ -504,7 +508,7 @@ const LANG={
     upsCountMsg:(ups,srv)=>`${ups} UPS on ${srv} server${srv!==1?'s':''}`,
     serverAdded:(name)=>`${name} added`,serverDeleted:(name)=>`${name} deleted`,
     serverAddedLog:(name)=>`Server added: ${name}`,serverDeletedLog:(name)=>`Server deleted: ${name}`,
-    testBtn:'Test',connecting:'Connecting…'
+    testBtn:'Test',connecting:'Connecting…',testFillAll:'Fill in all fields'
   },
   es:{
     loginTitle:'Iniciar sesión',loginSub:'Ingresa tus credenciales para continuar.',
@@ -537,6 +541,10 @@ const LANG={
     chartTitle_power:'Consumo',
     filterAll:'Todo',filterActivity:'Actividad',filterClear:'Limpiar',
     noDataChart:'Sin datos de consumo en este período',
+    accumulating:'Acumulando datos…',
+    testConnected:(n,v)=>`✓ Conectado — ${n} UPS${v?' · '+v:''}`,
+    calcVA:'V×A calculado',calcLoad:'VA×carga',
+    upsCountUnit:(n)=>`${n} UPS`,nodeCountUnit:(n)=>`${n} nodo${n!==1?'s':''}`,
     addServerTitle:'Agregar servidor NUT',addServerName:'Nombre',addServerHost:'Host / IP',
     addServerPort:'Puerto',addServerTest:'Probar',addServerBtn:'Agregar',
     deleteServerTitle:'Eliminar servidor',deleteServerConfirm:(name)=>`¿Eliminar el servidor "${name}"? Se detendrá el monitoreo.`,
@@ -544,7 +552,7 @@ const LANG={
     upsCountMsg:(ups,srv)=>`${ups} UPS en ${srv} servidor${srv!==1?'es':''}`,
     serverAdded:(name)=>`${name} agregado`,serverDeleted:(name)=>`${name} eliminado`,
     serverAddedLog:(name)=>`Servidor agregado: ${name}`,serverDeletedLog:(name)=>`Servidor eliminado: ${name}`,
-    testBtn:'Probar',connecting:'Conectando…'
+    testBtn:'Probar',connecting:'Conectando…',testFillAll:'Completa todos los campos'
   }
 };
 let _lang=localStorage.getItem('pi-lang')||'en';
@@ -571,7 +579,7 @@ async function doLogin(){
   const btn=document.getElementById('btn-l'),err=document.getElementById('login-err');
   const u=document.getElementById('l-user').value.trim(),p=document.getElementById('l-pass').value;
   err.className='login-err';
-  if(!u||!p){err.textContent='Completa todos los campos';err.className='login-err show';return;}
+  if(!u||!p){err.textContent=t('testFillAll')||'Fill in all fields';err.className='login-err show';return;}
   btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';
   try{
     const r=await fetch('api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
@@ -596,8 +604,7 @@ async function checkSession(){
 function applyPermissions(){
   document.getElementById('me-name').textContent=ME.username;
   document.getElementById('avatar').textContent=ME.username[0].toUpperCase();
-  const LABELS={readonly:'Solo lectura',execute:'Ejecución',admin:'Administrador'};
-  document.getElementById('me-role').textContent=LABELS[ME.permissions?.nut]||'—';
+  document.getElementById('me-role').textContent=t({readonly:'permReadonly',execute:'permExecute',admin:'permAdmin'}[ME.permissions?.nut])||'—';
   if(canAdmin()){document.getElementById('btn-add-srv').style.display='';document.getElementById('nav-admin').style.display='';}
 }
 
@@ -678,7 +685,7 @@ function renderSidebar(){
     div.innerHTML=`<span class="srv-dot-sm ${dotCls}"></span>
       <div class="srv-nav-info">
         <div class="srv-nav-name">${esc(s.name)}</div>
-        <div class="srv-nav-host">${esc(s.host)}:${s.port}${upsCount?' · '+upsCount+' UPS':''}</div>
+        <div class="srv-nav-host">${esc(s.host)}:${s.port}${upsCount?' · '+t('upsCountUnit',upsCount):''}</div>
       </div>
       ${canAdmin()&&s.id!=='local'?`<button class="btn-ghost-sm" onclick="confirmDeleteServer('${s.id}','${esc(s.name)}')" title="Eliminar"><svg viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6"/></svg></button>`:''}`;
     list.appendChild(div);
@@ -878,8 +885,8 @@ function renderDashboard(){
             const ld=parseFloat(row.v['ups.load']||0);
             let watts=0,source='';
             if(realP>0){watts=realP;source='ups.realpower';}
-            else if(volt>0&&amp>0){watts=volt*amp;source='V×A calculado';}
-            else if(pwr>0&&ld>0){watts=pwr*(ld/100);source='VA×carga';}
+            else if(volt>0&&amp>0){watts=volt*amp;source=t('calcVA');}
+            else if(pwr>0&&ld>0){watts=pwr*(ld/100);source=t('calcLoad');}
             const temp=parseFloat(row.v['ups.temperature']||row.v['battery.temperature']||0);
             return `
             <div style="text-align:center">
@@ -1029,7 +1036,7 @@ function drawVoltageChart(canvasId, history, range, hoverIdx=-1){
 
   if(!filtered||filtered.length<2){
     ctx.fillStyle=cDim; ctx.font='11px DM Mono,monospace'; ctx.textAlign='center';
-    ctx.fillText(filtered&&filtered.length===1?'Acumulando datos...':'Sin datos en este período',W/2,H/2);
+    ctx.fillText(filtered&&filtered.length===1?t('accumulating'):t('noDataChart'),W/2,H/2);
     ctx.scale(1/dpr,1/dpr); return;
   }
 
@@ -1249,7 +1256,7 @@ async function testServer(){
   try{
     const r=await fetch('api/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host,port})});
     const d=await r.json();
-    if(d.ok){res.className='test-result ok show';res.textContent='✓ Conectado — '+d.ups_count+' UPS'+(d.version?' · '+d.version:'');log('OK','Test OK: '+host+':'+port);}
+    if(d.ok){res.className='test-result ok show';res.textContent=t('testConnected',d.ups_count,d.version);log('OK','Test OK: '+host+':'+port);}
     else{res.className='test-result fail show';res.textContent='✕ '+d.error;}
   }catch(e){res.className='test-result fail show';res.textContent='✕ '+e.message;}
   finally{btn.textContent=t('addServerTest');btn.disabled=false;}

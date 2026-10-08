@@ -393,6 +393,14 @@ const LANG={
     piholeHosts:'Pi-hole hosts (comma separated)',piholePass:'Pi-hole admin password',
     piholeConnected:'Connected',piholeConnecting:'Connecting…',piholeNeedHost:'Enter at least one host',
     piholeSuccess:'Saved — syncing names…',piholeToast:'Pi-hole connected — names will appear on next scan',
+    intervalNegative:'Interval cannot be negative',intervalMin:'Minimum 60 seconds (or 0 for manual)',
+    scanning:'Scanning…',scanStarted:(msg)=>`Scan started — ${msg}`,rescanHost:(ip)=>`Re-scanning ${ip}`,
+    scanProgress:(p,t)=>`Scanning ${p}/${t} hosts…`,scanBtn:'Scan network',
+    noResults:'No results',noHosts2:'No hosts discovered',filterHint:'Try a different filter.',
+    startScanHint:'Start a scan to discover hosts on the network.',
+    uptimeEmpty:'No events recorded yet',uptimeStats:(h,d)=>`${h}h monitored · ${d} outage${d!==1?'s':''}`,
+    availHistory:'Availability history',
+    chartMonitoring:'Monitoring — data will appear after several scans',
     osUnknown:'Unknown',newDevice:'NEW',
     newDeviceMsg:(n,names,more)=>`${n} new device${n>1?'s':''} detected: ${names}${more?' and more':''}`,
     osEditTitle:'Edit OS'},
@@ -415,6 +423,14 @@ const LANG={
     piholeHosts:'Hosts Pi-hole (separados por coma)',piholePass:'Password Pi-hole admin',
     piholeConnected:'Conectado',piholeConnecting:'Conectando…',piholeNeedHost:'Ingresa al menos un host',
     piholeSuccess:'Guardado — sincronizando nombres…',piholeToast:'Pi-hole conectado — los nombres aparecerán en el próximo escaneo',
+    intervalNegative:'El intervalo no puede ser negativo',intervalMin:'Mínimo 60 segundos (o 0 para manual)',
+    scanning:'Escaneando…',scanStarted:(msg)=>`Escaneo iniciado — ${msg}`,rescanHost:(ip)=>`Re-escaneando ${ip}`,
+    scanProgress:(p,tt)=>`Escaneando ${p}/${tt} hosts…`,scanBtn:'Escanear red',
+    noResults:'Sin resultados',noHosts2:'Sin hosts descubiertos',filterHint:'Prueba otro filtro.',
+    startScanHint:'Inicia un escaneo para descubrir hosts en la red.',
+    uptimeEmpty:'Sin eventos registrados aún',uptimeStats:(h,d)=>`${h}h monitoreado · ${d} caída${d!==1?'s':''}`,
+    availHistory:'Historial de disponibilidad',
+    chartMonitoring:'Monitoreando — los datos aparecerán tras varios escaneos',
     osUnknown:'Desconocido',newDevice:'NUEVO',
     newDeviceMsg:(n,names,more)=>`${n} nuevo${n>1?'s dispositivos':'dispositivo'} detectado${n>1?'s':''}: ${names}${more?' y más':''}`,
     osEditTitle:'Editar OS'}
@@ -468,8 +484,7 @@ async function checkSession(){
 function applyPermissions(){
   document.getElementById('me-name').textContent=ME.username;
   document.getElementById('avatar').textContent=ME.username[0].toUpperCase();
-  const LABELS={readonly:'Solo lectura',execute:'Ejecución',admin:'Administrador'};
-  document.getElementById('me-role').textContent=LABELS[ME.permissions?.net]||'—';
+  document.getElementById('me-role').textContent=t({readonly:'permReadonly',execute:'permExecute',admin:'permAdmin'}[ME.permissions?.net])||'—';
   if(ME.permissions?.wol==='admin'||ME.permissions?.nut==='admin')document.getElementById('nav-admin').style.display='';
 }
 async function logout(){await fetch('api/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});location.reload();}
@@ -522,8 +537,8 @@ function fmtInterval(secs){
 
 async function applyInterval(){
   const secs = getIntervalSecs();
-  if(secs < 0){ toast('El intervalo no puede ser negativo', true); return; }
-  if(secs > 0 && secs < 60){ toast('Mínimo 60 segundos (o 0 para manual)', true); return; }
+  if(secs < 0){ toast(t('intervalNegative'), true); return; }
+  if(secs > 0 && secs < 60){ toast(t('intervalMin'), true); return; }
   try{
     const r = await fetch('api/scan/interval',{
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -586,13 +601,13 @@ function quickHash(hosts, scan){
 // ── Scan ─────────────────────────────────────────────────────────────────────
 async function startScan(){
   const btn=document.getElementById('btn-scan');
-  btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span> Escaneando...';
+  btn.disabled=true;btn.innerHTML=`<span class="spin">⟳</span> ${t('scanning')}`;
   try{
     const r=await fetch('api/scan/start',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
     const d=await r.json();
     if(!r.ok)throw new Error(d.error);
-    toast('Escaneo iniciado — '+d.message);
-  }catch(e){toast(e.message,true);btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Escanear red';}
+    toast(t('scanStarted',d.message));
+  }catch(e){toast(e.message,true);btn.disabled=false;btn.innerHTML=`<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> ${t('scanBtn')}`;}
 }
 
 async function rescanHost(ip){
@@ -600,7 +615,7 @@ async function rescanHost(ip){
     const r=await fetch('api/scan/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip})});
     const d=await r.json();
     if(!r.ok)throw new Error(d.error);
-    toast('Re-escaneando '+ip);
+    toast(t('rescanHost',ip));
   }catch(e){toast(e.message,true);}
 }
 
@@ -613,8 +628,8 @@ function updateScanBar(scan){
     const pct=scan.total>0?Math.round((scan.progress/scan.total)*100):0;
     document.getElementById('scan-fill').style.width=pct+'%';
     document.getElementById('scan-pct').textContent=pct+'%';
-    document.getElementById('scan-text').textContent=`Escaneando ${scan.progress}/${scan.total} hosts...`;
-    btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span> Escaneando...';
+    document.getElementById('scan-text').textContent=t('scanProgress',scan.progress,scan.total);
+    btn.disabled=true;btn.innerHTML=`<span class="spin">⟳</span> ${t('scanning')}`;
   }else{
     bar.className='scan-bar';
     btn.disabled=false;
@@ -707,8 +722,8 @@ function renderTable(){
 
   if(!list.length){
     tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state">
-      <strong>${hosts.length?'Sin resultados':'Sin hosts descubiertos'}</strong>
-      ${hosts.length?'Prueba otro filtro.':'Inicia un escaneo para descubrir hosts en la red.'}
+      <strong>${hosts.length?t('noResults'):t('noHosts2')}</strong>
+      ${hosts.length?t('filterHint'):t('startScanHint')}
     </div></td></tr>`;
     return;
   }
@@ -822,7 +837,7 @@ function renderTable(){
           </div>`:'<div style="font-size:12px;color:var(--text-dim)">Sin puertos abiertos detectados</div>'}
         </div>
         <div class="detail-section" style="grid-column:1/-1">
-          <div class="detail-label" style="margin-bottom:6px">Historial de disponibilidad</div>
+          <div class="detail-label" style="margin-bottom:6px" data-i18n="availHistory">Availability history</div>
           <div style="position:relative">
             <canvas id="uptime-${esc(h.ip.replace(/\./g,'-'))}" height="40"
               style="width:100%;height:40px;display:block;border-radius:var(--r-sm);background:var(--bg);border:1px solid var(--border)"></canvas>
@@ -830,12 +845,12 @@ function renderTable(){
               style="position:absolute;top:4px;right:8px;font-size:10px;font-family:var(--mono);color:var(--text-dim)">
               ${(()=>{
                 const hist = h.uptime_history||[];
-                if(!hist.length) return 'Sin eventos registrados aún';
+                if(!hist.length) return t('uptimeEmpty');
                 const now=Date.now()/1000;
                 const since=hist[0]?.ts||now;
                 const hrs=Math.round((now-since)/3600);
                 const downs=hist.filter(e=>e.event==='down').length;
-                return `${hrs}h monitoreado · ${downs} caída${downs!==1?'s':''}`;
+                return t('uptimeStats',hrs,downs);
               })()}
             </div>
           </div>
@@ -940,7 +955,7 @@ function drawUptimeChart(ip, history){
     ctx.fillStyle = css('--text-dim')||'#94a3b8';
     ctx.font = '10px DM Mono,monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('Monitoreando — los datos aparecerán tras varios escaneos', W/2, H/2+4);
+    ctx.fillText(t('chartMonitoring'), W/2, H/2+4);
     ctx.scale(1/dpr,1/dpr); return;
   }
 

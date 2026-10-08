@@ -325,7 +325,13 @@ const LANG={
     historyChart:'CPU/RAM history (last samples)',
     sectionVMs:'Virtual Machines',sectionCTs:'Containers',
     running:'running',
-    nodeOfflineMsg:'Node offline — no data available'},
+    nodeOfflineMsg:'Node offline — no data available',connError:'Connection error',connErrorHint:'Check host, port and API token',
+    nodeCountNav:(n)=>`${n} node${n!==1?'s':''}`,
+    testConnected:(v,n)=>`✓ PVE ${v} — ${n} node${n!==1?'s':''}`,
+    testFillAll:'Fill in all fields',
+    clusterAdded:(name)=>`${name} added`,
+    deleteClusterConfirm:(name)=>`Delete cluster "${name}"?`,
+    cpuAlert:(pct)=>`CPU at ${pct}%`,ramAlert:(pct)=>`RAM at ${pct}%`},
   es:{loginTitle:'Iniciar sesión',loginSub:'Ingresa tus credenciales para continuar.',
     username:'Usuario',password:'Contraseña',loginBtn:'Entrar',
     navSection:'Navegación',clustersPVE:'Clusters PVE',addCluster:'Agregar cluster',
@@ -346,11 +352,17 @@ const LANG={
     historyChart:'Historial CPU/RAM (últimas muestras)',
     sectionVMs:'Máquinas Virtuales',sectionCTs:'Contenedores',
     running:'corriendo',
-    nodeOfflineMsg:'Nodo offline — sin datos disponibles'}
+    nodeOfflineMsg:'Nodo offline — sin datos disponibles',connError:'Error de conexión',connErrorHint:'Verifica host, puerto y token API',
+    nodeCountNav:(n)=>`${n} nodo${n!==1?'s':''}`,
+    testConnected:(v,n)=>`✓ PVE ${v} — ${n} nodo${n!==1?'s':''}`,
+    testFillAll:'Completa todos los campos',
+    clusterAdded:(name)=>`${name} agregado`,
+    deleteClusterConfirm:(name)=>`¿Eliminar el cluster "${name}"?`,
+    cpuAlert:(pct)=>`CPU al ${pct}%`,ramAlert:(pct)=>`RAM al ${pct}%`}
 };
 let _lang=localStorage.getItem('pi-lang')||'en';
 var _i18nReady=false;
-function t(k){return(LANG[_lang]||LANG.en)[k]||(LANG.en)[k]||k;}
+function t(k,...args){const v=(LANG[_lang]||LANG.en)[k]||(LANG.en)[k]||k;return typeof v==='function'?v(...args):v;}
 function setLang(l){
   _lang=l;localStorage.setItem('pi-lang',l);document.documentElement.lang=l;
   document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.getAttribute('data-i18n')));
@@ -406,8 +418,7 @@ async function tryAutoLogin(){
 function applyPermissions(){
   document.getElementById('me-name').textContent=ME.username;
   document.getElementById('avatar').textContent=ME.username[0].toUpperCase();
-  const LABELS={readonly:'Solo lectura',admin:'Administrador'};
-  document.getElementById('me-role').textContent=LABELS[ME.permissions?.pve]||'—';
+  document.getElementById('me-role').textContent=t({readonly:'permReadonly',execute:'permExecute',admin:'permAdmin'}[ME.permissions?.pve])||'—';
   if(ME.permissions?.pve==='admin') document.getElementById('btn-add-cluster').style.display='';
   if(ME.permissions?.wol==='admin'||ME.permissions?.nut==='admin') document.getElementById('nav-admin').style.display='';
 }
@@ -448,7 +459,7 @@ function renderSidebar(){
     div.innerHTML=`<span class="cluster-dot ${dotCls}"></span>
       <div style="flex:1;min-width:0">
         <div class="cluster-nav-name ${isActive?'act':''}">${esc(c.name)}</div>
-        <div class="cluster-nav-host">${esc(c.host)}:${c.port}${nodeCount?' · '+nodeCount+' nodos':''}</div>
+        <div class="cluster-nav-host">${esc(c.host)}:${c.port}${nodeCount?' · '+t('nodeCountNav',nodeCount):''}</div>
       </div>
       ${c.id!=='local'&&ME?.permissions?.pve==='admin'?`<button style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:12px;padding:2px 4px" onclick="confirmDelete('${c.id}','${esc(c.name)}');event.stopPropagation()">✕</button>`:''}`;
     list.appendChild(div);
@@ -490,7 +501,7 @@ function renderDashboard(){
     main.innerHTML='<div class="state-msg"><strong>Conectando...</strong>Obteniendo datos de Proxmox.</div>';return;
   }
   if(snap.error&&!snap.data?.nodes?.length){
-    main.innerHTML=`<div class="state-msg err"><strong>Error de conexión</strong>${esc(snap.error)}<br><br><span style="font-size:12px;font-family:var(--mono)">Verifica host, puerto y token API</span></div>`;return;
+    main.innerHTML=`<div class="state-msg err"><strong>${t('connError')||'Connection error'}</strong>${esc(snap.error)}<br><br><span style="font-size:12px;font-family:var(--mono)">${t('connErrorHint')||'Check host, port and API token'}</span></div>`;return;
   }
 
   const nodes=snap.data?.nodes||[];
@@ -552,7 +563,7 @@ function buildNodeCard(node){
     </div>
     ${isOnline?`
     ${cpuPct>80||memPct>90?`<div style="padding:6px 12px 0"><div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:4px;padding:6px 10px;font-size:11px;color:var(--red);font-weight:600">
-      ⚠ ${cpuPct>80?`CPU al ${cpuPct}%`:''} ${cpuPct>80&&memPct>90?' · ':''} ${memPct>90?`RAM al ${memPct}%`:''}
+      ⚠ ${cpuPct>80?t('cpuAlert',cpuPct):''} ${cpuPct>80&&memPct>90?' · ':''} ${memPct>90?t('ramAlert',memPct):''}
     </div></div>`:''}
     <div class="res-bars">
       <div class="res-row">
@@ -668,15 +679,15 @@ async function testCluster(){
   const user=document.getElementById('f-user').value.trim();
   const tname=document.getElementById('f-tname').value.trim();
   const tval=document.getElementById('f-tval').value.trim();
-  if(!host||!user||!tname||!tval){res.className='test-result fail show';res.textContent='✕ Completa todos los campos';return;}
+  if(!host||!user||!tname||!tval){res.className='test-result fail show';res.textContent='✕ '+t('testFillAll');return;}
   btn.innerHTML='<span class="spin">⟳</span>';btn.disabled=true;
   try{
     const r=await fetch('api/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host,port,user,token_name:tname,token_value:tval})});
     const d=await r.json();
-    if(d.ok){res.className='test-result ok show';res.textContent=`✓ PVE ${d.version} — ${d.nodes} nodo${d.nodes!==1?'s':''}`;log('OK','Conexión OK: '+host);}
+    if(d.ok){res.className='test-result ok show';res.textContent=t('testConnected',d.version,d.nodes);log('OK','Test OK: '+host);}
     else{res.className='test-result fail show';res.textContent='✕ '+d.error;}
   }catch(e){res.className='test-result fail show';res.textContent='✕ '+e.message;}
-  finally{btn.disabled=false;btn.textContent='Probar';}
+  finally{btn.disabled=false;btn.textContent=t('test');}
 }
 
 async function saveCluster(){
@@ -687,18 +698,18 @@ async function saveCluster(){
   const tname=document.getElementById('f-tname').value.trim();
   const tval=document.getElementById('f-tval').value.trim();
   const btn=document.getElementById('btn-save');
-  if(!name||!host||!user||!tname||!tval){toast('Completa todos los campos',true);return;}
+  if(!name||!host||!user||!tname||!tval){toast(t('testFillAll'),true);return;}
   btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';
   try{
     const r=await fetch('api/clusters',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,host,port,user,token_name:tname,token_value:tval})});
     const d=await r.json();if(!r.ok)throw new Error(d.error||'HTTP '+r.status);
-    toast(name+' agregado');closeModals();await fetchAll();selectCluster(d.cluster.id);
+    toast(t('clusterAdded',name));closeModals();await fetchAll();selectCluster(d.cluster.id);
   }catch(e){toast(e.message,true);}
-  finally{btn.disabled=false;btn.textContent='Agregar';}
+  finally{btn.disabled=false;btn.textContent=t('addCluster');}
 }
 
 function confirmDelete(id,name){
-  document.getElementById('del-msg').textContent=`¿Eliminar el cluster "${name}"?`;
+  document.getElementById('del-msg').textContent=t('deleteClusterConfirm',name);
   document.getElementById('del-btn').onclick=async()=>{
     closeModals();
     try{await fetch('api/clusters/'+id,{method:'DELETE'});toast(name+' eliminado');await fetchAll();}

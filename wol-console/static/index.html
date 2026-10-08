@@ -452,7 +452,9 @@ const LANG = {
     logStarting:'WOL Console starting...', logLoaded:' device(s) loaded',
     logNoPerms:'No execute permissions',
     sessionExpired:'Session expired',
-    searchPlaceholder:'Search by name, MAC, IP...'
+    searchPlaceholder:'Search by name, MAC, IP...',
+    deleteConfirm:(name,mac)=>`Delete "${name}" (${mac})? This cannot be undone.`,
+    signingIn:'Signing in…',saving:'Saving…'
   },
   es: {
     loginTitle:'Iniciar sesión', loginSub:'Ingresa tus credenciales para continuar.',
@@ -487,12 +489,14 @@ const LANG = {
     logStarting:'WOL Console iniciando...', logLoaded:' equipo(s) cargado(s)',
     logNoPerms:'Sin permisos de ejecución',
     sessionExpired:'Sesión expirada',
-    searchPlaceholder:'Buscar por nombre, MAC, IP...'
+    searchPlaceholder:'Buscar por nombre, MAC, IP...',
+    deleteConfirm:(name,mac)=>`¿Eliminar "${name}" (${mac})? No se puede deshacer.`,
+    signingIn:'Entrando…',saving:'Guardando…'
   }
 };
 let _lang = localStorage.getItem('pi-lang') || 'en';
 var _i18nReady = false;
-function t(k){ return (LANG[_lang]||LANG.en)[k] || (LANG.en)[k] || k; }
+function t(k,...args){const v=(LANG[_lang]||LANG.en)[k]||(LANG.en)[k]||k;return typeof v==='function'?v(...args):v;}
 function setLang(l){
   _lang = l;
   localStorage.setItem('pi-lang', l);
@@ -525,7 +529,7 @@ async function doLogin(){
   const p=document.getElementById('l-pass').value;
   err.className='login-err';
   if(!u||!p){err.textContent='Completa todos los campos';err.className='login-err show';return;}
-  btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span> Entrando...';
+  btn.disabled=true;btn.innerHTML=`<span class="spin">⟳</span> ${t('signingIn')}`;
   try{
     const r=await fetch('api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
     const d=await r.json();
@@ -538,7 +542,7 @@ async function doLogin(){
     applyPermissions();
     await initApp();
   }catch(e){err.textContent='Error: '+e.message;err.className='login-err show';}
-  finally{btn.disabled=false;btn.textContent='Entrar';}
+  finally{btn.disabled=false;btn.textContent=t('loginBtn');}
 }
 
 async function checkSession(){
@@ -753,7 +757,7 @@ async function saveEdit(){
   [nameEl,macEl].forEach(e=>e.classList.remove('err'));
   if(!name){nameEl.classList.add('err');nameEl.focus();return;}
   if(!mac){macEl.classList.add('err');macEl.focus();return;}
-  btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span> Guardando...';
+  btn.disabled=true;btn.innerHTML=`<span class="spin">⟳</span> ${t('saving')}`;
   try{
     const r1=await fetch('api/devices/'+editingId,{method:'DELETE'});
     if(!r1.ok)throw new Error('Error al eliminar');
@@ -784,7 +788,7 @@ function resetForm(){
 function confirmDelete(id){
   if(!canAdmin())return;
   const d=devices.find(x=>x.id===id);if(!d)return;
-  document.getElementById('del-msg').textContent='¿Eliminar "'+d.name+'" ('+d.mac+')? No se puede deshacer.';
+  document.getElementById('del-msg').textContent=t('deleteConfirm',d.name,d.mac);
   document.getElementById('del-btn').onclick=async()=>{
     closeModals();
     try{
