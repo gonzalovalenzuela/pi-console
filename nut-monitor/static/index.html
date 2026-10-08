@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="author" content="Gonzalo Valenzuela <gonzalo@rave.cl>">
+<meta name="description" content="Pi Console — Homelab dashboard · UPS Monitor module">
+<meta name="version" content="1.0.4">
+<title>UPS Monitor</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iI2VhYjMwOCIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQsNCkgc2NhbGUoMSkiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik01IDlWNWEyIDIgMCAwIDEgMi0yaDEwYTIgMiAwIDAgMSAyIDJ2NCBNMyA5aDE4djExYTIgMiAwIDAgMS0yIDJINWEyIDIgMCAwIDEtMi0yVjl6IE0xMiAxM3YzIi8+PHJlY3QgeD0iMyIgeT0iOSIgd2lkdGg9IjE4IiBoZWlnaHQ9IjExIiByeD0iMiIvPjxsaW5lIHgxPSIxMiIgeTE9IjEzIiB4Mj0iMTIiIHkyPSIxNiIvPgogIDwvZz4KPC9zdmc+">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f0f2f5;--surface:#fff;--surface2:#f8f9fb;--border:#e3e8ef;--border-b:#cdd4e0;--blue:#4361ee;--blue-dim:rgba(67,97,238,.1);--green:#22c55e;--green-dim:rgba(34,197,94,.1);--red:#ef4444;--red-dim:rgba(239,68,68,.1);--orange:#f97316;--orange-dim:rgba(249,115,22,.1);--yellow:#eab308;--yellow-dim:rgba(234,179,8,.1);--purple:#8b5cf6;--purple-dim:rgba(139,92,246,.1);--text:#1a2033;--text-mid:#5a6a85;--text-dim:#94a3b8;--sidebar-w:224px;--r:10px;--r-sm:6px;--shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);--shadow-md:0 4px 16px rgba(0,0,0,.1);--sans:'DM Sans',sans-serif;--mono:'DM Mono',monospace}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;display:flex}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--border-b);border-radius:99px}
+/* Login */
+#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:99999;padding:24px}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:32px;width:100%;max-width:360px;box-shadow:var(--shadow-md)}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+.login-logo-ico{width:36px;height:36px;border-radius:8px;background:var(--yellow);display:flex;align-items:center;justify-content:center}
+.login-logo-ico svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2}
+.login-title{font-size:18px;font-weight:600;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--text-dim);margin-bottom:22px}
+.login-err{background:var(--red-dim);border:1px solid rgba(239,68,68,.2);border-radius:var(--r-sm);padding:10px;font-size:12px;color:var(--red);margin-bottom:14px;display:none}
+.login-err.show{display:block}
+.lfield{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.lfield label{font-size:11px;font-weight:600;color:var(--text-mid)}
+.lfield input{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:9px 12px;outline:none;transition:all .15s;width:100%}
+.lfield input:focus{border-color:var(--yellow);box-shadow:0 0 0 3px var(--yellow-dim);background:var(--surface)}
+.btn-login{background:var(--yellow);color:#fff;border:none;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:600;padding:11px;cursor:pointer;width:100%;margin-top:4px;transition:all .15s}
+.btn-login:hover{background:#ca9a06}
+.btn-login:disabled{opacity:.5;cursor:not-allowed}
+/* Sidebar */
+.sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto}
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.sb-icon{width:34px;height:34px;border-radius:8px;background:var(--yellow-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sb-icon svg{width:16px;height:16px;stroke:var(--yellow);fill:none;stroke-width:2}
+.sb-name{font-size:15px;font-weight:600;color:var(--text)}
+.sb-ver{font-size:10px;color:var(--text-dim);font-family:var(--mono)}
+.sb-sec{padding:14px 10px 6px}
+.sb-lbl{font-size:10px;font-weight:600;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;padding:0 8px;margin-bottom:3px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-sm);cursor:pointer;color:var(--text-mid);font-size:13.5px;font-weight:500;transition:all .15s;text-decoration:none}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2}
+.nav-item:hover{background:var(--bg);color:var(--text)}
+.nav-item.active{background:var(--yellow-dim);color:var(--yellow)}
+.nav-drag-handle{font-size:14px;opacity:0;cursor:grab;flex-shrink:0;color:var(--text-dim);line-height:1;transition:opacity .15s}
+.nav-drag-item:hover .nav-drag-handle{opacity:1}
+.nav-drag-item.nav-dragging{opacity:.4}
+.nav-drag-item.nav-drag-over{outline:2px solid var(--yellow);outline-offset:-2px;border-radius:var(--r-sm)}
+/* Server list sidebar */
+.srv-list{padding:0 10px 6px;display:flex;flex-direction:column;gap:2px}
+.srv-nav{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r-sm);cursor:pointer;transition:background .12s}
+.srv-nav:hover{background:var(--bg)}
+.srv-dot-sm{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.srv-dot-sm.ok{background:var(--green);box-shadow:0 0 0 2px var(--green-dim)}
+.srv-dot-sm.err{background:var(--red);box-shadow:0 0 0 2px var(--red-dim)}
+.srv-dot-sm.loading{background:var(--yellow);box-shadow:0 0 0 2px var(--yellow-dim)}
+.srv-nav-info{flex:1;min-width:0}
+.srv-nav-name{font-size:12.5px;font-weight:500;color:var(--text-mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srv-nav-host{font-size:10px;color:var(--text-dim);font-family:var(--mono)}
+.btn-add-srv{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:var(--r-sm);cursor:pointer;color:var(--blue);font-size:12.5px;font-weight:500;transition:all .15s;border:1px dashed rgba(67,97,238,.3);margin:4px 10px;background:transparent}
+.btn-add-srv:hover{background:var(--blue-dim)}
+.btn-add-srv svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5;flex-shrink:0}
+.user-avatar{width:28px;height:28px;border-radius:50%;background:var(--yellow-dim);color:var(--yellow);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.btn-logout{background:none;border:none;color:var(--text-dim);cursor:pointer;padding:4px;line-height:1;transition:color .15s;display:flex;align-items:center}
+.btn-logout svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.btn-logout:hover{color:var(--red)}
+
+/* Topbar user chip */
+.topbar-user{display:flex;align-items:center;gap:7px;padding:5px 10px 5px 6px;background:var(--bg);border:1px solid var(--border);border-radius:99px;cursor:default}
+.topbar-avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.topbar-user-info{display:flex;flex-direction:column;line-height:1.2}
+.topbar-user-name{font-size:12px;font-weight:600;color:var(--text)}
+.topbar-user-role{font-size:10px;color:var(--text-dim)}
+.topbar-avatar{background:var(--yellow-dim);color:var(--yellow)}
+/* Theme */
+.theme-btns{display:flex;gap:6px;margin-top:0}
+.theme-btn{flex:1;background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:10px;font-weight:600;color:var(--text-dim);cursor:pointer;padding:5px 8px;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:3px}
+.theme-btn svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0}
+.theme-btn:hover{border-color:var(--border-b);color:var(--text)}
+.theme-btn.active{background:var(--blue-dim);border-color:var(--blue);color:var(--blue)}
+.lang-btns{display:flex;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden}
+.lang-btn{background:transparent;border:none;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--text-dim);cursor:pointer;padding:4px 8px;transition:all .15s;letter-spacing:.5px}
+.lang-btn:hover{color:var(--text)}
+.lang-btn.active{background:var(--blue);color:#fff}
+/* Dark theme */
+[data-theme="dark"]{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#1e2130;
+  --border:#2a2f45;--border-b:#363d57;
+  --text:#e2e8f0;--text-mid:#94a3b8;--text-dim:#5a6a85;
+  --shadow:0 1px 3px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.2);
+  --shadow-md:0 4px 16px rgba(0,0,0,.4);
+  --blue-dim:rgba(67,97,238,.2);--green-dim:rgba(34,197,94,.15);
+  --red-dim:rgba(239,68,68,.15);--orange-dim:rgba(249,115,22,.15);
+  --yellow-dim:rgba(234,179,8,.15);--purple-dim:rgba(139,92,246,.15);
+}
+/* Chart tooltip */
+.vchart-tooltip{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:7px 10px;font-size:11px;font-family:var(--mono);color:var(--text);pointer-events:none;z-index:100;box-shadow:var(--shadow-md);white-space:nowrap;display:none}
+.vchart-tooltip.show{display:block}
+.vchart-wrap{position:relative}
+/* Main */
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-title{font-size:14px;font-weight:600;color:var(--text)}
+#clock{font-family:var(--mono);font-size:12px;color:var(--text-dim)}
+.content{padding:22px 24px;display:flex;flex-direction:column;gap:18px}
+/* Stats */
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px 18px;display:flex;align-items:center;gap:13px;box-shadow:var(--shadow)}
+.stat-ico{width:40px;height:40px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stat-ico svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
+.stat-ico.yellow{background:var(--yellow-dim);color:var(--yellow)}
+.stat-ico.green{background:var(--green-dim);color:var(--green)}
+.stat-ico.blue{background:var(--blue-dim);color:var(--blue)}
+.stat-ico.orange{background:var(--orange-dim);color:var(--orange)}
+.stat-val{font-size:22px;font-weight:600;color:var(--text);line-height:1}
+.stat-lbl{font-size:11px;color:var(--text-dim);margin-top:2px;font-weight:500}
+/* Main grid */
+.main-grid{display:grid;grid-template-columns:1fr 296px;gap:18px;align-items:start}
+/* Card */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.card-hd{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.card-title{font-size:13px;font-weight:600;color:var(--text)}
+.card-meta{font-size:12px;color:var(--text-dim);font-family:var(--mono)}
+/* UPS table */
+.ups-table{width:100%;border-collapse:collapse}
+.ups-table thead th{padding:9px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap}
+.ups-row{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;animation:row-in .22s ease both}
+@keyframes row-in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+.ups-row:last-child{border-bottom:none}
+.ups-row:hover{background:var(--bg)}
+.ups-row.expanded{background:var(--blue-dim)}
+.ups-row td{padding:12px 16px;vertical-align:middle}
+/* Status dot */
+.sdot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.sdot.online{background:var(--green);box-shadow:0 0 0 3px var(--green-dim)}
+.sdot.onbatt{background:var(--orange);box-shadow:0 0 0 3px var(--orange-dim);animation:pd .7s ease infinite}
+.sdot.lowbatt{background:var(--red);box-shadow:0 0 0 3px var(--red-dim);animation:pd .35s ease infinite}
+.sdot.unknown{background:var(--border-b)}
+@keyframes pd{0%,100%{opacity:1}50%{opacity:.2}}
+/* UPS name cell */
+.ups-cell-name{font-size:13.5px;font-weight:500;color:var(--text);display:block}
+.ups-cell-sub{font-size:11px;color:var(--text-dim);display:block;margin-top:1px}
+/* Server tag */
+.srv-tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;background:var(--blue-dim);color:var(--blue);white-space:nowrap}
+/* Charge bar */
+.charge-wrap{display:flex;align-items:center;gap:8px}
+.charge-bar{width:70px;height:6px;background:var(--border);border-radius:99px;overflow:hidden;flex-shrink:0}
+.charge-fill{height:100%;border-radius:99px;transition:width .8s ease}
+.charge-val{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text);min-width:38px}
+/* Status badge */
+.ups-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.badge-online{background:var(--green-dim);color:var(--green)}
+.badge-onbatt{background:var(--orange-dim);color:var(--orange)}
+.badge-lowbatt{background:var(--red-dim);color:var(--red)}
+.badge-unknown{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+/* Expand arrow */
+.expand-arrow{font-size:12px;color:var(--text-dim);transition:transform .2s}
+.expand-arrow.open{transform:rotate(90deg)}
+/* Detail row */
+.detail-row{display:none;background:var(--surface2)}
+.detail-row.show{display:table-row}
+.detail-cell{padding:0 !important;border-bottom:1px solid var(--border)}
+.detail-inner{padding:16px 20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+/* Gauges */
+.gauge-box{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm)}
+.gauge-lbl{font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px}
+.circle-wrap{position:relative;width:72px;height:72px}
+.circle-wrap svg{width:100%;height:100%;transform:rotate(-90deg)}
+.circle-bg{fill:none;stroke:var(--bg);stroke-width:5}
+.circle-fill{fill:none;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .8s ease,stroke .3s}
+.circle-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:15px;font-weight:600;color:var(--text)}
+.gauge-unit{font-size:10px;color:var(--text-dim)}
+.runtime-num{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--text);line-height:1}
+/* Vars */
+.vars-section{grid-column:1 / -1;display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden}
+.var-cell{padding:7px 14px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--surface)}
+.var-cell:nth-child(3n){border-right:none}
+.var-cell:nth-last-child(-n+3){border-bottom:none}
+.var-key{font-size:11px;color:var(--text-mid);font-weight:500}
+.var-val{font-family:var(--mono);font-size:11px;color:var(--text);text-align:right}
+/* Clients */
+.clients-section{grid-column:1 / -1;display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm)}
+.clients-lbl{font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0}
+.client-chips{display:flex;gap:6px;flex-wrap:wrap}
+.client-chip{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:99px;background:var(--green-dim);color:var(--green);display:flex;align-items:center;gap:4px}
+.client-chip::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);flex-shrink:0}
+/* Alert */
+.alert-row{display:none;background:var(--orange-dim)}
+.alert-row.show{display:table-row}
+.alert-cell{padding:8px 16px;font-size:12px;font-weight:500;color:var(--orange);border-bottom:1px solid rgba(249,115,22,.2)}
+.alert-cell.crit{background:var(--red-dim);color:var(--red);border-color:rgba(239,68,68,.2);animation:pd .6s ease infinite}
+/* Right panel form */
+.form-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:4px}
+label{font-size:11px;font-weight:600;color:var(--text-mid)}
+input[type=text],input[type=number]{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:8px 10px;outline:none;transition:all .15s;width:100%}
+input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-dim);background:var(--surface)}
+input.err{border-color:var(--red)}
+.hint{font-size:11px;color:var(--text-dim)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-primary{background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:600;padding:9px;cursor:pointer;transition:all .15s;width:100%}
+.btn-primary:hover{background:#3451d1}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary{background:transparent;color:var(--text-mid);border:1px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:500;padding:8px;cursor:pointer;transition:all .15s;width:100%}
+.btn-secondary:hover{background:var(--surface2);color:var(--text)}
+.btn-ghost-sm{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-mid);font-family:var(--sans);font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-ghost-sm svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2}
+.btn-ghost-sm:hover{border-color:var(--red);color:var(--red)}
+.test-result{padding:10px 12px;border-radius:var(--r-sm);font-size:12px;font-family:var(--mono);display:none}
+.test-result.show{display:block}
+.test-result.ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.test-result.fail{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+/* Log */
+.log-row{display:flex;gap:10px;align-items:baseline;font-size:11.5px;font-family:var(--mono);padding:2px 0;animation:ll .15s ease both}
+@keyframes ll{from{opacity:0}to{opacity:1}}
+.lt{color:var(--text-dim);flex-shrink:0}.lv{flex-shrink:0;width:36px;font-weight:500}
+.lv.OK{color:var(--green)}.lv.INFO{color:var(--blue)}.lv.WARN{color:var(--orange)}.lv.ERR{color:var(--red)}
+.lm{color:var(--text-mid)}
+#log-out{padding:10px 16px;min-height:80px;max-height:150px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+.btn-link{background:none;border:none;color:var(--text-dim);font-family:var(--sans);font-size:11px;cursor:pointer;padding:0;font-weight:500;transition:color .15s}
+.btn-link:hover{color:var(--text-mid)}
+/* Voltage chart */
+.vchart-section{grid-column:1 / -1;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden}
+.vchart-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.vchart-title{font-size:12px;font-weight:600;color:var(--text)}
+.vchart-legend{display:flex;gap:14px}
+.vchart-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim);font-weight:500}
+.vchart-legend-dot{width:10px;height:3px;border-radius:99px}
+.vchart-filters{display:flex;gap:4px}
+.vchart-filter{font-size:11px;font-weight:500;padding:3px 9px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;transition:all .15s}
+.vchart-filter:hover{border-color:var(--border-b);color:var(--text)}
+.vchart-filter.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.vchart-body{padding:12px 14px}
+canvas.vchart{width:100%;height:140px;display:block}
+/* Toast */
+#toast{position:fixed;bottom:22px;right:22px;background:var(--text);color:#fff;border-radius:var(--r-sm);padding:10px 15px;font-size:13px;font-weight:500;z-index:9000;opacity:0;transform:translateY(6px);transition:all .2s;max-width:280px;pointer-events:none;box-shadow:var(--shadow-md);display:flex;align-items:center;gap:8px}
+#toast::before{content:'✓';font-size:13px;color:#86efac}
+#toast.err::before{content:'✕';color:#fca5a5}
+#toast.show{opacity:1;transform:none}
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(15,20,30,.45);backdrop-filter:blur(2px);z-index:8000;display:none;align-items:center;justify-content:center}
+.overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;max-width:380px;width:92%;box-shadow:var(--shadow-md);animation:min .2s ease}
+@keyframes min{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+.modal h3{font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px}
+.modal p{font-size:13px;color:var(--text-mid);line-height:1.6;margin-bottom:20px}
+.modal-acts{display:flex;gap:8px;justify-content:flex-end}
+.btn-mc{padding:8px 16px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-mid);font-family:var(--sans);font-size:13px;cursor:pointer}
+.btn-mc:hover{background:var(--bg)}
+.btn-mok{padding:8px 16px;border-radius:var(--r-sm);border:none;background:var(--red);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
+.spin{display:inline-block;animation:spin .5s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:960px){
+  .sidebar{display:none}.main{margin-left:0}
+  .stats-row{grid-template-columns:1fr 1fr 1fr}
+  .main-grid{grid-template-columns:1fr}
+  .detail-inner{grid-template-columns:1fr 1fr}
+  .vars-section{grid-template-columns:1fr 1fr}
+}
+@media(max-width:600px){
+  .content{padding:12px 14px}
+  .topbar{padding:0 14px;height:48px}
+  .stats-row{grid-template-columns:1fr 1fr;gap:10px}
+  .stat-card{padding:12px 14px;gap:10px}
+  .stat-ico{width:34px;height:34px}
+  .stat-val{font-size:18px}
+  /* Tabla UPS — ocultar columnas menos importantes */
+  .ups-table thead th:nth-child(5),
+  .ups-table thead th:nth-child(6),
+  .ups-table tbody td:nth-child(5),
+  .ups-table tbody td:nth-child(6){display:none}
+  /* Barra de carga más pequeña */
+  .charge-bar{width:50px}
+  .charge-val{font-size:11px;min-width:30px}
+  /* Detail panel: 1 columna en mobile */
+  .detail-inner{grid-template-columns:1fr;padding:12px 14px;gap:12px}
+  .gauge-box{flex-direction:row;justify-content:flex-start;gap:16px;padding:10px 14px}
+  .circle-wrap{width:60px;height:60px;flex-shrink:0}
+  .circle-val{font-size:13px}
+  /* Variables: 1 columna */
+  .vars-section{grid-template-columns:1fr}
+  .var-cell:nth-child(3n){border-right:none}
+  .var-cell{border-right:none !important}
+  .var-cell:nth-last-child(-n+3){border-bottom:1px solid var(--border)}
+  .var-cell:last-child{border-bottom:none}
+  /* Clientes: wrap */
+  .clients-section{flex-wrap:wrap}
+  .client-chips{flex-wrap:wrap;gap:4px}
+  .client-chip{font-size:10px;padding:2px 6px}
+  /* Card hd más compacto */
+  .card-hd{padding:10px 14px}
+  .card-title{font-size:12px}
+  /* Log */
+  #log-out{max-height:100px}
+  /* Topbar */
+  .topbar-title{font-size:13px}
+  /* UPS table rows más compactos */
+  .ups-row td{padding:10px 12px}
+  .ups-cell-name{font-size:13px}
+  .ups-cell-sub{font-size:10px}
+  .srv-tag{font-size:9px;padding:1px 5px}
+}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-ico"><svg viewBox="0 0 24 24"><path d="M5 9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><rect x="3" y="9" width="18" height="11" rx="2"/><line x1="12" y1="13" x2="12" y2="16"/></svg></div>
+      <div><div style="font-size:15px;font-weight:600">UPS Monitor</div><div style="font-size:10px;color:var(--text-dim);font-family:var(--mono)">NUT · APC · Eaton</div></div>
+    </div>
+    <div class="login-title" data-i18n="loginTitle">Sign in</div>
+    <div class="login-sub" data-i18n="loginSub">Enter your credentials to continue.</div>
+    <div class="login-err" id="login-err"></div>
+    <div class="lfield"><label data-i18n="username">Username</label><input type="text" id="l-user" autocomplete="username" autofocus></div>
+    <div class="lfield"><label data-i18n="password">Password</label><input type="password" id="l-pass" autocomplete="current-password"></div>
+    <button class="btn-login" id="btn-l" onclick="doLogin()" data-i18n="loginBtn">Sign in</button>
+  </div>
+</div>
+
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-icon"><svg viewBox="0 0 24 24"><path d="M5 9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><rect x="3" y="9" width="18" height="11" rx="2"/><line x1="12" y1="13" x2="12" y2="16"/></svg></div>
+    <div><div class="sb-name">UPS Monitor</div><div class="sb-ver">NUT · APC · Eaton</div></div>
+  </div>
+  <div class="sb-sec">
+    <div class="sb-lbl" data-i18n="navSection">Navigation</div>
+    <div id="nav-items"></div>
+  </div>
+  <div class="sb-sec">
+    <div class="sb-lbl" data-i18n="nutServers">NUT Servers</div>
+    <div class="srv-list" id="srv-list"></div>
+    <div class="btn-add-srv" id="btn-add-srv" onclick="openAddServer()" style="display:none">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span data-i18n="addServer">Add server</span>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title" data-i18n="dashTitle">Dashboard — All UPS</span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="lang-btns">
+        <button class="lang-btn" id="lang-en" onclick="setLang('en')">EN</button>
+        <button class="lang-btn" id="lang-es" onclick="setLang('es')">ES</button>
+      </div>
+      <div class="theme-btns">
+        <button class="theme-btn" id="theme-light" onclick="setTheme('light')" title="Light">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <span data-i18n="themeLight">Light</span>
+        </button>
+        <button class="theme-btn" id="theme-dark" onclick="setTheme('dark')" title="Dark">
+          <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <span data-i18n="themeDark">Dark</span>
+        </button>
+        <button class="theme-btn" id="theme-system" onclick="setTheme('system')" title="Auto">
+          <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Auto
+        </button>
+      </div>
+      <span id="clock"></span>
+      <div style="width:1px;height:20px;background:var(--border);margin:0 4px;flex-shrink:0"></div>
+      <div class="topbar-user">
+        <div class="topbar-avatar" id="avatar">?</div>
+        <div class="topbar-user-info">
+          <span class="topbar-user-name" id="me-name">—</span>
+          <span class="topbar-user-role" id="me-role">—</span>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()" title="Cerrar sesión">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- Stats globales -->
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-ico yellow"><svg viewBox="0 0 24 24"><path d="M5 9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><rect x="3" y="9" width="18" height="11" rx="2"/></svg></div><div><div class="stat-val" id="st-total">—</div><div class="stat-lbl" data-i18n="statTotalUPS">Total UPS</div></div></div>
+      <div class="stat-card"><div class="stat-ico green"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg></div><div><div class="stat-val" id="st-online">—</div><div class="stat-lbl" data-i18n="statOnline">Online</div></div></div>
+      <div class="stat-card"><div class="stat-ico orange"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div><div><div class="stat-val" id="st-onbatt">—</div><div class="stat-lbl" data-i18n="statOnBatt">On battery</div></div></div>
+      <div class="stat-card"><div class="stat-ico blue"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></div><div><div class="stat-val" id="st-clients">—</div><div class="stat-lbl" data-i18n="statClients">Connected clients</div></div></div>
+      <div class="stat-card"><div class="stat-ico orange"><svg viewBox="0 0 24 24"><polyline points="13,2 13,9 20,9"/><polygon points="11,2 2,13 13,13 13,22 22,11 11,11"/></svg></div><div><div class="stat-val" id="st-watts">—<span style="font-size:13px;color:var(--text-dim)">W</span></div><div class="stat-lbl" data-i18n="statLoad">Total load</div></div></div>
+    </div>
+
+    <!-- Banner de alerta batería/OB (se activa dinámicamente) -->
+    <div id="ups-critical-banner" style="display:none;margin-bottom:16px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:var(--r-sm);padding:10px 16px;display:none;align-items:center;gap:12px;animation:pd .6s ease infinite">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--red);fill:none;stroke-width:2;flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span id="ups-critical-msg" style="font-size:13px;font-weight:600;color:var(--red)"></span>
+    </div>
+    <div id="ups-ob-banner" style="display:none;margin-bottom:16px;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);border-radius:var(--r-sm);padding:10px 16px;align-items:center;gap:12px">
+      <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:var(--orange);fill:none;stroke-width:2;flex-shrink:0"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      <div style="flex:1">
+        <span style="font-size:13px;font-weight:600;color:var(--orange)" id="ups-ob-msg" data-i18n="onBattMsg">On battery</span>
+        <span style="font-size:11px;color:var(--text-dim);margin-left:10px" id="ups-ob-timer"></span>
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <!-- Tabla de todas las UPS -->
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-title" data-i18n="upsSummary">UPS Summary</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="card-meta" id="ups-count">—</span>
+            <button class="btn-secondary" onclick="exportCSV()" id="btn-csv" style="padding:4px 10px;font-size:11px;display:flex;align-items:center;gap:4px" title="Exportar histórico CSV">
+              <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              CSV
+            </button>
+          </div>
+        </div>
+        <table class="ups-table">
+          <thead>
+            <tr>
+              <th style="width:28px"></th>
+              <th data-i18n="colUPSServer">UPS / Server</th>
+              <th data-i18n="colStatus">Status</th>
+              <th data-i18n="colBattery">Battery</th>
+              <th data-i18n="colRuntime">Runtime</th>
+              <th data-i18n="colClients">Clients</th>
+              <th style="width:28px"></th>
+            </tr>
+          </thead>
+          <tbody id="ups-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Panel derecho -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <!-- Agregar servidor -->
+        <div class="card" id="add-srv-card" style="display:none">
+          <div class="card-hd"><span class="card-title" data-i18n="addServerTitle">Add NUT server</span><button class="btn-link" onclick="closeAddServer()">✕</button></div>
+          <div class="form-body">
+            <div class="field"><label data-i18n="addServerName">Name</label><input type="text" id="f-sname" placeholder="Office server" autocomplete="off"></div>
+            <div class="two-col">
+              <div class="field"><label data-i18n="addServerHost">Host / IP</label><input type="text" id="f-shost" placeholder="192.168.1.50" autocomplete="off"></div>
+              <div class="field"><label data-i18n="addServerPort">Port</label><input type="number" id="f-sport" value="3493" min="1" max="65535"></div>
+            </div>
+            <div class="test-result" id="test-result"></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-secondary" id="btn-test" onclick="testServer()" data-i18n="addServerTest">Test</button>
+              <button class="btn-primary" id="btn-save-srv" onclick="saveServer()" data-i18n="addServerBtn">Add</button>
+            </div>
+          </div>
+        </div>
+        <!-- Log -->
+        <div class="card">
+          <div class="card-hd"><span class="card-title" data-i18n="filterActivity">Activity</span><button class="btn-link" onclick="clearLog()" data-i18n="filterClear">Clear</button></div>
+          <div id="log-out"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div class="overlay" id="del-overlay">
+  <div class="modal"><h3 data-i18n="deleteServerTitle">Delete server</h3><p id="del-msg"></p>
+  <div class="modal-acts"><button class="btn-mc" onclick="closeModals()" data-i18n="cancel">Cancel</button><button class="btn-mok" id="del-btn" data-i18n="deleteServerTitle">Delete</button></div></div>
+</div>
+
+<script>
+// ── i18n ──────────────────────────────────────────────
+const LANG={
+  en:{
+    loginTitle:'Sign in',loginSub:'Enter your credentials to continue.',
+    username:'Username',password:'Password',loginBtn:'Sign in',
+    navSection:'Navigation',nutServers:'NUT Servers',addServer:'Add server',
+    dashTitle:'Dashboard — All UPS',
+    themeLight:'Light',themeDark:'Dark',
+    statTotalUPS:'Total UPS',statOnline:'Online',statOnBatt:'On battery',
+    statClients:'Connected clients',statLoad:'Total load',
+    upsSummary:'UPS Summary',
+    colUPSServer:'UPS / Server',colStatus:'Status',colBattery:'Battery',
+    colRuntime:'Runtime',colClients:'Clients',
+    criticalBatt:'Critical battery!',onBattMsg:'On battery',
+    noUPS:'No UPS found',details:'Details',close:'Close',cancel:'Cancel',
+    permReadonly:'Read-only',permExecute:'Execute',permAdmin:'Administrator',
+    sessionExpired:'Session expired',
+    statusOnline:'Online',statusOnBatt:'On battery',statusLowBatt:'Low battery',
+    statusUnknown:'Unknown',
+    gaugeLabel_battery:'Battery',gaugeLabel_load:'Load',gaugeLabel_runtime:'Runtime',
+    gaugeUnit_minLeft:'min left',
+    gaugeLabel_power:'Power',gaugeLabel_temp:'Temperature',gaugeLabel_current:'Current',
+    varLabel_inputV:'Input voltage',varLabel_outputV:'Output voltage',
+    varLabel_battV:'Battery voltage',varLabel_temp:'Temperature',
+    varLabel_outCurr:'Output current',varLabel_freq:'Frequency',
+    clientsLabel:'Clients',
+    alertCritBatt:'Critical battery — connect to power immediately',
+    alertOnBatt:'On battery —',alertMinLeft:'min left',
+    chartTitle_voltage:'Input vs output voltage',
+    chartLegend_input:'Input',chartLegend_output:'Output',chartLegend_watts:'Watts',
+    chartTitle_power:'Power consumption',
+    filterAll:'All',filterActivity:'Activity',filterClear:'Clear',
+    noDataChart:'No consumption data for this period',
+    accumulating:'Accumulating data…',
+    testConnected:(n,v)=>`✓ Connected — ${n} UPS${v?' · '+v:''}`,
+    calcVA:'V×A calculated',calcLoad:'VA×load',
+    upsCountUnit:(n)=>`${n} UPS`,nodeCountUnit:(n)=>`${n} node${n!==1?'s':''}`,
+    addServerTitle:'Add NUT server',addServerName:'Name',addServerHost:'Host / IP',
+    addServerPort:'Port',addServerTest:'Test',addServerBtn:'Add',
+    deleteServerTitle:'Delete server',deleteServerConfirm:(name)=>`Delete server "${name}"? Monitoring will stop.`,
+    noUPSDetail:'No UPS found. Add a NUT server or verify upsd is running.',
+    upsCountMsg:(ups,srv)=>`${ups} UPS on ${srv} server${srv!==1?'s':''}`,
+    serverAdded:(name)=>`${name} added`,serverDeleted:(name)=>`${name} deleted`,
+    serverAddedLog:(name)=>`Server added: ${name}`,serverDeletedLog:(name)=>`Server deleted: ${name}`,
+    testBtn:'Test',connecting:'Connecting…',testFillAll:'Fill in all fields'
+  },
+  es:{
+    loginTitle:'Iniciar sesión',loginSub:'Ingresa tus credenciales para continuar.',
+    username:'Usuario',password:'Contraseña',loginBtn:'Entrar',
+    navSection:'Navegación',nutServers:'Servidores NUT',addServer:'Agregar servidor',
+    dashTitle:'Dashboard — Todas las UPS',
+    themeLight:'Claro',themeDark:'Oscuro',
+    statTotalUPS:'UPS totales',statOnline:'En línea',statOnBatt:'En batería',
+    statClients:'Clientes conectados',statLoad:'Consumo total',
+    upsSummary:'Resumen de UPS',
+    colUPSServer:'UPS / Servidor',colStatus:'Estado',colBattery:'Batería',
+    colRuntime:'Autonomía',colClients:'Clientes',
+    criticalBatt:'¡Batería crítica!',onBattMsg:'En batería',
+    noUPS:'Sin UPS encontradas',details:'Detalles',close:'Cerrar',cancel:'Cancelar',
+    permReadonly:'Solo lectura',permExecute:'Ejecución',permAdmin:'Administrador',
+    sessionExpired:'Sesión expirada',
+    statusOnline:'En línea',statusOnBatt:'En batería',statusLowBatt:'Batería baja',
+    statusUnknown:'Desconocido',
+    gaugeLabel_battery:'Batería',gaugeLabel_load:'Carga',gaugeLabel_runtime:'Autonomía',
+    gaugeUnit_minLeft:'min restantes',
+    gaugeLabel_power:'Consumo',gaugeLabel_temp:'Temperatura',gaugeLabel_current:'Corriente',
+    varLabel_inputV:'Tensión entrada',varLabel_outputV:'Tensión salida',
+    varLabel_battV:'Tensión batería',varLabel_temp:'Temperatura',
+    varLabel_outCurr:'Corriente salida',varLabel_freq:'Frecuencia',
+    clientsLabel:'Clientes',
+    alertCritBatt:'Batería crítica — conectar a corriente inmediatamente',
+    alertOnBatt:'En batería —',alertMinLeft:'min restantes',
+    chartTitle_voltage:'Voltaje entrada vs salida',
+    chartLegend_input:'Entrada',chartLegend_output:'Salida',chartLegend_watts:'Watts',
+    chartTitle_power:'Consumo',
+    filterAll:'Todo',filterActivity:'Actividad',filterClear:'Limpiar',
+    noDataChart:'Sin datos de consumo en este período',
+    accumulating:'Acumulando datos…',
+    testConnected:(n,v)=>`✓ Conectado — ${n} UPS${v?' · '+v:''}`,
+    calcVA:'V×A calculado',calcLoad:'VA×carga',
+    upsCountUnit:(n)=>`${n} UPS`,nodeCountUnit:(n)=>`${n} nodo${n!==1?'s':''}`,
+    addServerTitle:'Agregar servidor NUT',addServerName:'Nombre',addServerHost:'Host / IP',
+    addServerPort:'Puerto',addServerTest:'Probar',addServerBtn:'Agregar',
+    deleteServerTitle:'Eliminar servidor',deleteServerConfirm:(name)=>`¿Eliminar el servidor "${name}"? Se detendrá el monitoreo.`,
+    noUPSDetail:'Sin UPS. Agrega un servidor NUT o verifica que upsd esté activo.',
+    upsCountMsg:(ups,srv)=>`${ups} UPS en ${srv} servidor${srv!==1?'es':''}`,
+    serverAdded:(name)=>`${name} agregado`,serverDeleted:(name)=>`${name} eliminado`,
+    serverAddedLog:(name)=>`Servidor agregado: ${name}`,serverDeletedLog:(name)=>`Servidor eliminado: ${name}`,
+    testBtn:'Probar',connecting:'Conectando…',testFillAll:'Completa todos los campos'
+  }
+};
+let _lang=localStorage.getItem('pi-lang')||'en';
+var _i18nReady=false;
+function t(k,...args){const v=(LANG[_lang]||LANG.en)[k]||(LANG.en)[k]||k;return typeof v==='function'?v(...args):v;}
+function setLang(l){
+  _lang=l;localStorage.setItem('pi-lang',l);document.documentElement.lang=l;
+  document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.getAttribute('data-i18n')));
+  ['en','es'].forEach(x=>document.getElementById('lang-'+x)?.classList.toggle('active',x===l));
+  if(_i18nReady && typeof renderDashboard==='function')renderDashboard();
+}
+(()=>setLang(_lang))();
+
+let ME=null, servers=[], allData={}, expanded=null, pollTimer=null, _firstChartDrawn=false;
+const POLL=5000;
+const CIRC=2*Math.PI*15.9;
+
+function canAdmin(){return ME&&ME.permissions?.nut==='admin';}
+
+// ── Nav reordenable ───────────────────────────────────────────────────────────
+const _NAV_ITEMS=[
+  {id:'wol',  href:'/wol/',   label:'WOL Console', svg:'<polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/>'},
+  {id:'nut',  href:'/nut/',   label:'UPS Monitor', svg:'<path d="M5 9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><rect x="3" y="9" width="18" height="11" rx="2"/><line x1="12" y1="13" x2="12" y2="16"/>'},
+  {id:'net',  href:'/net/',   label:'Net Monitor', svg:'<rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>'},
+  {id:'pve',  href:'/pve/',   label:'Proxmox',     svg:'<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>'},
+  {id:'admin',href:'/admin/', label:'Admin Panel', svg:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',adminOnly:true},
+];
+const _NAV_SELF='nut';
+let _navDragSrc=null;
+function _navOrder(){
+  try{const s=JSON.parse(localStorage.getItem('pi-nav-order')||'[]');
+    if(s.length){const ids=_NAV_ITEMS.map(i=>i.id);const o=s.filter(id=>ids.includes(id));ids.forEach(id=>{if(!o.includes(id))o.push(id);});return o;}}catch(e){}
+  return _NAV_ITEMS.map(i=>i.id);
+}
+function renderNav(){
+  const wrap=document.getElementById('nav-items');if(!wrap)return;
+  const order=_navOrder(),isAdmin=canAdmin();
+  wrap.innerHTML='';
+  order.forEach(id=>{
+    const item=_NAV_ITEMS.find(i=>i.id===id);if(!item)return;
+    if(item.adminOnly&&!isAdmin)return;
+    const isSelf=item.id===_NAV_SELF;
+    const a=document.createElement('a');
+    a.className='nav-item nav-drag-item'+(isSelf?' active':'');
+    a.href=isSelf?'#':item.href;a.dataset.navId=item.id;a.draggable=true;
+    a.innerHTML=`<span class="nav-drag-handle" title="Arrastrar">⠿</span><svg viewBox="0 0 24 24">${item.svg}</svg>${item.label}`;
+    a.addEventListener('dragstart',e=>{_navDragSrc=id;e.dataTransfer.effectAllowed='move';a.classList.add('nav-dragging');});
+    a.addEventListener('dragend',()=>a.classList.remove('nav-dragging'));
+    a.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';a.classList.add('nav-drag-over');});
+    a.addEventListener('dragleave',()=>a.classList.remove('nav-drag-over'));
+    a.addEventListener('drop',e=>{
+      e.preventDefault();a.classList.remove('nav-drag-over');
+      if(_navDragSrc&&_navDragSrc!==id){
+        const cur=_navOrder(),from=cur.indexOf(_navDragSrc),to=cur.indexOf(id);
+        if(from>-1&&to>-1){cur.splice(from,1);cur.splice(to,0,_navDragSrc);}
+        try{localStorage.setItem('pi-nav-order',JSON.stringify(cur));}catch(e){}
+        renderNav();
+      }
+      _navDragSrc=null;
+    });
+    wrap.appendChild(a);
+  });
+  const adminEl=wrap.querySelector('[data-nav-id="admin"]');
+  if(adminEl)adminEl.id='nav-admin';
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
+async function doLogin(){
+  const btn=document.getElementById('btn-l'),err=document.getElementById('login-err');
+  const u=document.getElementById('l-user').value.trim(),p=document.getElementById('l-pass').value;
+  err.className='login-err';
+  if(!u||!p){err.textContent=t('testFillAll')||'Fill in all fields';err.className='login-err show';return;}
+  btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';
+  try{
+    const r=await fetch('api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const d=await r.json();
+    if(!r.ok||!d.ok){err.textContent=d.error||'Credenciales incorrectas';err.className='login-err show';return;}
+    if(!d.permissions?.nut||d.permissions.nut==='none'){err.textContent=t('noAccess')||'No access to UPS Monitor';err.className='login-err show';return;}
+    ME=d;document.getElementById('login-screen').style.display='none';
+    applyPermissions();await initApp();
+  }catch(e){err.textContent='Error: '+e.message;err.className='login-err show';}
+  finally{btn.disabled=false;btn.textContent=t('loginBtn');}
+}
+
+async function checkSession(){
+  try{
+    const r=await fetch('api/me');if(!r.ok)return false;
+    const d=await r.json();
+    if(!d.username||!d.permissions?.nut||d.permissions.nut==='none')return false;
+    ME=d;return true;
+  }catch{return false;}
+}
+
+function applyPermissions(){
+  document.getElementById('me-name').textContent=ME.username;
+  document.getElementById('avatar').textContent=ME.username[0].toUpperCase();
+  const _permKey={readonly:'permReadonly',execute:'permExecute',admin:'permAdmin'}[ME.permissions?.nut];
+  document.getElementById('me-role').textContent=_permKey?t(_permKey):'—';
+  renderNav();
+  if(canAdmin()){document.getElementById('btn-add-srv').style.display='';}
+}
+
+async function logout(){await fetch('api/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});location.reload();}
+
+// ── Init & fetch ──────────────────────────────────────────────────────────────
+async function initApp(){
+  updateClock();setInterval(updateClock,1000);
+  log('INFO','UPS Monitor iniciando...');
+  await fetchAll();
+  pollTimer=setInterval(fetchAll,POLL);
+}
+
+// Rango activo global (se actualiza cuando el usuario cambia filtro)
+let _activeRange = 'all';
+let _obStartTs = {}; // { "srvId:upsName": timestamp cuando entró en OB }
+
+function exportCSV(){
+  // Exportar historial del servidor/UPS activo (usa expanded o primer srv/ups disponible)
+  let srvId = 'local', upsName = 'ups';
+  if(expanded){
+    const parts = expanded.split('/');
+    srvId = parts[0];
+    upsName = parts.slice(1).join('/');
+  } else if(servers.length>0){
+    srvId = servers[0].id;
+    const snap = allData[srvId];
+    const keys = snap ? Object.keys(snap.ups||{}) : [];
+    if(keys.length>0) upsName = keys[0];
+  }
+  const range = _activeRange === 'all' ? 'all' : _activeRange;
+  const url = `api/export/csv?srv=${encodeURIComponent(srvId)}&ups=${encodeURIComponent(upsName)}&range=${range}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ups-history-${srvId}-${upsName}-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+async function fetchAll(){
+  try{
+    const [r1,r2]=await Promise.all([
+      fetch('api/servers?range='+_activeRange),
+      fetch('api/ups?range='+_activeRange)
+    ]);
+    if(r1.status===401||r2.status===401){location.reload();return;}
+    servers=(await r1.json()).servers||[];
+    allData=await r2.json();
+    renderSidebar();
+    renderDashboard();
+    // Redibujar gráfico de voltaje si hay detalle abierto
+    if(expanded){
+      const parts = expanded.split('/');
+      const sid = parts[0], upsName = parts.slice(1).join('/');
+      const snap = allData[sid];
+      if(snap) drawVoltageChartForKey(expanded, (snap.history||{})[upsName]||[]);
+    }
+    // Primera carga: dibujar gráfico de la primera UPS auto-expandida
+    if(!_firstChartDrawn && expanded){
+      _firstChartDrawn = true;
+      const parts = expanded.split('/');
+      const snap = allData[parts[0]];
+      if(snap){
+        const upsName = parts.slice(1).join('/');
+        setTimeout(()=>drawVoltageChartForKey(expanded,(snap.history||{})[upsName]||[]),100);
+      }
+    }
+  }catch(e){log('ERR','Error: '+e.message);}
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+function renderSidebar(){
+  const list=document.getElementById('srv-list');list.innerHTML='';
+  servers.forEach(s=>{
+    const snap=allData[s.id];
+    const dotCls=!snap?'loading':snap.error?'err':snap.last_ok?'ok':'loading';
+    const upsCount=snap?Object.keys(snap.ups||{}).length:0;
+    const div=document.createElement('div');div.className='srv-nav';
+    div.innerHTML=`<span class="srv-dot-sm ${dotCls}"></span>
+      <div class="srv-nav-info">
+        <div class="srv-nav-name">${esc(s.name)}</div>
+        <div class="srv-nav-host">${esc(s.host)}:${s.port}${upsCount?' · '+t('upsCountUnit',upsCount):''}</div>
+      </div>
+      ${canAdmin()&&s.id!=='local'?`<button class="btn-ghost-sm" onclick="confirmDeleteServer('${s.id}','${esc(s.name)}')" title="Eliminar"><svg viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6"/></svg></button>`:''}`;
+    list.appendChild(div);
+  });
+}
+
+// ── Dashboard: todas las UPS de todos los servidores ──────────────────────────
+function renderDashboard(){
+  const tbody=document.getElementById('ups-tbody');
+
+  // Construir lista plana de todas las UPS
+  const rows=[];
+  servers.forEach(srv=>{
+    const snap=allData[srv.id];
+    if(!snap)return;
+    const ups=snap.ups||{};
+    Object.keys(ups).forEach(upsName=>{
+      rows.push({
+        srv, upsName,
+        v:    ups[upsName],
+        clients: (snap.clients||{})[upsName]||[],
+        history: (snap.history||{})[upsName]||[],
+        error: snap.error,
+      });
+    });
+  });
+
+  // Auto-expandir la primera UPS si aún no hay ninguna expandida
+  if(rows.length>0 && !expanded){
+    expanded = rows[0].srv.id+'/'+rows[0].upsName;
+  }
+
+  // Stats globales
+  const totalClients=rows.reduce((n,r)=>n+r.clients.length,0);
+  const onlineCount =rows.filter(r=>statusClass(r.v)==='online').length;
+  const battCount   =rows.filter(r=>['onbatt','lowbatt'].includes(statusClass(r.v))).length;
+
+  // Consumo total en watts — usa ups.realpower si existe, si no V×A
+  let totalWatts=0;
+  rows.forEach(r=>{
+    const v=r.v;
+    const realPower=parseFloat(v['ups.realpower']||0);
+    if(realPower>0){
+      totalWatts+=realPower;
+    } else {
+      // Calcular: output.voltage × output.current (VA no es W pero es aproximación)
+      const volt=parseFloat(v['output.voltage']||0);
+      const amp =parseFloat(v['output.current']||0);
+      const load=parseFloat(v['ups.load']||0);
+      const power=parseFloat(v['ups.power']||0);
+      if(volt>0&&amp>0) totalWatts+=volt*amp;
+      else if(power>0&&load>0) totalWatts+=power*(load/100);
+    }
+  });
+
+  document.getElementById('st-total').textContent  = rows.length||'—';
+  document.getElementById('st-online').textContent = onlineCount||'—';
+  document.getElementById('st-onbatt').textContent = battCount||'—';
+  document.getElementById('st-clients').textContent= totalClients||'—';
+
+  // ── Banners: batería crítica (<30%) y on-battery (OB) ──────────────────────
+  {
+    let hasCrit=false, critMsg='', hasOB=false, obMsg='';
+    rows.forEach(({srv, upsName, v})=>{
+      const rs=(v['ups.status']||'');
+      const charge=parseFloat(v['battery.charge']||100);
+      const runtime=parseFloat(v['battery.runtime']||0);
+      if(rs.includes('OB')){
+        hasOB=true;
+        const key=`${srv.id}:${upsName}`;
+        if(!_obStartTs[key]) _obStartTs[key]=Date.now();
+        const elapsed=Math.round((Date.now()-_obStartTs[key])/1000);
+        const m=Math.floor(elapsed/60), s=elapsed%60;
+        obMsg=`${upsName} ${t('alertOnBatt')} ${Math.round(runtime/60)} ${t('alertMinLeft')} · ${m}:${s.toString().padStart(2,'0')}`;
+      } else {
+        delete _obStartTs[`${srv.id}:${upsName}`];
+      }
+      if(charge>0 && charge<30 && !rs.includes('OB')){
+        hasCrit=true;
+        critMsg=`${t('criticalBatt')} ${upsName}: ${Math.round(charge)}% — ${t('alertCritBatt')}`;
+      }
+    });
+    const obBanner=document.getElementById('ups-ob-banner');
+    const critBanner=document.getElementById('ups-critical-banner');
+    if(obBanner){ obBanner.style.display=hasOB?'flex':'none'; if(hasOB)document.getElementById('ups-ob-msg').textContent=obMsg; }
+    if(critBanner){ critBanner.style.display=hasCrit?'flex':'none'; if(hasCrit)document.getElementById('ups-critical-msg').textContent=critMsg; }
+  }
+  const wEl=document.getElementById('st-watts');
+  if(wEl) wEl.innerHTML=totalWatts>0
+    ? Math.round(totalWatts)+'<span style="font-size:13px;color:var(--text-dim)">W</span>'
+    : '—';
+  document.getElementById('ups-count').textContent = t('upsCountMsg',rows.length,servers.length);
+
+  if(!rows.length){
+    tbody.innerHTML=`<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-dim);font-size:13px">
+      <strong style="display:block;color:var(--text-mid);margin-bottom:6px" data-i18n="noUPS">${t('noUPS')}</strong>
+      ${t('noUPSDetail')}</td></tr>`;
+    return;
+  }
+
+  // Reconstruir tbody preservando filas expandidas
+  const newTbody=document.createElement('tbody');newTbody.id='ups-tbody';
+
+  rows.forEach((row,i)=>{
+    const key=row.srv.id+'/'+row.upsName;
+    const cls=statusClass(row.v);
+    const charge=parseFloat(row.v['battery.charge']??0)||0;
+    const runtime=parseFloat(row.v['battery.runtime']??0)||0;
+    const load=parseFloat(row.v['ups.load']??0)||0;
+    const barColor=charge>60?'var(--green)':charge>25?'var(--yellow)':'var(--red)';
+    const isExp=expanded===key;
+    const rs=(row.v['ups.status']||'').toUpperCase();
+    let badgeCls='badge-unknown',badgeTxt=rs||t('statusUnknown');
+    if(rs.includes('OL')){badgeCls='badge-online';badgeTxt=t('statusOnline');}
+    if(rs.includes('OB')){badgeCls='badge-onbatt';badgeTxt=t('statusOnBatt');}
+    if(rs.includes('LB')){badgeCls='badge-lowbatt';badgeTxt=t('statusLowBatt');}
+
+    // Main row
+    const tr=document.createElement('tr');
+    tr.className='ups-row'+(isExp?' expanded':'');
+    tr.style.animationDelay=i*20+'ms';
+    tr.onclick=()=>toggleExpand(key,row);
+    tr.innerHTML=`
+      <td><span class="sdot ${cls}"></span></td>
+      <td>
+        <span class="ups-cell-name">${esc(row.upsName)} <span class="srv-tag">${esc(row.srv.name)}</span></span>
+        <span class="ups-cell-sub">${esc(row.v['_desc']||'UPS')}${row.v['_serial']?' ('+esc(row.v['_serial'])+')':''} · ${row.srv.host}:${row.srv.port}</span>
+      </td>
+      <td><span class="ups-badge ${badgeCls}">${badgeTxt}</span></td>
+      <td>
+        <div class="charge-wrap">
+          <div class="charge-bar"><div class="charge-fill" style="width:${charge}%;background:${barColor}"></div></div>
+          <span class="charge-val">${charge?Math.round(charge)+'%':'—'}</span>
+        </div>
+      </td>
+      <td style="font-family:var(--mono);font-size:12px;color:var(--text-mid)">${runtime?Math.round(runtime/60)+' min':'—'}</td>
+      <td style="font-family:var(--mono);font-size:12px;color:var(--text-mid)">${row.clients.length||'—'}</td>
+      <td><span class="expand-arrow ${isExp?'open':''}">▶</span></td>`;
+    newTbody.appendChild(tr);
+
+    // Alert row
+    if(rs.includes('OB')||rs.includes('LB')){
+      const atr=document.createElement('tr');atr.className='alert-row show';
+      const cls2=rs.includes('LB')?'crit':'';
+      atr.innerHTML=`<td colspan="7" class="alert-cell ${cls2}">⚠ ${rs.includes('LB')?t('alertCritBatt'):t('alertOnBatt')+' '+Math.round(runtime/60)+' '+t('alertMinLeft')}</td>`;
+      newTbody.appendChild(atr);
+    }
+
+    // Detail row
+    const dtr=document.createElement('tr');
+    dtr.className='detail-row'+(isExp?' show':'');
+    dtr.id='detail-'+key.replace(/[^a-z0-9]/gi,'-');
+    const VARS=[
+      ['input.voltage',     t('varLabel_inputV'),  'V'],
+      ['output.voltage',    t('varLabel_outputV'),  'V'],
+      ['battery.voltage',   t('varLabel_battV'),  'V'],
+      ['ups.temperature',   t('varLabel_temp'),      '°C'],
+      ['output.current',    t('varLabel_outCurr'), 'A'],
+      ['input.frequency',   t('varLabel_freq'),       'Hz'],
+    ];
+    dtr.innerHTML=`<td colspan="7" class="detail-cell">
+      <div class="detail-inner">
+        <div class="gauge-box">
+          <span class="gauge-lbl">${t('gaugeLabel_battery')}</span>
+          <div class="circle-wrap">
+            <svg viewBox="0 0 36 36"><circle class="circle-bg" cx="18" cy="18" r="15.9"/>
+            <circle class="circle-fill" cx="18" cy="18" r="15.9"
+              style="stroke-dasharray:${CIRC} ${CIRC};stroke-dashoffset:${CIRC-(charge/100)*CIRC};stroke:${charge>60?'var(--green)':charge>25?'var(--yellow)':'var(--red)'}"/></svg>
+            <span class="circle-val">${charge?Math.round(charge):'—'}</span>
+          </div>
+          <span class="gauge-unit">%</span>
+        </div>
+        <div class="gauge-box">
+          <span class="gauge-lbl">${t('gaugeLabel_load')}</span>
+          <div class="circle-wrap">
+            <svg viewBox="0 0 36 36"><circle class="circle-bg" cx="18" cy="18" r="15.9"/>
+            <circle class="circle-fill" cx="18" cy="18" r="15.9"
+              style="stroke-dasharray:${CIRC} ${CIRC};stroke-dashoffset:${CIRC-(load/100)*CIRC};stroke:${load<60?'var(--blue)':load<85?'var(--orange)':'var(--red)'}"/></svg>
+            <span class="circle-val">${load?Math.round(load):'—'}</span>
+          </div>
+          <span class="gauge-unit">%</span>
+        </div>
+        <div class="gauge-box">
+          <span class="gauge-lbl">${t('gaugeLabel_runtime')}</span>
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:72px;gap:4px">
+            <span class="runtime-num">${runtime?Math.round(runtime/60):'—'}</span>
+            <span class="gauge-unit">${t('gaugeUnit_minLeft')}</span>
+          </div>
+          <span class="gauge-unit">&nbsp;</span>
+        </div>
+        <div class="gauge-box" style="grid-column:1/-1;flex-direction:row;justify-content:space-around;padding:12px 20px">
+          ${(()=>{
+            const realP=parseFloat(row.v['ups.realpower']||0);
+            const volt=parseFloat(row.v['output.voltage']||0);
+            const amp=parseFloat(row.v['output.current']||0);
+            const pwr=parseFloat(row.v['ups.power']||0);
+            const ld=parseFloat(row.v['ups.load']||0);
+            let watts=0,source='';
+            if(realP>0){watts=realP;source='ups.realpower';}
+            else if(volt>0&&amp>0){watts=volt*amp;source=t('calcVA');}
+            else if(pwr>0&&ld>0){watts=pwr*(ld/100);source=t('calcLoad');}
+            const temp=parseFloat(row.v['ups.temperature']||row.v['battery.temperature']||0);
+            return `
+            <div style="text-align:center">
+              <div class="gauge-lbl">${t('gaugeLabel_power')}</div>
+              <div style="font-family:var(--mono);font-size:28px;font-weight:700;color:var(--orange);line-height:1;margin:8px 0">
+                ${watts>0?Math.round(watts):'—'}
+              </div>
+              <div class="gauge-unit">${watts>0?'W ('+source+')':''}</div>
+            </div>
+            <div style="text-align:center">
+              <div class="gauge-lbl">${t('gaugeLabel_temp')}</div>
+              <div style="font-family:var(--mono);font-size:28px;font-weight:700;color:${temp>40?'var(--red)':temp>35?'var(--orange)':'var(--blue)'};line-height:1;margin:8px 0">
+                ${temp?temp.toFixed(1):'—'}
+              </div>
+              <div class="gauge-unit">${temp?'°C':''}</div>
+            </div>
+            <div style="text-align:center">
+              <div class="gauge-lbl">${t('gaugeLabel_current')}</div>
+              <div style="font-family:var(--mono);font-size:28px;font-weight:700;color:var(--text);line-height:1;margin:8px 0">
+                ${amp?amp:'—'}
+              </div>
+              <div class="gauge-unit">${amp?'A':''}</div>
+            </div>`;
+          })()}
+        </div>
+        <div class="vars-section">
+          ${VARS.map(([k,l,u])=>{const val=row.v[k];return`<div class="var-cell"><span class="var-key">${l}</span><span class="var-val">${val?val+' '+u:'<span style="opacity:.3">—</span>'}</span></div>`;}).join('')}
+        </div>
+        ${row.clients.length?`<div class="clients-section">
+          <span class="clients-lbl">${t('clientsLabel')}</span>
+          <div class="client-chips">${row.clients.map(c=>`<span class="client-chip">${esc(c)}</span>`).join('')}</div>
+        </div>`:''}
+        <div class="vchart-section">
+          <div class="vchart-header">
+            <span class="vchart-title">${t('chartTitle_voltage')}</span>
+            <div class="vchart-legend">
+              <div class="vchart-legend-item"><div class="vchart-legend-dot" style="background:#4361ee"></div>${t('chartLegend_input')}</div>
+              <div class="vchart-legend-item"><div class="vchart-legend-dot" style="background:#22c55e"></div>${t('chartLegend_output')}</div>
+            </div>
+            <div class="vchart-filters" id="vchart-filters-${key.replace(/[^a-z0-9]/gi,'-')}">
+              <button class="vchart-filter active" data-range="all"   onclick="setVChartRange(this,'${key}','v')">${t('filterAll')}</button>
+              <button class="vchart-filter"         data-range="1h"   onclick="setVChartRange(this,'${key}','v')">1h</button>
+              <button class="vchart-filter"         data-range="1d"   onclick="setVChartRange(this,'${key}','v')">1d</button>
+              <button class="vchart-filter"         data-range="1mo"  onclick="setVChartRange(this,'${key}','v')">1mo</button>
+            </div>
+          </div>
+          <div class="vchart-body" style="position:relative">
+            <div class="vchart-tooltip" id="vtooltip-${key.replace(/[^a-z0-9]/gi,'-')}"></div>
+            <canvas class="vchart" id="vchart-${key.replace(/[^a-z0-9]/gi,'-')}" height="140"
+              onmousemove="onVChartMove(event,this,'${key}','v')"
+              onmouseleave="onVChartLeave('${key}','v')"></canvas>
+          </div>
+        </div>
+        <div class="vchart-section">
+          <div class="vchart-header">
+            <span class="vchart-title">${t('chartTitle_power')}</span>
+            <div class="vchart-legend">
+              <div class="vchart-legend-item"><div class="vchart-legend-dot" style="background:#f97316"></div>${t('chartLegend_watts')}</div>
+            </div>
+            <div class="vchart-filters" id="wchart-filters-${key.replace(/[^a-z0-9]/gi,'-')}">
+              <button class="vchart-filter active" data-range="all"   onclick="setVChartRange(this,'${key}','w')">${t('filterAll')}</button>
+              <button class="vchart-filter"         data-range="1h"   onclick="setVChartRange(this,'${key}','w')">1h</button>
+              <button class="vchart-filter"         data-range="1d"   onclick="setVChartRange(this,'${key}','w')">1d</button>
+              <button class="vchart-filter"         data-range="1mo"  onclick="setVChartRange(this,'${key}','w')">1mo</button>
+            </div>
+          </div>
+          <div class="vchart-body" style="position:relative">
+            <div class="vchart-tooltip" id="wtooltip-${key.replace(/[^a-z0-9]/gi,'-')}"></div>
+            <canvas class="vchart" id="wchart-${key.replace(/[^a-z0-9]/gi,'-')}" height="120"
+              onmousemove="onVChartMove(event,this,'${key}','w')"
+              onmouseleave="onVChartLeave('${key}','w')"></canvas>
+          </div>
+        </div>
+      </div>
+    </td>`;
+    newTbody.appendChild(dtr);
+  });
+
+  tbody.parentNode.replaceChild(newTbody,tbody);
+}
+
+function statusClass(v){
+  const rs=(v['ups.status']||'').toUpperCase();
+  if(rs.includes('LB'))return'lowbatt';
+  if(rs.includes('OB'))return'onbatt';
+  if(rs.includes('OL'))return'online';
+  return'unknown';
+}
+
+function toggleExpand(key,row){
+  expanded=expanded===key?null:key;
+  renderDashboard();
+  if(expanded){
+    const el=document.getElementById('detail-'+key.replace(/[^a-z0-9]/gi,'-'));
+    if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
+    // Draw voltage chart after DOM settles
+    drawVoltageChartForKey(key, row.history);
+  }
+}
+
+// ── Voltage + Watts charts ─────────────────────────────────────────────────────
+const vchartRanges = {};  // { key: 'all'|'1h'|'1d'|'1mo' }
+const wchartRanges = {};  // idem para watts
+
+async function setVChartRange(btn, key, type){
+  type = type||'v';
+  const pfx = type==='w' ? 'wchart' : 'vchart';
+  const cid = pfx+'-filters-'+key.replace(/[^a-z0-9]/gi,'-');
+  document.querySelectorAll('#'+cid+' .vchart-filter').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const store = type==='w' ? wchartRanges : vchartRanges;
+  store[key] = btn.dataset.range;
+  // Sincronizar el rango global y recargar datos del servidor
+  _activeRange = btn.dataset.range;
+  await fetchAll();
+  const snap = allData[key.split('/')[0]];
+  if(!snap) return;
+  const upsName = key.split('/').slice(1).join('/');
+  const history = (snap.history||{})[upsName]||[];
+  if(type==='w') drawWattsChart('wchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, store[key]||'all');
+  else           drawVoltageChart('vchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, store[key]||'all');
+}
+
+function filterHistory(history, range){
+  if(!history||!history.length) return history;
+  if(range==='all') return history;
+  const now = Date.now()/1000;
+  const cutoffs = {'1h':3600,'1d':86400,'1mo':2592000};
+  const cutoff = cutoffs[range]||0;
+  return history.filter(p=>p.ts>=(now-cutoff));
+}
+
+function drawVoltageChart(canvasId, history, range, hoverIdx=-1){
+  const canvas=document.getElementById(canvasId); if(!canvas) return;
+  const filtered = filterHistory(history, range||'all');
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.offsetWidth||600, H=140;
+  if(canvas.width!==W*dpr){canvas.width=W*dpr;canvas.height=H*dpr;}
+  const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr); ctx.clearRect(0,0,W,H);
+  const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+  const cBg=css('--bg')||'#f0f2f5';
+  const cBorder=css('--border')||'#e3e8ef';
+  const cDim=css('--text-dim')||'#94a3b8';
+  const cSurface=css('--surface')||'#fff';
+  ctx.fillStyle=cBg; ctx.fillRect(0,0,W,H);
+
+  if(!filtered||filtered.length<2){
+    ctx.fillStyle=cDim; ctx.font='11px DM Mono,monospace'; ctx.textAlign='center';
+    ctx.fillText(filtered&&filtered.length===1?t('accumulating'):t('noDataChart'),W/2,H/2);
+    ctx.scale(1/dpr,1/dpr); return;
+  }
+
+  const N=filtered.length;
+  const PL=34, PR=8, PT=8, PB=18;
+  const W2=W-PL-PR, H2=H-PT-PB;
+
+  // Calcular rango de voltaje con margen
+  const allV = filtered.flatMap(p=>[p.vin||0,p.vout||0]).filter(v=>v>0);
+  if(!allV.length){ctx.scale(1/dpr,1/dpr);return;}
+  const vMin = Math.max(0, Math.floor(Math.min(...allV)-5));
+  const vMax = Math.ceil(Math.max(...allV)+5);
+  const vRange = vMax-vMin||1;
+
+  const xOf = i=>PL+(i/(N-1))*W2;
+  const yOf = v=>PT+H2-((v-vMin)/vRange)*H2;
+
+  // Grid horizontal
+  const gridSteps = 4;
+  ctx.strokeStyle=cBorder; ctx.lineWidth=0.5;
+  ctx.fillStyle=cDim; ctx.font='9px DM Mono,monospace'; ctx.textAlign='right';
+  for(let i=0;i<=gridSteps;i++){
+    const v=vMin+(vRange/gridSteps)*i;
+    const y=yOf(v);
+    ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(W-PR,y); ctx.stroke();
+    ctx.fillText(Math.round(v)+'V', PL-3, y+3);
+  }
+
+  // Área bajo la línea de entrada
+  ctx.beginPath();
+  filtered.forEach((pt,i)=>{
+    const x=xOf(i), y=yOf(pt.vin||vMin);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.lineTo(xOf(N-1),PT+H2); ctx.lineTo(PL,PT+H2); ctx.closePath();
+  const g1=ctx.createLinearGradient(0,PT,0,PT+H2);
+  g1.addColorStop(0,'rgba(67,97,238,.2)'); g1.addColorStop(1,'rgba(67,97,238,0)');
+  ctx.fillStyle=g1; ctx.fill();
+
+  // Línea entrada (azul)
+  ctx.beginPath();
+  filtered.forEach((pt,i)=>{
+    const x=xOf(i), y=yOf(pt.vin||vMin);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle='#4361ee'; ctx.lineWidth=1.8; ctx.globalAlpha=1; ctx.stroke();
+
+  // Línea salida (verde)
+  ctx.beginPath();
+  filtered.forEach((pt,i)=>{
+    const x=xOf(i), y=yOf(pt.vout||vMin);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle='#22c55e'; ctx.lineWidth=1.8; ctx.stroke();
+
+  // Etiquetas X (tiempo)
+  ctx.fillStyle=cDim; ctx.font='9px DM Mono,monospace'; ctx.textAlign='center';
+  const step=Math.max(1,Math.floor(N/5));
+  for(let i=0;i<N;i+=step){
+    const d=new Date(filtered[i].ts*1000);
+    const label = range==='1mo'?
+      d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}):
+      d.toTimeString().slice(0,5);
+    ctx.fillText(label, xOf(i), H-3);
+  }
+
+  // Valores actuales en el extremo derecho
+  const last=filtered[N-1];
+  if(last.vin){
+    ctx.fillStyle='#4361ee'; ctx.font='bold 9px DM Mono,monospace'; ctx.textAlign='left';
+    ctx.fillText(Math.round(last.vin)+'V', W-PR+2, yOf(last.vin)+3);
+  }
+  if(last.vout){
+    ctx.fillStyle='#22c55e'; ctx.font='bold 9px DM Mono,monospace'; ctx.textAlign='left';
+    ctx.fillText(Math.round(last.vout)+'V', W-PR+2, yOf(last.vout)+12);
+  }
+
+  // Crosshair
+  if(hoverIdx>=0 && hoverIdx<N){
+    const cx = xOf(hoverIdx);
+    const pt = filtered[hoverIdx];
+    // Vertical line
+    ctx.beginPath(); ctx.moveTo(cx,PT); ctx.lineTo(cx,PT+H2);
+    ctx.strokeStyle='rgba(100,116,139,.4)'; ctx.lineWidth=1; ctx.setLineDash([3,3]); ctx.stroke();
+    ctx.setLineDash([]);
+    // Dots on lines
+    if(pt.vin){
+      ctx.beginPath(); ctx.arc(cx,yOf(pt.vin),4,0,2*Math.PI);
+      ctx.fillStyle='#4361ee'; ctx.fill();
+      ctx.strokeStyle=cSurface; ctx.lineWidth=1.5; ctx.stroke();
+    }
+    if(pt.vout){
+      ctx.beginPath(); ctx.arc(cx,yOf(pt.vout),4,0,2*Math.PI);
+      ctx.fillStyle='#22c55e'; ctx.fill();
+      ctx.strokeStyle=cSurface; ctx.lineWidth=1.5; ctx.stroke();
+    }
+  }
+
+  ctx.scale(1/dpr,1/dpr);
+}
+
+// Dibujar gráfico de watts (área naranja)
+function drawWattsChart(canvasId, history, range, hoverIdx=-1){
+  const canvas=document.getElementById(canvasId); if(!canvas) return;
+  const filtered = filterHistory(history, range||'all');
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.offsetWidth||600, H=120;
+  if(canvas.width!==W*dpr){canvas.width=W*dpr;canvas.height=H*dpr;}
+  const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr); ctx.clearRect(0,0,W,H);
+  const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+  const cBg=css('--bg')||'#f0f2f5';
+  const cBorder=css('--border')||'#e3e8ef';
+  const cDim=css('--text-dim')||'#94a3b8';
+  const cSurface=css('--surface')||'#fff';
+  ctx.fillStyle=cBg; ctx.fillRect(0,0,W,H);
+
+  const withWatts = filtered ? filtered.filter(p=>p.watts>0) : [];
+  if(!filtered||filtered.length<2||!withWatts.length){
+    ctx.fillStyle=cDim; ctx.font='11px DM Mono,monospace'; ctx.textAlign='center';
+    ctx.fillText(t('noDataChart'),W/2,H/2);
+    ctx.scale(1/dpr,1/dpr); return;
+  }
+
+  const N=filtered.length;
+  const PL=40, PR=8, PT=8, PB=18;
+  const W2=W-PL-PR, H2=H-PT-PB;
+
+  const allW = filtered.map(p=>p.watts||0);
+  const wMax = Math.ceil(Math.max(...allW)*1.15)||10;
+  const wMin = 0;
+  const wRange = wMax-wMin||1;
+
+  const xOf = i=>PL+(i/(N-1))*W2;
+  const yOf = v=>PT+H2-((v-wMin)/wRange)*H2;
+
+  // Grid
+  const gridSteps=4;
+  ctx.strokeStyle=cBorder; ctx.lineWidth=0.5;
+  ctx.fillStyle=cDim; ctx.font='9px DM Mono,monospace'; ctx.textAlign='right';
+  for(let i=0;i<=gridSteps;i++){
+    const v=wMin+(wRange/gridSteps)*i;
+    const y=yOf(v);
+    ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(W-PR,y); ctx.stroke();
+    ctx.fillText(Math.round(v)+'W', PL-3, y+3);
+  }
+
+  // Área rellena naranja
+  ctx.beginPath();
+  filtered.forEach((pt,i)=>{
+    const x=xOf(i), y=yOf(pt.watts||0);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.lineTo(xOf(N-1),PT+H2); ctx.lineTo(PL,PT+H2); ctx.closePath();
+  const g=ctx.createLinearGradient(0,PT,0,PT+H2);
+  g.addColorStop(0,'rgba(249,115,22,.35)'); g.addColorStop(1,'rgba(249,115,22,0)');
+  ctx.fillStyle=g; ctx.fill();
+
+  // Línea naranja
+  ctx.beginPath();
+  filtered.forEach((pt,i)=>{
+    const x=xOf(i), y=yOf(pt.watts||0);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle='#f97316'; ctx.lineWidth=2; ctx.stroke();
+
+  // Etiquetas X
+  ctx.fillStyle=cDim; ctx.font='9px DM Mono,monospace'; ctx.textAlign='center';
+  const step=Math.max(1,Math.floor(N/5));
+  for(let i=0;i<N;i+=step){
+    const d=new Date(filtered[i].ts*1000);
+    const label=range==='1mo'?
+      d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}):
+      d.toTimeString().slice(0,5);
+    ctx.fillText(label, xOf(i), H-3);
+  }
+
+  // Último valor
+  const last=filtered[N-1];
+  if(last.watts){
+    ctx.fillStyle='#f97316'; ctx.font='bold 9px DM Mono,monospace'; ctx.textAlign='left';
+    ctx.fillText(Math.round(last.watts)+'W', W-PR+2, yOf(last.watts)+3);
+  }
+
+  // Crosshair
+  if(hoverIdx>=0 && hoverIdx<N){
+    const cx=xOf(hoverIdx), pt=filtered[hoverIdx];
+    ctx.beginPath(); ctx.moveTo(cx,PT); ctx.lineTo(cx,PT+H2);
+    ctx.strokeStyle='rgba(100,116,139,.4)'; ctx.lineWidth=1; ctx.setLineDash([3,3]); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(cx,yOf(pt.watts||0),4,0,2*Math.PI);
+    ctx.fillStyle='#f97316'; ctx.fill();
+    ctx.strokeStyle=cSurface; ctx.lineWidth=1.5; ctx.stroke();
+  }
+  ctx.scale(1/dpr,1/dpr);
+}
+
+// Dibujar ambos gráficos al expandir detalle
+function drawVoltageChartForKey(key, history){
+  const vrange = vchartRanges[key]||'all';
+  const wrange = wchartRanges[key]||'all';
+  requestAnimationFrame(()=>{
+    drawVoltageChart('vchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, vrange);
+    drawWattsChart('wchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, wrange);
+  });
+}
+
+// ── Add/delete server ─────────────────────────────────────────────────────────
+function openAddServer(){document.getElementById('add-srv-card').style.display='block';document.getElementById('f-sname').focus();}
+function closeAddServer(){document.getElementById('add-srv-card').style.display='none';document.getElementById('test-result').className='test-result';['f-sname','f-shost'].forEach(id=>{document.getElementById(id).value='';document.getElementById(id).classList.remove('err');});document.getElementById('f-sport').value='3493';}
+
+async function testServer(){
+  const host=document.getElementById('f-shost').value.trim(),port=parseInt(document.getElementById('f-sport').value)||3493;
+  const btn=document.getElementById('btn-test'),res=document.getElementById('test-result');
+  if(!host){document.getElementById('f-shost').classList.add('err');return;}
+  btn.innerHTML='<span class="spin">⟳</span>';btn.disabled=true;
+  try{
+    const r=await fetch('api/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host,port})});
+    const d=await r.json();
+    if(d.ok){res.className='test-result ok show';res.textContent=t('testConnected',d.ups_count,d.version);log('OK','Test OK: '+host+':'+port);}
+    else{res.className='test-result fail show';res.textContent='✕ '+d.error;}
+  }catch(e){res.className='test-result fail show';res.textContent='✕ '+e.message;}
+  finally{btn.textContent=t('addServerTest');btn.disabled=false;}
+}
+
+async function saveServer(){
+  const name=document.getElementById('f-sname').value.trim(),host=document.getElementById('f-shost').value.trim(),port=parseInt(document.getElementById('f-sport').value)||3493;
+  const btn=document.getElementById('btn-save-srv');
+  [document.getElementById('f-sname'),document.getElementById('f-shost')].forEach(e=>e.classList.remove('err'));
+  if(!name){document.getElementById('f-sname').classList.add('err');document.getElementById('f-sname').focus();return;}
+  if(!host){document.getElementById('f-shost').classList.add('err');document.getElementById('f-shost').focus();return;}
+  btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';
+  try{
+    const r=await fetch('api/servers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,host,port})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||'HTTP '+r.status);
+    log('OK',t('serverAddedLog',name));toast(t('serverAdded',name),false);closeAddServer();await fetchAll();
+  }catch(e){log('ERR',e.message);toast(e.message,true);}
+  finally{btn.disabled=false;btn.textContent=t('addServerBtn');}
+}
+
+function confirmDeleteServer(sid,name){
+  document.getElementById('del-msg').textContent=t('deleteServerConfirm',name);
+  document.getElementById('del-btn').onclick=async()=>{
+    closeModals();
+    try{
+      const r=await fetch('api/servers/'+sid,{method:'DELETE'});const d=await r.json();if(!r.ok)throw new Error(d.error);
+      log('WARN',t('serverDeletedLog',name));toast(t('serverDeleted',name),false);await fetchAll();
+    }catch(e){log('ERR',e.message);toast(e.message,true);}
+  };
+  document.getElementById('del-overlay').classList.add('show');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Theme ─────────────────────────────────────────────────────────────────────
+function setTheme(t){
+  localStorage.setItem('pi-theme',t);
+  applyTheme(t);
+  ['light','dark','system'].forEach(x=>{
+    document.getElementById('theme-'+x)?.classList.toggle('active',x===t);
+  });
+}
+function applyTheme(t){
+  const pref = t==='system'?(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):t;
+  document.documentElement.setAttribute('data-theme', pref==='dark'?'dark':'light');
+}
+(()=>{
+  const t=localStorage.getItem('pi-theme')||'system';
+  applyTheme(t);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{
+    if((localStorage.getItem('pi-theme')||'system')==='system') applyTheme('system');
+  });
+  // Set active button after DOM ready
+  document.addEventListener('DOMContentLoaded',()=>{
+    ['light','dark','system'].forEach(x=>{
+      document.getElementById('theme-'+x)?.classList.toggle('active',x===t);
+    });
+  });
+  // Also set immediately for SSR-like case
+  setTimeout(()=>{
+    ['light','dark','system'].forEach(x=>{
+      document.getElementById('theme-'+x)?.classList.toggle('active',x===t);
+    });
+  },0);
+})();
+
+// ── Chart tooltip ─────────────────────────────────────────────────────────────
+function onVChartMove(e, canvas, key, type){
+  type = type||'v';
+  const tipId = (type==='w'?'wtooltip-':'vtooltip-')+key.replace(/[^a-z0-9]/gi,'-');
+  const tip = document.getElementById(tipId);
+  if(!tip) return;
+  const snap = allData[key.split('/')[0]];
+  if(!snap) return;
+  const upsName = key.split('/').slice(1).join('/');
+  const range = type==='w' ? (wchartRanges[key]||'all') : (vchartRanges[key]||'all');
+  const history = filterHistory((snap.history||{})[upsName]||[], range);
+  if(!history||history.length<2){tip.className='vchart-tooltip';return;}
+
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const W = canvas.offsetWidth;
+  const PL = type==='w'?40:34, PR=8;
+  const W2 = W-PL-PR;
+  const N = history.length;
+
+  const idx = Math.max(0, Math.min(N-1, Math.round(((mouseX-PL)/W2)*(N-1))));
+  const pt = history[idx];
+  if(!pt){tip.className='vchart-tooltip';return;}
+
+  const d = new Date(pt.ts*1000);
+  const timeStr = d.toLocaleString('es-CL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+
+  if(type==='w'){
+    tip.innerHTML = `<div style="color:var(--text-dim);margin-bottom:4px;font-size:10px">${timeStr}</div>`+
+      `<div style="color:#f97316">⚡ ${t('gaugeLabel_power')}: <strong>${pt.watts!=null?Math.round(pt.watts)+' W':'—'}</strong></div>`+
+      (pt.load?`<div style="color:var(--text-mid)">${t('gaugeLabel_load')}: ${Math.round(pt.load)}%</div>`:'');
+  } else {
+    tip.innerHTML = `<div style="color:var(--text-dim);margin-bottom:4px;font-size:10px">${timeStr}</div>`+
+      (pt.vin?`<div style="color:#4361ee">↓ ${t('chartLegend_input')}: <strong>${parseFloat(pt.vin).toFixed(1)} V</strong></div>`:'') +
+      (pt.vout?`<div style="color:#22c55e">↑ ${t('chartLegend_output')}: <strong>${parseFloat(pt.vout).toFixed(1)} V</strong></div>`:'') +
+      (pt.charge?`<div style="color:var(--text-mid)">🔋 ${t('gaugeLabel_battery')}: ${Math.round(pt.charge)}%</div>`:'');
+  }
+
+  const tipW = 170;
+  let left = mouseX + 12;
+  if(left + tipW > W) left = mouseX - tipW - 8;
+  tip.style.left = left+'px';
+  tip.style.top = '4px';
+  tip.className = 'vchart-tooltip show';
+
+  if(type==='w') drawWattsChart('wchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, range, idx);
+  else           drawVoltageChart('vchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, range, idx);
+}
+
+function onVChartLeave(key, type){
+  type = type||'v';
+  const tipId = (type==='w'?'wtooltip-':'vtooltip-')+key.replace(/[^a-z0-9]/gi,'-');
+  const tip = document.getElementById(tipId);
+  if(tip) tip.className='vchart-tooltip';
+  const snap = allData[key.split('/')[0]];
+  if(!snap) return;
+  const upsName = key.split('/').slice(1).join('/');
+  const range = type==='w' ? (wchartRanges[key]||'all') : (vchartRanges[key]||'all');
+  const history = filterHistory((snap.history||{})[upsName]||[], range);
+  if(type==='w') drawWattsChart('wchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, range, -1);
+  else           drawVoltageChart('vchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, range, -1);
+}
+
+function closeModals(){document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('show'));}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function updateClock(){const el=document.getElementById('clock');if(el)el.textContent=new Date().toTimeString().slice(0,8);}
+let _tt;
+function toast(msg,isErr=false){const el=document.getElementById('toast');el.textContent=msg;el.className=isErr?'err':'';void el.offsetWidth;el.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3400);}
+function log(level,msg){const out=document.getElementById('log-out'),ts=new Date().toTimeString().slice(0,8);const el=document.createElement('div');el.className='log-row';el.innerHTML='<span class="lt">'+ts+'</span><span class="lv '+level+'">'+level+'</span><span class="lm">'+esc(msg)+'</span>';out.appendChild(el);out.scrollTop=out.scrollHeight;while(out.children.length>80)out.removeChild(out.firstChild);}
+function clearLog(){document.getElementById('log-out').innerHTML='';}
+
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeModals();}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
+
+_i18nReady=true;
+(async()=>{
+  const ok=await checkSession();
+  if(ok){document.getElementById('login-screen').style.display='none';applyPermissions();await initApp();}
+})();
+</script>
+</body>
+</html>

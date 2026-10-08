@@ -1,0 +1,12 @@
+Package: pi-console
+Version: 1.0.8
+Section: admin
+Priority: optional
+Architecture: all
+Depends: python3 (>= 3.9), nginx, nut, nut-client
+Maintainer: Gonzalo Valenzuela <gonzalo@rave.cl>
+Description: Pi Console — Homelab dashboard
+ Self-hosted homelab dashboard for Raspberry Pi with modules:
+ WOL Console, NUT Monitor, Net Monitor, Proxmox Monitor, Admin Panel.
+ Served via nginx reverse proxy with shared SSO authentication.
+ Author: Gonzalo Valenzuela <gonzalo@rave.cl>

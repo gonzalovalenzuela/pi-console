@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pi Console</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzQzNjFlZSIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQsNCkgc2NhbGUoMSkiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik0xMiAyTDIgN2wxMCA1IDEwLTUtMTAtNXpNMiAxN2wxMCA1IDEwLTVNMiAxMmwxMCA1IDEwLTUiLz4KICA8L2c+Cjwvc3ZnPg==">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0f2f5;--surface:#fff;--border:#e3e8ef;--border-b:#cdd4e0;
+  --blue:#4361ee;--blue-dim:rgba(67,97,238,.1);
+  --yellow:#eab308;--yellow-dim:rgba(234,179,8,.1);
+  --green:#22c55e;--green-dim:rgba(34,197,94,.1);
+  --text:#1a2033;--text-mid:#5a6a85;--text-dim:#94a3b8;
+  --r:12px;--r-sm:8px;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 8px 24px rgba(0,0,0,.1);
+  --sans:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.container{width:100%;max-width:480px;display:flex;flex-direction:column;gap:24px}
+.hero{text-align:center}
+.hero-icon{width:56px;height:56px;background:var(--blue);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 4px 14px rgba(67,97,238,.3)}
+.hero-icon svg{width:26px;height:26px;fill:#fff}
+.hero h1{font-size:26px;font-weight:700;color:var(--text);letter-spacing:-.4px;margin-bottom:6px}
+.hero p{font-size:14px;color:var(--text-mid);line-height:1.6}
+.apps{display:flex;flex-direction:column;gap:12px}
+.app-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;display:flex;align-items:center;gap:16px;text-decoration:none;color:var(--text);box-shadow:var(--shadow);transition:all .2s}
+.app-card:hover{box-shadow:var(--shadow-md);border-color:var(--border-b);transform:translateY(-1px)}
+.app-card:active{transform:translateY(0)}
+.app-ico{width:44px;height:44px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.app-ico svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2}
+.app-ico.blue{background:var(--blue-dim);color:var(--blue)}
+.app-ico.yellow{background:var(--yellow-dim);color:var(--yellow)}
+.app-body{flex:1}
+.app-name{font-size:15px;font-weight:600;color:var(--text);margin-bottom:2px}
+.app-desc{font-size:12px;color:var(--text-dim)}
+.app-arrow{color:var(--text-dim);font-size:18px;transition:transform .2s}
+.app-card:hover .app-arrow{transform:translateX(3px);color:var(--text-mid)}
+.footer{text-align:center;font-size:11px;font-family:var(--mono);color:var(--text-dim)}
+.status-row{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
+.status-item{display:flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);color:var(--text-dim)}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dot.green{background:var(--green);box-shadow:0 0 0 2px var(--green-dim)}
+.dot.gray{background:var(--border-b)}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="hero">
+    <div class="hero-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    </div>
+    <h1>Pi Console</h1>
+    <p>Panel de administración para tu homelab usando Raspberry Pi.<br>App para WOL, Monitoreo de red, UPS y Proxmox</p>
+  </div>
+
+  <div class="apps">
+    <a class="app-card" href="/wol/">
+      <div class="app-ico blue">
+        <svg viewBox="0 0 24 24"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg>
+      </div>
+      <div class="app-body">
+        <div class="app-name">WOL Console</div>
+        <div class="app-desc">Wake-on-LAN — enciende equipos remotamente</div>
+      </div>
+      <span class="app-arrow">→</span>
+    </a>
+    <a class="app-card" href="/pve/">
+      <div class="app-ico" style="background:rgba(225,92,0,.1);color:#e15c00">
+        <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      </div>
+      <div class="app-body">
+        <div class="app-name">Proxmox Monitor</div>
+        <div class="app-desc">Dashboard de nodos, VMs , contenedores PVE y CEPH</div>
+      </div>
+      <span class="app-arrow">→</span>
+    </a>
+    <a class="app-card" href="/net/">
+      <div class="app-ico" style="background:rgba(20,184,166,.1);color:#14b8a6">
+        <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+      </div>
+      <div class="app-body">
+        <div class="app-name">Net Monitor</div>
+        <div class="app-desc">Escaneo de red — hosts, OS y puertos abiertos</div>
+      </div>
+      <span class="app-arrow">→</span>
+    </a>
+    <a class="app-card" href="/nut/">
+      <div class="app-ico yellow">
+        <svg viewBox="0 0 24 24"><path d="M5 9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><rect x="3" y="9" width="18" height="11" rx="2"/><line x1="12" y1="13" x2="12" y2="16"/></svg>
+      </div>
+      <div class="app-body">
+        <div class="app-name">UPS Monitor</div>
+        <div class="app-desc">UPS — batería, carga y autonomía en tiempo real</div>
+      </div>
+      <span class="app-arrow">→</span>
+    </a>
+  </div>
+
+  <div class="footer">
+    <div class="status-row" id="status-row">
+      <div class="status-item"><span class="dot gray" id="dot-wol"></span><span id="lbl-wol">WOL comprobando...</span></div>
+      <div class="status-item"><span class="dot gray" id="dot-nut"></span><span id="lbl-nut">NUT comprobando...</span></div>
+    </div>
+  </div>
+</div>
+<script>
+async function checkService(url,dotId,lblId,name){
+  try{
+    const r=await fetch(url,{signal:AbortSignal.timeout(3000)});
+    if(r.ok){
+      document.getElementById(dotId).className='dot green';
+      document.getElementById(lblId).textContent=name+' activo';
+    }else throw new Error();
+  }catch{
+    document.getElementById(dotId).className='dot';
+    document.getElementById(lblId).textContent=name+' sin respuesta';
+  }
+}
+checkService('/wol/api/devices','dot-wol','lbl-wol','WOL');
+checkService('/nut/api/config', 'dot-nut','lbl-nut','NUT');
+</script>
+</body>
+</html>
