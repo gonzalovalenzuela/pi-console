@@ -253,13 +253,44 @@ td{padding:10px 14px;vertical-align:middle}
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <span data-i18n="scanNet">Scan network</span>
       </button>
-      <button onclick="openPiholeConfig()" id="btn-pihole" title="Configurar Pi-hole"
-        style="display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap"
-        onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'"
-        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">
-        <svg style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-        Pi-hole <span id="pihole-status-dot" style="width:6px;height:6px;border-radius:50%;background:var(--border-b);display:inline-block;margin-left:2px"></span>
-      </button>
+      <div style="position:relative" id="pihole-wrap">
+        <button onclick="togglePiholePanel()" id="btn-pihole" title="Pi-hole"
+          style="display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap"
+          onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">
+          <svg style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          Pi-hole <span id="pihole-status-dot" style="width:6px;height:6px;border-radius:50%;background:var(--border-b);display:inline-block;margin-left:2px"></span>
+        </button>
+        <!-- Panel desplegable Pi-hole -->
+        <div id="pihole-panel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:200;width:320px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.18);padding:16px">
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:7px">
+            <svg style="width:15px;height:15px;stroke:var(--teal);fill:none;stroke-width:2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+            <span data-i18n="piholeIntegration">Pi-hole Integration</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);margin-bottom:12px;line-height:1.5" data-i18n="piholeDesc">
+            Pi-hole v6 API for name resolution and MAC vendor. Credentials are stored on the server.
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
+            <div>
+              <label style="font-size:10px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px" data-i18n="piholeHosts">Pi-hole hosts (comma separated)</label>
+              <input type="text" id="ph-hosts" placeholder="192.168.0.2,192.168.0.5" autocomplete="off"
+                style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;width:100%;box-sizing:border-box">
+            </div>
+            <div>
+              <label style="font-size:10px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px" data-i18n="piholePass">Pi-hole admin password</label>
+              <input type="password" id="ph-pass" placeholder="••••••••" autocomplete="new-password"
+                style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:12px;padding:6px 8px;outline:none;width:100%;box-sizing:border-box">
+            </div>
+            <div id="ph-status" style="font-size:11px;font-family:var(--mono);padding:6px 8px;border-radius:var(--r-sm);display:none"></div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button onclick="togglePiholePanel()" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--sans);font-size:12px;cursor:pointer" data-i18n="cancel">Cancel</button>
+            <button onclick="savePiholeConfig()" id="btn-ph-save"
+              style="padding:6px 12px;border-radius:var(--r-sm);border:none;background:var(--teal);color:#fff;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer"
+              data-i18n="saveConnect">Save & connect</button>
+          </div>
+        </div>
+      </div>
       <div class="lang-btns">
         <button class="lang-btn" id="lang-en" onclick="setLang('en')">EN</button>
         <button class="lang-btn" id="lang-es" onclick="setLang('es')">ES</button>
@@ -339,39 +370,6 @@ td{padding:10px 14px;vertical-align:middle}
   </div>
 </div>
 
-<!-- Pi-hole config modal -->
-<div class="overlay" id="pihole-overlay">
-  <div class="modal" style="max-width:420px">
-    <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px;display:flex;align-items:center;gap:8px">
-      <svg style="width:18px;height:18px;stroke:var(--teal);fill:none;stroke-width:2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-      <span data-i18n="piholeIntegration">Pi-hole Integration</span>
-    </div>
-    <div style="font-size:12px;color:var(--text-dim);margin-bottom:18px;line-height:1.6" data-i18n="piholeDesc">
-      Pi-hole v6 API for name resolution and MAC vendor. Credentials are stored on the server.
-    </div>
-    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px">
-      <div class="lfield" style="margin-bottom:0">
-        <label style="font-size:11px;font-weight:600;color:var(--text-mid)" data-i18n="piholeHosts">Pi-hole hosts (comma separated)</label>
-        <input type="text" id="ph-hosts" placeholder="192.168.0.2,192.168.0.5" autocomplete="off"
-          style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 10px;outline:none;width:100%">
-      </div>
-      <div class="lfield" style="margin-bottom:0">
-        <label style="font-size:11px;font-weight:600;color:var(--text-mid)" data-i18n="piholePass">Pi-hole admin password</label>
-        <input type="password" id="ph-pass" placeholder="••••••••" autocomplete="new-password"
-          style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:8px 10px;outline:none;width:100%">
-      </div>
-      <div id="ph-status" style="font-size:11px;font-family:var(--mono);padding:8px 10px;border-radius:var(--r-sm);display:none"></div>
-    </div>
-    <div class="modal-acts">
-      <button class="btn-mc" onclick="closeModals()" data-i18n="cancel">Cancel</button>
-      <button onclick="savePiholeConfig()" id="btn-ph-save"
-        style="padding:8px 16px;border-radius:var(--r-sm);border:none;background:var(--teal);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer"
-        data-i18n="saveConnect">Save & connect
-      </button>
-    </div>
-  </div>
-</div>
-
 <div id="toast"></div>
 
 <script>
@@ -393,6 +391,8 @@ const LANG={
     noHosts:'No hosts found',searchPlaceholder:'IP, hostname, OS, port...',
     piholeIntegration:'Pi-hole Integration',piholeDesc:'Pi-hole v6 API for name resolution and MAC vendor. Credentials are stored on the server.',
     piholeHosts:'Pi-hole hosts (comma separated)',piholePass:'Pi-hole admin password',
+    piholeConnected:'Connected',piholeConnecting:'Connecting…',piholeNeedHost:'Enter at least one host',
+    piholeSuccess:'Saved — syncing names…',piholeToast:'Pi-hole connected — names will appear on next scan',
     osUnknown:'Unknown',newDevice:'NEW',
     newDeviceMsg:(n,names,more)=>`${n} new device${n>1?'s':''} detected: ${names}${more?' and more':''}`,
     osEditTitle:'Edit OS'},
@@ -413,6 +413,8 @@ const LANG={
     noHosts:'Sin hosts encontrados',searchPlaceholder:'IP, hostname, OS, puerto...',
     piholeIntegration:'Integración Pi-hole',piholeDesc:'Pi-hole v6 API para resolución de nombres y vendor MAC. Las credenciales se guardan en el servidor.',
     piholeHosts:'Hosts Pi-hole (separados por coma)',piholePass:'Password Pi-hole admin',
+    piholeConnected:'Conectado',piholeConnecting:'Conectando…',piholeNeedHost:'Ingresa al menos un host',
+    piholeSuccess:'Guardado — sincronizando nombres…',piholeToast:'Pi-hole conectado — los nombres aparecerán en el próximo escaneo',
     osUnknown:'Desconocido',newDevice:'NUEVO',
     newDeviceMsg:(n,names,more)=>`${n} nuevo${n>1?'s dispositivos':'dispositivo'} detectado${n>1?'s':''}: ${names}${more?' y más':''}`,
     osEditTitle:'Editar OS'}
@@ -849,57 +851,62 @@ function renderTable(){
 }
 
 // ── Pi-hole config ────────────────────────────────────────────────────────────
-async function openPiholeConfig(){
-  // Cargar config actual
+let _piholeOpen=false;
+function togglePiholePanel(){
+  _piholeOpen=!_piholeOpen;
+  const panel=document.getElementById('pihole-panel');
+  if(_piholeOpen){
+    panel.style.display='block';
+    loadPiholeConfig();
+    setTimeout(()=>document.getElementById('ph-pass').focus(),80);
+  }else{
+    panel.style.display='none';
+  }
+}
+// Cerrar al hacer click fuera
+document.addEventListener('click',e=>{
+  if(_piholeOpen&&!document.getElementById('pihole-wrap').contains(e.target)){
+    _piholeOpen=false;
+    document.getElementById('pihole-panel').style.display='none';
+  }
+},{passive:true});
+
+async function loadPiholeConfig(){
   try{
-    const r = await fetch('api/config');
-    const d = await r.json();
-    document.getElementById('ph-hosts').value = d.pihole_hosts || '192.168.0.2,192.168.0.5';
-    const st = document.getElementById('ph-status');
+    const r=await fetch('api/config');const d=await r.json();
+    document.getElementById('ph-hosts').value=d.pihole_hosts||'192.168.0.2,192.168.0.5';
+    const st=document.getElementById('ph-status');
     if(d.pihole_enabled){
-      const ts = d.pihole_cache_ts ? new Date(d.pihole_cache_ts*1000).toLocaleTimeString('es-CL') : '—';
-      st.style.display='block';
-      st.style.background='var(--teal-dim)';st.style.color='var(--teal)';
+      const ts=d.pihole_cache_ts?new Date(d.pihole_cache_ts*1000).toLocaleTimeString():'—';
+      st.style.display='block';st.style.background='var(--teal-dim)';st.style.color='var(--teal)';
       st.style.border='1px solid rgba(20,184,166,.2)';
-      st.textContent=`✓ Conectado — ${d.pihole_entries} hosts | último sync: ${ts}`;
-    }else{
-      st.style.display='none';
-    }
+      st.textContent=`✓ ${t('piholeConnected')||'Connected'} — ${d.pihole_entries} hosts | ${ts}`;
+    }else{st.style.display='none';}
   }catch(e){}
-  document.getElementById('pihole-overlay').classList.add('show');
-  document.getElementById('ph-pass').focus();
 }
 
 async function savePiholeConfig(){
-  const hosts = document.getElementById('ph-hosts').value.trim();
-  const pass  = document.getElementById('ph-pass').value;
-  const btn   = document.getElementById('btn-ph-save');
-  const st    = document.getElementById('ph-status');
-  if(!hosts){ toast('Ingresa al menos un host', true); return; }
-  btn.disabled=true; btn.innerHTML='<span class="spin">⟳</span> Conectando...';
+  const hosts=document.getElementById('ph-hosts').value.trim();
+  const pass=document.getElementById('ph-pass').value;
+  const btn=document.getElementById('btn-ph-save');
+  const st=document.getElementById('ph-status');
+  if(!hosts){toast(t('piholeNeedHost')||'Enter at least one host',true);return;}
+  btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';
   st.style.display='block';st.style.background='var(--bg)';st.style.border='1px solid var(--border)';st.style.color='var(--text-dim)';
-  st.textContent='Conectando con Pi-hole...';
+  st.textContent=t('piholeConnecting')||'Connecting…';
   try{
-    const r = await fetch('api/pihole/config',{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({hosts, password: pass})
-    });
-    const d = await r.json();
-    if(!r.ok) throw new Error(d.error);
-    st.style.background='var(--teal-dim)';st.style.color='var(--teal)';
-    st.style.border='1px solid rgba(20,184,166,.2)';
-    st.textContent='✓ Configuración guardada — sincronizando nombres...';
-    // Actualizar dot en botón
+    const r=await fetch('api/pihole/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hosts,password:pass})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error);
+    st.style.background='var(--teal-dim)';st.style.color='var(--teal)';st.style.border='1px solid rgba(20,184,166,.2)';
+    st.textContent=`✓ ${t('piholeSuccess')||'Saved — syncing names…'}`;
     document.getElementById('pihole-status-dot').style.background='var(--teal)';
     document.getElementById('pihole-status-dot').style.boxShadow='0 0 0 2px var(--teal-dim)';
-    toast('Pi-hole conectado — los nombres aparecerán en el próximo escaneo');
-    setTimeout(()=>closeModals(), 1500);
+    toast(t('piholeToast')||'Pi-hole connected — names will appear on next scan');
+    setTimeout(()=>{_piholeOpen=false;document.getElementById('pihole-panel').style.display='none';},1500);
   }catch(e){
-    st.style.background='var(--red-dim)';st.style.color='var(--red)';
-    st.style.border='1px solid rgba(239,68,68,.2)';
-    st.textContent='✕ Error: '+e.message;
-    toast(e.message, true);
-  }finally{ btn.disabled=false; btn.textContent='Guardar y conectar'; }
+    st.style.background='var(--red-dim)';st.style.color='var(--red)';st.style.border='1px solid rgba(239,68,68,.2)';
+    st.textContent='✕ '+e.message;toast(e.message,true);
+  }finally{btn.disabled=false;btn.textContent=t('saveConnect')||'Save & connect';}
 }
 
 function updatePiholeStatusDot(enabled){

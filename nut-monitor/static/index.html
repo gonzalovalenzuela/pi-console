@@ -433,17 +433,17 @@ canvas.vchart{width:100%;height:140px;display:block}
       <div style="display:flex;flex-direction:column;gap:16px">
         <!-- Agregar servidor -->
         <div class="card" id="add-srv-card" style="display:none">
-          <div class="card-hd"><span class="card-title">Agregar servidor NUT</span><button class="btn-link" onclick="closeAddServer()">✕</button></div>
+          <div class="card-hd"><span class="card-title" data-i18n="addServerTitle">Add NUT server</span><button class="btn-link" onclick="closeAddServer()">✕</button></div>
           <div class="form-body">
-            <div class="field"><label>Nombre</label><input type="text" id="f-sname" placeholder="Servidor oficina" autocomplete="off"></div>
+            <div class="field"><label data-i18n="addServerName">Name</label><input type="text" id="f-sname" placeholder="Office server" autocomplete="off"></div>
             <div class="two-col">
-              <div class="field"><label>Host / IP</label><input type="text" id="f-shost" placeholder="192.168.1.50" autocomplete="off"></div>
-              <div class="field"><label>Puerto</label><input type="number" id="f-sport" value="3493" min="1" max="65535"></div>
+              <div class="field"><label data-i18n="addServerHost">Host / IP</label><input type="text" id="f-shost" placeholder="192.168.1.50" autocomplete="off"></div>
+              <div class="field"><label data-i18n="addServerPort">Port</label><input type="number" id="f-sport" value="3493" min="1" max="65535"></div>
             </div>
             <div class="test-result" id="test-result"></div>
             <div style="display:flex;gap:8px">
-              <button class="btn-secondary" id="btn-test" onclick="testServer()">Probar</button>
-              <button class="btn-primary" id="btn-save-srv" onclick="saveServer()">Agregar</button>
+              <button class="btn-secondary" id="btn-test" onclick="testServer()" data-i18n="addServerTest">Test</button>
+              <button class="btn-primary" id="btn-save-srv" onclick="saveServer()" data-i18n="addServerBtn">Add</button>
             </div>
           </div>
         </div>
@@ -459,8 +459,8 @@ canvas.vchart{width:100%;height:140px;display:block}
 
 <div id="toast"></div>
 <div class="overlay" id="del-overlay">
-  <div class="modal"><h3>Eliminar servidor</h3><p id="del-msg"></p>
-  <div class="modal-acts"><button class="btn-mc" onclick="closeModals()">Cancelar</button><button class="btn-mok" id="del-btn">Eliminar</button></div></div>
+  <div class="modal"><h3 data-i18n="deleteServerTitle">Delete server</h3><p id="del-msg"></p>
+  <div class="modal-acts"><button class="btn-mc" onclick="closeModals()" data-i18n="cancel">Cancel</button><button class="btn-mok" id="del-btn" data-i18n="deleteServerTitle">Delete</button></div></div>
 </div>
 
 <script>
@@ -496,7 +496,15 @@ const LANG={
     chartLegend_input:'Input',chartLegend_output:'Output',chartLegend_watts:'Watts',
     chartTitle_power:'Power consumption',
     filterAll:'All',filterActivity:'Activity',filterClear:'Clear',
-    noDataChart:'No consumption data for this period'
+    noDataChart:'No consumption data for this period',
+    addServerTitle:'Add NUT server',addServerName:'Name',addServerHost:'Host / IP',
+    addServerPort:'Port',addServerTest:'Test',addServerBtn:'Add',
+    deleteServerTitle:'Delete server',deleteServerConfirm:(name)=>`Delete server "${name}"? Monitoring will stop.`,
+    noUPSDetail:'No UPS found. Add a NUT server or verify upsd is running.',
+    upsCountMsg:(ups,srv)=>`${ups} UPS on ${srv} server${srv!==1?'s':''}`,
+    serverAdded:(name)=>`${name} added`,serverDeleted:(name)=>`${name} deleted`,
+    serverAddedLog:(name)=>`Server added: ${name}`,serverDeletedLog:(name)=>`Server deleted: ${name}`,
+    testBtn:'Test',connecting:'Connecting…'
   },
   es:{
     loginTitle:'Iniciar sesión',loginSub:'Ingresa tus credenciales para continuar.',
@@ -528,12 +536,20 @@ const LANG={
     chartLegend_input:'Entrada',chartLegend_output:'Salida',chartLegend_watts:'Watts',
     chartTitle_power:'Consumo',
     filterAll:'Todo',filterActivity:'Actividad',filterClear:'Limpiar',
-    noDataChart:'Sin datos de consumo en este período'
+    noDataChart:'Sin datos de consumo en este período',
+    addServerTitle:'Agregar servidor NUT',addServerName:'Nombre',addServerHost:'Host / IP',
+    addServerPort:'Puerto',addServerTest:'Probar',addServerBtn:'Agregar',
+    deleteServerTitle:'Eliminar servidor',deleteServerConfirm:(name)=>`¿Eliminar el servidor "${name}"? Se detendrá el monitoreo.`,
+    noUPSDetail:'Sin UPS. Agrega un servidor NUT o verifica que upsd esté activo.',
+    upsCountMsg:(ups,srv)=>`${ups} UPS en ${srv} servidor${srv!==1?'es':''}`,
+    serverAdded:(name)=>`${name} agregado`,serverDeleted:(name)=>`${name} eliminado`,
+    serverAddedLog:(name)=>`Servidor agregado: ${name}`,serverDeletedLog:(name)=>`Servidor eliminado: ${name}`,
+    testBtn:'Probar',connecting:'Conectando…'
   }
 };
 let _lang=localStorage.getItem('pi-lang')||'en';
 var _i18nReady=false;
-function t(k){return(LANG[_lang]||LANG.en)[k]||(LANG.en)[k]||k;}
+function t(k,...args){const v=(LANG[_lang]||LANG.en)[k]||(LANG.en)[k]||k;return typeof v==='function'?v(...args):v;}
 function setLang(l){
   _lang=l;localStorage.setItem('pi-lang',l);document.documentElement.lang=l;
   document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.getAttribute('data-i18n')));
@@ -561,11 +577,11 @@ async function doLogin(){
     const r=await fetch('api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
     const d=await r.json();
     if(!r.ok||!d.ok){err.textContent=d.error||'Credenciales incorrectas';err.className='login-err show';return;}
-    if(!d.permissions?.nut||d.permissions.nut==='none'){err.textContent='Sin acceso a UPS Monitor';err.className='login-err show';return;}
+    if(!d.permissions?.nut||d.permissions.nut==='none'){err.textContent=t('noAccess')||'No access to UPS Monitor';err.className='login-err show';return;}
     ME=d;document.getElementById('login-screen').style.display='none';
     applyPermissions();await initApp();
   }catch(e){err.textContent='Error: '+e.message;err.className='login-err show';}
-  finally{btn.disabled=false;btn.textContent='Entrar';}
+  finally{btn.disabled=false;btn.textContent=t('loginBtn');}
 }
 
 async function checkSession(){
@@ -754,12 +770,12 @@ function renderDashboard(){
   if(wEl) wEl.innerHTML=totalWatts>0
     ? Math.round(totalWatts)+'<span style="font-size:13px;color:var(--text-dim)">W</span>'
     : '—';
-  document.getElementById('ups-count').textContent = rows.length+' UPS en '+servers.length+' servidor'+(servers.length!==1?'es':'');
+  document.getElementById('ups-count').textContent = t('upsCountMsg',rows.length,servers.length);
 
   if(!rows.length){
     tbody.innerHTML=`<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-dim);font-size:13px">
-      <strong style="display:block;color:var(--text-mid);margin-bottom:6px">Sin UPS</strong>
-      Agrega un servidor NUT o verifica que upsd esté activo.</td></tr>`;
+      <strong style="display:block;color:var(--text-mid);margin-bottom:6px" data-i18n="noUPS">${t('noUPS')}</strong>
+      ${t('noUPSDetail')}</td></tr>`;
     return;
   }
 
@@ -1236,7 +1252,7 @@ async function testServer(){
     if(d.ok){res.className='test-result ok show';res.textContent='✓ Conectado — '+d.ups_count+' UPS'+(d.version?' · '+d.version:'');log('OK','Test OK: '+host+':'+port);}
     else{res.className='test-result fail show';res.textContent='✕ '+d.error;}
   }catch(e){res.className='test-result fail show';res.textContent='✕ '+e.message;}
-  finally{btn.textContent='Probar';btn.disabled=false;}
+  finally{btn.textContent=t('addServerTest');btn.disabled=false;}
 }
 
 async function saveServer(){
@@ -1249,18 +1265,18 @@ async function saveServer(){
   try{
     const r=await fetch('api/servers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,host,port})});
     const d=await r.json();if(!r.ok)throw new Error(d.error||'HTTP '+r.status);
-    log('OK','Servidor agregado: '+name);toast(name+' agregado',false);closeAddServer();await fetchAll();
+    log('OK',t('serverAddedLog',name));toast(t('serverAdded',name),false);closeAddServer();await fetchAll();
   }catch(e){log('ERR',e.message);toast(e.message,true);}
-  finally{btn.disabled=false;btn.textContent='Agregar';}
+  finally{btn.disabled=false;btn.textContent=t('addServerBtn');}
 }
 
 function confirmDeleteServer(sid,name){
-  document.getElementById('del-msg').textContent='¿Eliminar el servidor "'+name+'"? Se detendrá el monitoreo.';
+  document.getElementById('del-msg').textContent=t('deleteServerConfirm',name);
   document.getElementById('del-btn').onclick=async()=>{
     closeModals();
     try{
       const r=await fetch('api/servers/'+sid,{method:'DELETE'});const d=await r.json();if(!r.ok)throw new Error(d.error);
-      log('WARN','Servidor eliminado: '+name);toast(name+' eliminado',false);await fetchAll();
+      log('WARN',t('serverDeletedLog',name));toast(t('serverDeleted',name),false);await fetchAll();
     }catch(e){log('ERR',e.message);toast(e.message,true);}
   };
   document.getElementById('del-overlay').classList.add('show');
