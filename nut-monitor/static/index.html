@@ -604,7 +604,8 @@ async function checkSession(){
 function applyPermissions(){
   document.getElementById('me-name').textContent=ME.username;
   document.getElementById('avatar').textContent=ME.username[0].toUpperCase();
-  document.getElementById('me-role').textContent=t({readonly:'permReadonly',execute:'permExecute',admin:'permAdmin'}[ME.permissions?.nut])||'—';
+  const _permKey={readonly:'permReadonly',execute:'permExecute',admin:'permAdmin'}[ME.permissions?.nut];
+  document.getElementById('me-role').textContent=_permKey?t(_permKey):'—';
   if(canAdmin()){document.getElementById('btn-add-srv').style.display='';document.getElementById('nav-admin').style.display='';}
 }
 

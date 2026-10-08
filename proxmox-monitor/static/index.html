@@ -418,7 +418,8 @@ async function tryAutoLogin(){
 function applyPermissions(){
   document.getElementById('me-name').textContent=ME.username;
   document.getElementById('avatar').textContent=ME.username[0].toUpperCase();
-  document.getElementById('me-role').textContent=t({readonly:'permReadonly',execute:'permExecute',admin:'permAdmin'}[ME.permissions?.pve])||'—';
+  const _permKey={readonly:'permReadonly',execute:'permExecute',admin:'permAdmin'}[ME.permissions?.pve];
+  document.getElementById('me-role').textContent=_permKey?t(_permKey):'—';
   if(ME.permissions?.pve==='admin') document.getElementById('btn-add-cluster').style.display='';
   if(ME.permissions?.wol==='admin'||ME.permissions?.nut==='admin') document.getElementById('nav-admin').style.display='';
 }

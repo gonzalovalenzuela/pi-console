@@ -484,7 +484,8 @@ async function checkSession(){
 function applyPermissions(){
   document.getElementById('me-name').textContent=ME.username;
   document.getElementById('avatar').textContent=ME.username[0].toUpperCase();
-  document.getElementById('me-role').textContent=t({readonly:'permReadonly',execute:'permExecute',admin:'permAdmin'}[ME.permissions?.net])||'—';
+  const _permKey={readonly:'permReadonly',execute:'permExecute',admin:'permAdmin'}[ME.permissions?.net];
+  document.getElementById('me-role').textContent=_permKey?t(_permKey):'—';
   if(ME.permissions?.wol==='admin'||ME.permissions?.nut==='admin')document.getElementById('nav-admin').style.display='';
 }
 async function logout(){await fetch('api/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});location.reload();}
