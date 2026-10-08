@@ -435,9 +435,9 @@ canvas.vchart{width:100%;height:140px;display:block}
         <div class="card" id="add-srv-card" style="display:none">
           <div class="card-hd"><span class="card-title" data-i18n="addServerTitle">Add NUT server</span><button class="btn-link" onclick="closeAddServer()">✕</button></div>
           <div class="form-body">
-            <div class="field"><label data-i18n="addServerName">Name</label><input type="text" id="f-sname" placeholder="Office server" autocomplete="off"></div>
+            <div class="field"><label data-i18n="addServerName">Name</label><input type="text" id="f-sname" placeholder="Servidor" autocomplete="off"></div>
             <div class="two-col">
-              <div class="field"><label data-i18n="addServerHost">Host / IP</label><input type="text" id="f-shost" placeholder="192.168.1.50" autocomplete="off"></div>
+              <div class="field"><label data-i18n="addServerHost">Host / IP</label><input type="text" id="f-shost" placeholder="192.168.0.2" autocomplete="off"></div>
               <div class="field"><label data-i18n="addServerPort">Port</label><input type="number" id="f-sport" value="3493" min="1" max="65535"></div>
             </div>
             <div class="test-result" id="test-result"></div>
@@ -861,7 +861,8 @@ function renderDashboard(){
       <td><span class="sdot ${cls}"></span></td>
       <td>
         <span class="ups-cell-name">${esc(row.upsName)} <span class="srv-tag">${esc(row.srv.name)}</span></span>
-        <span class="ups-cell-sub">${esc(row.v['_desc']||'UPS')}${row.v['_serial']?' ('+esc(row.v['_serial'])+')':''} · ${row.srv.host}:${row.srv.port}</span>
+        <span class="ups-cell-sub">${esc(row.v['_desc']||'UPS')}${row.v['_serial']?' &nbsp;·&nbsp; <span style="font-family:var(--mono);letter-spacing:.3px">SN '+esc(row.v['_serial'])+'</span>':''}</span>
+        <span class="ups-cell-sub" style="font-family:var(--mono);letter-spacing:.3px">${esc(row.srv.host)}<span style="color:var(--border-b)">:</span>${row.srv.port}</span>
       </td>
       <td><span class="ups-badge ${badgeCls}">${badgeTxt}</span></td>
       <td>
