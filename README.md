@@ -65,7 +65,7 @@ Cada módulo es un servidor HTTP Python 3 independiente. La autenticación se co
 
 ```bash
 # Descargar el .deb desde Releases
-wget https://github.com/<tu-usuario>/pi-console/releases/latest/download/pi-console_1.0.4_all.deb
+wget https://github.com/gonzalovalenzuela/pi-console/releases/latest/download/pi-console_1.0.4_all.deb
 
 # Instalar
 sudo dpkg -i pi-console_1.0.4_all.deb
@@ -170,3 +170,4 @@ pi-console/
 ## Licencia
 
 MIT — uso libre para homelab personal y proyectos propios.
+Creado con ayuda de IA
