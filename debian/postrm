@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+
+if [ "$1" = "purge" ]; then
+    echo "pi-console: purging..."
+    rm -rf /opt/pi-console /opt/pi-console-auth
+    rm -f /etc/nginx/sites-enabled/pi-console.conf
+    rm -f /etc/systemd/system/wol-console.service
+    rm -f /etc/systemd/system/nut-monitor.service
+    rm -f /etc/systemd/system/admin-panel.service
+    rm -f /etc/systemd/system/net-monitor.service
+    rm -f /etc/systemd/system/proxmox-monitor.service
+    systemctl daemon-reload 2>/dev/null || true
+    # Eliminar usuario del sistema
+    userdel pi-console 2>/dev/null || true
+    echo "pi-console: purgado (backups en /var/backups/pi-console)"
+fi

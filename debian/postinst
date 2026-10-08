@@ -1,0 +1,153 @@
+#!/bin/bash
+set -e
+
+PI_HOME="/opt/pi-console"
+AUTH_DIR="/opt/pi-console-auth"
+
+echo "pi-console: configurando instalación..."
+
+# ── 1. Crear usuario del sistema ──────────────────────────────────────────────
+if ! id -u pi-console &>/dev/null; then
+    useradd --system --no-create-home --shell /usr/sbin/nologin pi-console
+    echo "  usuario pi-console creado"
+fi
+
+# ── 2. Symlink auth compartido ────────────────────────────────────────────────
+mkdir -p "$AUTH_DIR"
+ln -sf "$PI_HOME/auth/auth.py"       "$AUTH_DIR/auth.py"       2>/dev/null || true
+ln -sf "$PI_HOME/auth/users.json"    "$AUTH_DIR/users.json"    2>/dev/null || true
+ln -sf "$PI_HOME/auth/sessions.json" "$AUTH_DIR/sessions.json" 2>/dev/null || true
+chown -h pi-console:pi-console "$AUTH_DIR"/* 2>/dev/null || true
+chown pi-console:pi-console "$AUTH_DIR"
+
+# ── 3. Permisos de directorios de datos ───────────────────────────────────────
+chown -R pi-console:pi-console "$PI_HOME"
+chmod 755 "$PI_HOME"
+
+# Cada módulo puede escribir en su propio directorio
+for module in wol-console nut-monitor net-monitor proxmox-monitor auth; do
+    chown pi-console:pi-console "$PI_HOME/$module"
+    chmod 755 "$PI_HOME/$module"
+done
+
+# ttyUSB0 para NUT (UPS por serial)
+if getent group dialout &>/dev/null; then
+    usermod -aG dialout pi-console 2>/dev/null || true
+fi
+
+# ── 4. Instalar archivos de servicio systemd ──────────────────────────────────
+install_service() {
+    local name="$1" desc="$2" port="$3" module="$4" script="$5"
+    cat > "/etc/systemd/system/${name}.service" <<EOF
+[Unit]
+Description=Pi Console — ${desc}
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=pi-console
+WorkingDirectory=${PI_HOME}/${module}
+ExecStart=/usr/bin/python3 ${PI_HOME}/${module}/${script}
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=${name}
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    echo "  servicio ${name} instalado"
+}
+
+install_service "wol-console"      "WOL Console"      8080 "wol-console"      "server.py"
+install_service "nut-monitor"      "NUT Monitor"      8081 "nut-monitor"       "server.py"
+install_service "admin-panel"      "Admin Panel"      8082 "auth"              "admin_panel.py"
+install_service "net-monitor"      "Net Monitor"      8083 "net-monitor"       "server.py"
+install_service "proxmox-monitor"  "Proxmox Monitor"  8084 "proxmox-monitor"   "server.py"
+
+# ── 5. Nginx ──────────────────────────────────────────────────────────────────
+if [ -f /etc/nginx/sites-enabled/default ]; then
+    rm -f /etc/nginx/sites-enabled/default
+fi
+ln -sf /etc/nginx/sites-available/pi-console.conf \
+       /etc/nginx/sites-enabled/pi-console.conf 2>/dev/null || true
+
+# ── 6. Restaurar datos si hay backup reciente ─────────────────────────────────
+BACKUP_DIR="/var/backups/pi-console"
+if [ -d "$BACKUP_DIR" ]; then
+    # Restaurar el backup más reciente de cada archivo de datos
+    for base in users.json sessions.json; do
+        latest=$(ls -t "$BACKUP_DIR/${base}".*.bak 2>/dev/null | head -1)
+        dest="$PI_HOME/auth/$base"
+        if [ -n "$latest" ] && [ ! -f "$dest" ]; then
+            cp "$latest" "$dest"
+            chown pi-console:pi-console "$dest"
+            echo "  restaurado: $base"
+        fi
+    done
+    for pair in \
+        "wol-console/devices.json:devices.json" \
+        "nut-monitor/servers.json:servers.json" \
+        "nut-monitor/history.db:history.db" \
+        "net-monitor/hosts.json:hosts.json" \
+        "net-monitor/config.json:config.json" \
+        "proxmox-monitor/clusters.json:clusters.json"
+    do
+        module_path="${pair%%:*}"
+        base="${pair##*:}"
+        latest=$(ls -t "$BACKUP_DIR/${base}".*.bak 2>/dev/null | head -1)
+        dest="$PI_HOME/$module_path"
+        if [ -n "$latest" ] && [ ! -f "$dest" ]; then
+            mkdir -p "$(dirname $dest)"
+            cp "$latest" "$dest"
+            chown pi-console:pi-console "$dest"
+            echo "  restaurado: $module_path"
+        fi
+    done
+fi
+
+# ── 7. Inicializar users.json si no existe ────────────────────────────────────
+if [ ! -f "$PI_HOME/auth/users.json" ]; then
+    # Hash SHA256 de "admin" con el salt por defecto
+    PASS_HASH=$(python3 -c "
+import hashlib, json, time
+salt = 'pi-console-salt-change-me'
+pw   = hashlib.sha256(f'{salt}:admin'.encode()).hexdigest()
+users = {'admin': {'password_hash': pw, 'permissions': {
+    'wol':'admin','nut':'admin','net':'admin','pve':'admin'
+}, 'created': int(time.time()), 'must_change_password': True}}
+print(json.dumps(users, indent=2))
+")
+    echo "$PASS_HASH" > "$PI_HOME/auth/users.json"
+    chown pi-console:pi-console "$PI_HOME/auth/users.json"
+    chmod 600 "$PI_HOME/auth/users.json"
+    echo "  users.json creado (admin / admin — cambiar en primer login)"
+fi
+
+# ── 8. Recargar y habilitar servicios ─────────────────────────────────────────
+systemctl daemon-reload
+
+for svc in wol-console nut-monitor admin-panel net-monitor proxmox-monitor; do
+    systemctl enable "$svc" 2>/dev/null || true
+    systemctl restart "$svc" 2>/dev/null || true
+    echo "  $svc habilitado"
+done
+
+# Nginx
+if nginx -t -q 2>/dev/null; then
+    systemctl enable nginx 2>/dev/null || true
+    systemctl reload nginx 2>/dev/null || systemctl restart nginx 2>/dev/null || true
+    echo "  nginx recargado"
+else
+    echo "  AVISO: nginx -t falló, verificar configuración manualmente"
+fi
+
+echo ""
+echo "╔════════════════════════════════════════════════╗"
+echo "║  Pi Console instalado correctamente            ║"
+echo "║  URL: http://$(hostname -I | awk '{print $1}')                  ║"
+echo "║  Usuario inicial: admin / admin                ║"
+echo "║  (cambiar contraseña en el primer login)       ║"
+echo "╚════════════════════════════════════════════════╝"

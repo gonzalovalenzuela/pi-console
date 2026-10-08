@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="author" content="Gonzalo Valenzuela <gonzalo@rave.cl>">
+<meta name="description" content="Pi Console — Homelab dashboard · WOL Console module">
+<meta name="version" content="1.0.4">
+<title>WOL Console</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzQzNjFlZSIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQsNCkgc2NhbGUoMSkiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik0xMyAzTDQgMTRoN2wtMSA3IDktMTFoLTdsMS03eiIvPgogIDwvZz4KPC9zdmc+">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f0f2f5;--surface:#fff;--surface2:#f8f9fb;--border:#e3e8ef;--border-b:#cdd4e0;--blue:#4361ee;--blue-dim:rgba(67,97,238,.1);--green:#22c55e;--green-dim:rgba(34,197,94,.1);--red:#ef4444;--red-dim:rgba(239,68,68,.1);--orange:#f97316;--orange-dim:rgba(249,115,22,.1);--purple:#8b5cf6;--purple-dim:rgba(139,92,246,.1);--text:#1a2033;--text-mid:#5a6a85;--text-dim:#94a3b8;--sidebar-w:224px;--r:10px;--r-sm:6px;--shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);--shadow-md:0 4px 16px rgba(0,0,0,.1);--tag-pc:#4361ee;--tag-server:#8b5cf6;--tag-nas:#10b981;--tag-vm:#f97316;--tag-other:#64748b;--sans:'DM Sans',sans-serif;--mono:'DM Mono',monospace}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;display:flex}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--border-b);border-radius:99px}
+/* ── Login overlay ── */
+#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:99999;padding:24px}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:32px;width:100%;max-width:360px;box-shadow:var(--shadow-md)}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+.login-logo-ico{width:36px;height:36px;border-radius:8px;background:var(--blue);display:flex;align-items:center;justify-content:center}
+.login-logo-ico svg{width:18px;height:18px;fill:#fff}
+.login-title{font-size:18px;font-weight:600;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--text-dim);margin-bottom:22px}
+.login-err{background:var(--red-dim);border:1px solid rgba(239,68,68,.2);border-radius:var(--r-sm);padding:10px;font-size:12px;color:var(--red);margin-bottom:14px;display:none}
+.login-err.show{display:block}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+label{font-size:11px;font-weight:600;color:var(--text-mid)}
+input[type=text],input[type=password],input[type=number],select{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:8px 10px;outline:none;transition:all .15s;width:100%}
+input:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-dim);background:var(--surface)}
+input.err{border-color:var(--red);box-shadow:0 0 0 3px var(--red-dim)}
+.btn-login{background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:600;padding:11px;cursor:pointer;width:100%;margin-top:4px;transition:all .15s}
+.btn-login:hover{background:#3451d1}
+.btn-login:disabled{opacity:.5;cursor:not-allowed}
+/* ── Sidebar ── */
+.sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100}
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sb-icon{width:34px;height:34px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sb-icon svg{width:16px;height:16px;fill:#fff}
+.sb-name{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-.2px}
+.sb-ver{font-size:10px;color:var(--text-dim);font-family:var(--mono)}
+.sb-sec{padding:14px 10px 6px}
+.sb-lbl{font-size:10px;font-weight:600;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;padding:0 8px;margin-bottom:3px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-sm);cursor:pointer;color:var(--text-mid);font-size:13.5px;font-weight:500;transition:all .15s;text-decoration:none}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2}
+.nav-item:hover{background:var(--bg);color:var(--text)}
+.nav-item.active{background:var(--blue-dim);color:var(--blue)}
+.sb-footer{margin-top:auto;padding:12px 12px 14px;border-top:1px solid var(--border)}
+.user-avatar{width:28px;height:28px;border-radius:50%;background:var(--blue-dim);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.btn-logout{background:none;border:none;color:var(--text-dim);cursor:pointer;padding:4px;line-height:1;transition:color .15s;display:flex;align-items:center}
+.btn-logout svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.btn-logout:hover{color:var(--red)}
+
+/* Topbar user chip */
+.topbar-user{display:flex;align-items:center;gap:7px;padding:5px 10px 5px 6px;background:var(--bg);border:1px solid var(--border);border-radius:99px;cursor:default}
+.topbar-avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.topbar-user-info{display:flex;flex-direction:column;line-height:1.2}
+.topbar-user-name{font-size:12px;font-weight:600;color:var(--text)}
+.topbar-user-role{font-size:10px;color:var(--text-dim)}
+.topbar-avatar{background:var(--blue-dim);color:var(--blue)}
+.theme-btns{display:flex;gap:6px;margin-top:0}
+.theme-btn{flex:1;background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:10px;font-weight:600;color:var(--text-dim);cursor:pointer;padding:5px 8px;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:3px}
+.theme-btn svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0}
+.theme-btn:hover{border-color:var(--border-b);color:var(--text)}
+.theme-btn.active{background:var(--blue-dim);border-color:var(--blue);color:var(--blue)}
+.lang-btns{display:flex;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden}
+.lang-btn{background:transparent;border:none;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--text-dim);cursor:pointer;padding:4px 8px;transition:all .15s;letter-spacing:.5px}
+.lang-btn:hover{color:var(--text)}
+.lang-btn.active{background:var(--blue);color:#fff}
+[data-theme="dark"]{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#1e2130;
+  --border:#2a2f45;--border-b:#363d57;
+  --text:#e2e8f0;--text-mid:#94a3b8;--text-dim:#5a6a85;
+  --shadow:0 1px 3px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.2);
+  --shadow-md:0 4px 16px rgba(0,0,0,.4);
+  --blue-dim:rgba(67,97,238,.2);--green-dim:rgba(34,197,94,.15);
+  --red-dim:rgba(239,68,68,.15);--orange-dim:rgba(249,115,22,.15);
+  --yellow-dim:rgba(234,179,8,.15);--purple-dim:rgba(139,92,246,.15);
+}
+/* ── Main ── */
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:sticky;top:0;z-index:50}
+.tb-left{display:flex;align-items:center;gap:10px;flex:1}
+.tb-right{display:flex;align-items:center;gap:8px}
+.search-wrap{position:relative;max-width:260px;width:100%}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;stroke:var(--text-dim);fill:none;stroke-width:2;pointer-events:none}
+#search-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:7px 12px 7px 32px;outline:none;transition:all .15s}
+#search-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-dim);background:var(--surface)}
+#search-input::placeholder{color:var(--text-dim)}
+.pills{display:flex;gap:4px}
+.pill{font-size:12px;font-weight:500;padding:5px 10px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--text-mid);cursor:pointer;transition:all .15s}
+.pill:hover{border-color:var(--border-b);color:var(--text)}
+.pill.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn-ghost{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-mid);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-ghost svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2}
+.btn-ghost:hover{border-color:var(--border-b);color:var(--text);background:var(--surface2)}
+#hclock{font-family:var(--mono);font-size:12px;color:var(--text-dim);min-width:62px;text-align:right}
+.content{padding:22px 24px;display:flex;flex-direction:column;gap:18px}
+/* ── Stats ── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px 18px;display:flex;align-items:center;gap:13px;box-shadow:var(--shadow);transition:box-shadow .15s}
+.stat-card:hover{box-shadow:var(--shadow-md)}
+.stat-ico{width:40px;height:40px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stat-ico svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
+.stat-ico.blue{background:var(--blue-dim);color:var(--blue)}
+.stat-ico.green{background:var(--green-dim);color:var(--green)}
+.stat-ico.orange{background:var(--orange-dim);color:var(--orange)}
+.stat-ico.purple{background:var(--purple-dim);color:var(--purple)}
+.stat-body .stat-val{font-size:22px;font-weight:600;color:var(--text);line-height:1}
+.stat-body .stat-lbl{font-size:11px;color:var(--text-dim);margin-top:2px;font-weight:500}
+/* ── Grid ── */
+.main-grid{display:grid;grid-template-columns:1fr 316px;gap:18px;align-items:start}
+/* ── Card ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.card-hd{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.card-title{font-size:13px;font-weight:600;color:var(--text)}
+.card-meta{font-size:12px;color:var(--text-dim);font-family:var(--mono)}
+/* ── Table ── */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead th{padding:9px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;transition:color .15s}
+thead th:hover{color:var(--text-mid)}
+thead th.sorted{color:var(--blue)}
+.sa{margin-left:3px;opacity:.5;font-size:10px}
+thead th.sorted .sa{opacity:1}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s;animation:row-in .22s ease both}
+@keyframes row-in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--bg)}
+td{padding:10px 16px;vertical-align:middle}
+.col-st{width:36px}
+.ind{width:8px;height:8px;border-radius:50%;background:var(--border-b);display:block;margin:0 auto;transition:all .3s}
+.ind.waking{background:var(--orange);box-shadow:0 0 0 3px var(--orange-dim);animation:pind .5s ease infinite}
+.ind.sent{background:var(--green);box-shadow:0 0 0 3px var(--green-dim)}
+@keyframes pind{0%,100%{opacity:1}50%{opacity:.25}}
+.dev-name{font-size:13.5px;font-weight:500;color:var(--text);display:block}
+.dev-mac{font-size:11px;color:var(--text-dim);font-family:var(--mono);display:block;margin-top:1px}
+.tag{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.tag-pc{background:rgba(67,97,238,.1);color:var(--tag-pc)}
+.tag-server{background:rgba(139,92,246,.1);color:var(--tag-server)}
+.tag-nas{background:rgba(16,185,129,.1);color:var(--tag-nas)}
+.tag-vm{background:rgba(249,115,22,.1);color:var(--tag-vm)}
+.tag-other{background:rgba(100,116,139,.1);color:var(--tag-other)}
+.col-ip{font-family:var(--mono);font-size:12px;color:var(--text-mid);min-width:110px}
+.col-lw{font-size:12px;color:var(--text-dim);min-width:90px}
+.col-act{white-space:nowrap;text-align:right}
+.btn-wake{background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-family:var(--sans);font-size:11px;font-weight:600;padding:5px 13px;cursor:pointer;transition:all .15s}
+.btn-wake:hover{background:#3451d1;box-shadow:0 2px 8px rgba(67,97,238,.3)}
+.btn-wake:active{transform:scale(.96)}
+.btn-wake:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+.btn-ri{background:transparent;border:none;color:var(--text-dim);cursor:pointer;padding:5px 6px;border-radius:var(--r-sm);font-size:13px;transition:all .15s;line-height:1}
+.btn-ri:hover{background:var(--bg)}
+.btn-ri.e:hover{color:var(--blue)}
+.btn-ri.d:hover{color:var(--red)}
+.empty{padding:44px 24px;text-align:center;color:var(--text-dim);font-size:13px;line-height:1.8}
+.empty strong{display:block;font-size:14px;font-weight:600;color:var(--text-mid);margin-bottom:6px}
+/* ── Form ── */
+.form-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+.hint{font-size:11px;color:var(--text-dim)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-primary{background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:600;padding:9px;cursor:pointer;transition:all .15s;width:100%;margin-top:2px}
+.btn-primary:hover{background:#3451d1;box-shadow:0 2px 10px rgba(67,97,238,.25)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.edit-banner{display:none;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--orange-dim);border-bottom:1px solid rgba(249,115,22,.2);font-size:11px;font-weight:600;color:var(--orange)}
+.edit-banner.show{display:flex}
+.edit-banner button{background:none;border:none;color:var(--orange);cursor:pointer;font-size:12px;font-family:var(--sans);font-weight:500;padding:0}
+/* ── Readonly banner ── */
+.readonly-banner{display:none;align-items:center;gap:8px;padding:8px 18px;background:var(--blue-dim);border-bottom:1px solid rgba(67,97,238,.15);font-size:12px;color:var(--blue)}
+.readonly-banner.show{display:flex}
+/* ── Log ── */
+.log-row{display:flex;gap:10px;align-items:baseline;font-size:11.5px;font-family:var(--mono);padding:2px 0;animation:ll .15s ease both}
+@keyframes ll{from{opacity:0}to{opacity:1}}
+.lt{color:var(--text-dim);flex-shrink:0}.lv{flex-shrink:0;width:36px;font-weight:500}
+.lv.OK{color:var(--green)}.lv.INFO{color:var(--blue)}.lv.WARN{color:var(--orange)}.lv.ERR{color:var(--red)}
+.lm{color:var(--text-mid)}
+#log-out{padding:10px 16px;min-height:80px;max-height:150px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+.btn-link{background:none;border:none;color:var(--text-dim);font-family:var(--sans);font-size:11px;cursor:pointer;padding:0;font-weight:500;transition:color .15s}
+.btn-link:hover{color:var(--text-mid)}
+#toast{position:fixed;bottom:22px;right:22px;background:var(--text);color:#fff;border-radius:var(--r-sm);padding:10px 15px;font-size:13px;font-weight:500;z-index:9000;opacity:0;transform:translateY(6px);transition:all .2s;max-width:280px;pointer-events:none;box-shadow:var(--shadow-md);display:flex;align-items:center;gap:8px}
+#toast::before{content:'✓';font-size:13px;color:#86efac}
+#toast.err::before{content:'✕';color:#fca5a5}
+#toast.show{opacity:1;transform:none}
+.overlay{position:fixed;inset:0;background:rgba(15,20,30,.45);backdrop-filter:blur(2px);z-index:8000;display:none;align-items:center;justify-content:center}
+.overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;max-width:400px;width:92%;box-shadow:var(--shadow-md);animation:min .2s ease}
+@keyframes min{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+.modal-ico{width:40px;height:40px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:20px}
+.modal-ico.danger{background:var(--red-dim)}
+.modal-ico.info{background:var(--blue-dim)}
+.modal h3{font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px}
+.modal p{font-size:13px;color:var(--text-mid);line-height:1.6;margin-bottom:20px}
+.modal-acts{display:flex;gap:8px;justify-content:flex-end}
+.btn-mc{padding:8px 16px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-mid);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.btn-mc:hover{background:var(--bg);color:var(--text)}
+.btn-mok{padding:8px 16px;border-radius:var(--r-sm);border:none;background:var(--red);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
+.btn-mok:hover{background:#dc2626}
+.btn-mok.blue{background:var(--blue)}
+.btn-mok.blue:hover{background:#3451d1}
+#wakeall-list{max-height:150px;overflow-y:auto;margin-bottom:18px;border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 12px;font-size:12px;font-family:var(--mono);color:var(--text-mid);display:flex;flex-direction:column;gap:4px;background:var(--bg)}
+.spin{display:inline-block;animation:spin .5s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:960px){
+  .sidebar{display:none}.main{margin-left:0}
+  .stats-row{grid-template-columns:1fr 1fr}
+  .main-grid{grid-template-columns:1fr}
+  .col-lw,.col-ip{display:none}
+}
+@media(max-width:600px){
+  .pills{display:none}
+  .content{padding:12px 14px}
+  .topbar{padding:0 14px;height:48px}
+  .stats-row{grid-template-columns:1fr 1fr;gap:10px}
+  .stat-card{padding:12px 14px;gap:10px}
+  .stat-ico{width:34px;height:34px}
+  .stat-val{font-size:18px}
+  /* Tabla: solo nombre y botón wake */
+  .col-lw,.col-ip,.col-st{display:none}
+  td:nth-child(1){display:none}
+  table thead th:nth-child(3){display:none}
+  table tbody td:nth-child(3){display:none}
+  .dev-name{font-size:13px}
+  .dev-mac{font-size:10px}
+  .btn-wake{font-size:10px;padding:4px 10px}
+  /* Form en mobile */
+  .two-col{grid-template-columns:1fr}
+  .card-hd{padding:10px 14px}
+  #log-out{max-height:100px}
+  /* Search */
+  .search-wrap{max-width:100%}
+  .tb-right{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-ico"><svg viewBox="0 0 24 24"><path d="M13 3L4 14h7l-1 7 9-11h-7l1-7z"/></svg></div>
+      <div><div style="font-size:15px;font-weight:600">WOL Console</div><div style="font-size:10px;color:var(--text-dim);font-family:var(--mono)">Wake-on-LAN Manager</div></div>
+    </div>
+    <div class="login-title" data-i18n="loginTitle">Sign in</div>
+    <div class="login-sub" data-i18n="loginSub">Enter your credentials to continue.</div>
+    <div class="login-err" id="login-err"></div>
+    <div class="field"><label data-i18n="username">Username</label><input type="text" id="l-user" autocomplete="username" autofocus></div>
+    <div class="field"><label data-i18n="password">Password</label><input type="password" id="l-pass" autocomplete="current-password"></div>
+    <button class="btn-login" id="btn-l" onclick="doLogin()" data-i18n="loginBtn">Sign in</button>
+  </div>
+</div>
+
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-icon"><svg viewBox="0 0 24 24"><path d="M13 3L4 14h7l-1 7 9-11h-7l1-7z"/></svg></div>
+    <div><div class="sb-name">WOL Console</div><div class="sb-ver">Wake-on-LAN v2</div></div>
+  </div>
+  <div class="sb-sec">
+    <div class="sb-lbl" data-i18n="navSection">Navigation</div>
+    <a class="nav-item active" href="#"><svg viewBox="0 0 24 24"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg>WOL Console</a>
+    <a class="nav-item" href="/nut/" style="margin-top:2px"><svg viewBox="0 0 24 24"><path d="M5 9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><rect x="3" y="9" width="18" height="11" rx="2"/><line x1="12" y1="13" x2="12" y2="16"/></svg>UPS Monitor</a>
+    <a class="nav-item" href="/net/" style="margin-top:2px"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>Net Monitor</a>
+    <a class="nav-item" href="/pve/" style="margin-top:2px"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Proxmox</a>
+    <a class="nav-item" href="/admin/" style="margin-top:2px" id="nav-admin" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Admin Panel</a>
+  </div>
+  <div class="sb-sec">
+    <div class="sb-lbl" data-i18n="actionsSection">Actions</div>
+    <div class="nav-item" onclick="openWakeAll()"><svg viewBox="0 0 24 24"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg>Wake All</div>
+    <div class="nav-item" onclick="exportJSON()"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="exportJSON">Export JSON</span></div>
+    <div class="nav-item" onclick="showWakeLog()"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span data-i18n="wakeHistory">Wake History</span></div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="tb-left">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-input" placeholder="Buscar por nombre, MAC, IP...">
+      </div>
+      <div class="pills">
+        <button class="pill active" data-filter="ALL"    onclick="setFilter(this)">Todos</button>
+        <button class="pill"        data-filter="PC"     onclick="setFilter(this)">PC</button>
+        <button class="pill"        data-filter="SERVER" onclick="setFilter(this)">Server</button>
+        <button class="pill"        data-filter="NAS"    onclick="setFilter(this)">NAS</button>
+        <button class="pill"        data-filter="VM"     onclick="setFilter(this)">VM</button>
+        <button class="pill"        data-filter="OTHER"  onclick="setFilter(this)">Other</button>
+      </div>
+    </div>
+    <div class="tb-right">
+      <button class="btn-ghost" onclick="openWakeAll()"><svg viewBox="0 0 24 24"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg>Wake All</button>
+      <div class="lang-btns">
+        <button class="lang-btn" id="lang-en" onclick="setLang('en')">EN</button>
+        <button class="lang-btn" id="lang-es" onclick="setLang('es')">ES</button>
+      </div>
+      <div class="theme-btns">
+        <button class="theme-btn" id="theme-light" onclick="setTheme('light')" title="Light">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <span data-i18n="themeLight">Light</span>
+        </button>
+        <button class="theme-btn" id="theme-dark" onclick="setTheme('dark')" title="Dark">
+          <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <span data-i18n="themeDark">Dark</span>
+        </button>
+        <button class="theme-btn" id="theme-system" onclick="setTheme('system')" title="Auto">
+          <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Auto
+        </button>
+      </div>
+      <span id="hclock"></span>
+      <div style="width:1px;height:20px;background:var(--border);margin:0 4px;flex-shrink:0"></div>
+      <div class="topbar-user">
+        <div class="topbar-avatar" id="avatar">?</div>
+        <div class="topbar-user-info">
+          <span class="topbar-user-name" id="me-name">—</span>
+          <span class="topbar-user-role" id="me-role">—</span>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()" title="Cerrar sesión">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-ico blue"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div class="stat-body"><div class="stat-val" id="st-total">—</div><div class="stat-lbl" data-i18n="statRegistered">Registered devices</div></div></div>
+      <div class="stat-card"><div class="stat-ico green"><svg viewBox="0 0 24 24"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg></div><div class="stat-body"><div class="stat-val" id="st-wakes">0</div><div class="stat-lbl" data-i18n="statWakesSent">Wakes sent</div></div></div>
+      <div class="stat-card"><div class="stat-ico orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></div><div class="stat-body"><div class="stat-val" style="font-size:15px;padding-top:3px" id="st-last">—</div><div class="stat-lbl" data-i18n="statLastWake">Last wake</div></div></div>
+      <div class="stat-card"><div class="stat-ico purple"><svg viewBox="0 0 24 24"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div><div class="stat-body"><div class="stat-val" style="font-size:15px;padding-top:3px;font-family:var(--mono)" id="st-uptime">00:00:00</div><div class="stat-lbl" data-i18n="statSession">Active session</div></div></div>
+    </div>
+
+    <div class="main-grid">
+      <div class="card">
+        <div class="readonly-banner" id="readonly-banner"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span data-i18n="readonlyMsg">Read-only mode — you cannot execute actions</span></div>
+        <div class="card-hd"><span class="card-title" data-i18n="devicesTitle">Devices</span><span class="card-meta" id="dev-count">—</span></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th class="col-st"></th>
+              <th data-col="name"     onclick="sortBy('name')"><span data-i18n="colName">Name</span> <span class="sa">↕</span></th>
+              <th data-col="tag"      onclick="sortBy('tag')"><span data-i18n="colType">Type</span> <span class="sa">↕</span></th>
+              <th class="col-ip"      data-col="ip" onclick="sortBy('ip')">IP / Host <span class="sa">↕</span></th>
+              <th class="col-lw"      data-col="lastWoke" onclick="sortBy('lastWoke')"><span data-i18n="colLastWake">Last wake</span> <span class="sa">↕</span></th>
+              <th class="col-act" data-i18n="colActions">Actions</th>
+            </tr></thead>
+            <tbody id="dev-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card" id="form-card">
+          <div class="card-hd"><span class="card-title" id="form-title" data-i18n="addDevice">Add device</span></div>
+          <div class="edit-banner" id="edit-banner"><span data-i18n="editMode">Edit mode</span><button onclick="cancelEdit()">✕ <span data-i18n="cancel">Cancel</span></button></div>
+          <div class="form-body">
+            <input type="hidden" id="f-id">
+            <div class="field"><label data-i18n="fieldName">Name</label><input type="text" id="f-name" placeholder="WORKSTATION-01" maxlength="40" autocomplete="off"></div>
+            <div class="field"><label data-i18n="fieldMAC">MAC Address</label><input type="text" id="f-mac" placeholder="AA:BB:CC:DD:EE:FF" maxlength="17" autocomplete="off"><span class="hint" data-i18n="macHint">Formats: AA:BB:CC:DD:EE:FF · AA-BB-CC-DD-EE-FF</span></div>
+            <div class="field"><label>IP / Hostname <span style="color:var(--text-dim);font-weight:400" data-i18n="refOnly">(reference only)</span></label><input type="text" id="f-ip" placeholder="192.168.1.100" autocomplete="off"></div>
+            <div class="two-col">
+              <div class="field"><label data-i18n="wolPort">WOL Port</label><input type="number" id="f-port" value="9" min="1" max="65535"></div>
+              <div class="field"><label data-i18n="category">Category</label><select id="f-tag"><option value="PC">PC</option><option value="SERVER">SERVER</option><option value="NAS">NAS</option><option value="VM">VM</option><option value="OTHER">OTHER</option></select></div>
+            </div>
+            <div class="field"><label>Notes <span style="color:var(--text-dim);font-weight:400" data-i18n="optional">(optional)</span></label><input type="text" id="f-notes" data-i18n-placeholder="notesPlaceholder" placeholder="Server room, rack 2..." maxlength="80" autocomplete="off"></div>
+            <button class="btn-primary" id="btn-submit" onclick="submitForm()" data-i18n="addDevice">Add device</button>
+          </div>
+        </div>
+        <div class="card"><div class="card-hd"><span class="card-title" data-i18n="activity">Activity</span><button class="btn-link" onclick="clearLog()" data-i18n="clear">Clear</button></div><div id="log-out"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div class="overlay" id="del-overlay">
+  <div class="modal"><div class="modal-ico danger">⚠️</div><h3 data-i18n="deleteDevice">Delete device</h3><p id="del-msg"></p>
+  <div class="modal-acts"><button class="btn-mc" onclick="closeModals()" data-i18n="cancel">Cancel</button><button class="btn-mok" id="del-btn" data-i18n="delete">Delete</button></div></div>
+</div>
+<div class="overlay" id="wakeall-overlay">
+  <div class="modal"><div class="modal-ico info">⚡</div><h3>Wake All</h3><p data-i18n="wakeAllMsg">A magic packet will be sent to the following devices:</p>
+  <div id="wakeall-list"></div>
+  <div class="modal-acts"><button class="btn-mc" onclick="closeModals()" data-i18n="cancel">Cancel</button><button class="btn-mok blue" id="wakeall-btn" data-i18n="sendAll">Send to all</button></div></div>
+</div>
+
+<!-- Modal: already online -->
+<div class="overlay" id="aol-overlay">
+  <div class="modal"><div class="modal-ico info">💡</div>
+  <h3 data-i18n="alreadyOnlineTitle">Device already on</h3>
+  <p><strong id="aol-name"></strong> <span data-i18n="alreadyOnlineMsg">is responding to ping. Send magic packet anyway?</span></p>
+  <div class="modal-acts">
+    <button class="btn-mc" onclick="closeModals()" data-i18n="cancel">Cancel</button>
+    <button class="btn-mok blue" id="aol-btn" data-i18n="sendAnyway">Send anyway</button>
+  </div></div>
+</div>
+
+<!-- Modal: wake log -->
+<div class="overlay" id="wl-overlay" onclick="if(event.target===this)closeModals()">
+  <div class="modal" style="max-width:640px;width:96%">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 style="font-size:15px;font-weight:600" data-i18n="wakeHistory">Wake History</h3>
+      <button class="btn-mc" onclick="closeModals()" style="padding:4px 10px">✕</button>
+    </div>
+    <div style="overflow:auto;max-height:380px;border:1px solid var(--border);border-radius:var(--r-sm)">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="border-bottom:1px solid var(--border);background:var(--surface2)">
+          <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase" data-i18n="colDateTime">Date/Time</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase" data-i18n="colDevice">Device</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase">MAC</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase" data-i18n="colUser">User</th>
+        </tr></thead>
+        <tbody id="wl-tbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;text-align:right">
+      <button class="btn-mc" onclick="closeModals()" data-i18n="close">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── i18n ──────────────────────────────────────────────
+const LANG = {
+  en: {
+    loginTitle:'Sign in', loginSub:'Enter your credentials to continue.',
+    username:'Username', password:'Password', loginBtn:'Sign in',
+    navSection:'Navigation', actionsSection:'Actions',
+    exportJSON:'Export JSON', wakeHistory:'Wake History',
+    readonlyMsg:'Read-only mode — you cannot execute actions',
+    devicesTitle:'Devices',
+    colName:'Name', colType:'Type', colLastWake:'Last wake', colActions:'Actions',
+    colDateTime:'Date/Time', colDevice:'Device', colUser:'User',
+    addDevice:'Add device', editMode:'Edit mode', cancel:'Cancel',
+    fieldName:'Name', fieldMAC:'MAC Address', macHint:'Formats: AA:BB:CC:DD:EE:FF · AA-BB-CC-DD-EE-FF',
+    refOnly:'(reference only)', wolPort:'WOL Port', category:'Category',
+    optional:'(optional)', notesPlaceholder:'Server room, rack 2...',
+    btnSubmitAdd:'Add device', btnSubmitSave:'Save changes',
+    activity:'Activity', clear:'Clear',
+    deleteDevice:'Delete device', delete:'Delete',
+    wakeAllMsg:'A magic packet will be sent to the following devices:',
+    sendAll:'Send to all',
+    alreadyOnlineTitle:'Device already on', alreadyOnlineMsg:'is responding to ping. Send magic packet anyway?',
+    sendAnyway:'Send anyway', close:'Close',
+    statRegistered:'Registered devices', statWakesSent:'Wakes sent',
+    statLastWake:'Last wake', statSession:'Active session',
+    themeLight:'Light', themeDark:'Dark',
+    permReadonly:'Read-only', permExecute:'Execute', permAdmin:'Administrator',
+    wakeNoPerms:'No execute permissions',
+    noDevices:'No devices', noResults:'No results',
+    addFirst:'Add the first device →', tryFilter:'Try another filter.',
+    connError:'No connection',
+    connErrorSub:'Verify that server.py is running.',
+    wakeLogEmpty:'No records yet',
+    logStarting:'WOL Console starting...', logLoaded:' device(s) loaded',
+    logNoPerms:'No execute permissions',
+    sessionExpired:'Session expired',
+    searchPlaceholder:'Search by name, MAC, IP...'
+  },
+  es: {
+    loginTitle:'Iniciar sesión', loginSub:'Ingresa tus credenciales para continuar.',
+    username:'Usuario', password:'Contraseña', loginBtn:'Entrar',
+    navSection:'Navegación', actionsSection:'Acciones',
+    exportJSON:'Exportar JSON', wakeHistory:'Historial Wakes',
+    readonlyMsg:'Modo solo lectura — no puedes ejecutar acciones',
+    devicesTitle:'Dispositivos',
+    colName:'Nombre', colType:'Tipo', colLastWake:'Último wake', colActions:'Acciones',
+    colDateTime:'Fecha/Hora', colDevice:'Equipo', colUser:'Usuario',
+    addDevice:'Agregar equipo', editMode:'Modo edición', cancel:'Cancelar',
+    fieldName:'Nombre', fieldMAC:'Dirección MAC', macHint:'Formatos: AA:BB:CC:DD:EE:FF · AA-BB-CC-DD-EE-FF',
+    refOnly:'(solo referencia)', wolPort:'Puerto WOL', category:'Categoría',
+    optional:'(opcional)', notesPlaceholder:'Sala de servidores, rack 2...',
+    btnSubmitAdd:'Agregar dispositivo', btnSubmitSave:'Guardar cambios',
+    activity:'Actividad', clear:'Limpiar',
+    deleteDevice:'Eliminar equipo', delete:'Eliminar',
+    wakeAllMsg:'Se enviará un magic packet a los siguientes equipos:',
+    sendAll:'Enviar a todos',
+    alreadyOnlineTitle:'Equipo ya encendido', alreadyOnlineMsg:'ya responde a ping. ¿Deseas enviar el magic packet de todas formas?',
+    sendAnyway:'Enviar igual', close:'Cerrar',
+    statRegistered:'Equipos registrados', statWakesSent:'Wakes enviados',
+    statLastWake:'Último wake', statSession:'Sesión activa',
+    themeLight:'Claro', themeDark:'Oscuro',
+    permReadonly:'Solo lectura', permExecute:'Ejecución', permAdmin:'Administrador',
+    wakeNoPerms:'Sin permisos de ejecución',
+    noDevices:'Sin equipos', noResults:'Sin resultados',
+    addFirst:'Agrega el primer equipo →', tryFilter:'Prueba otro filtro.',
+    connError:'Sin conexión',
+    connErrorSub:'Verifica que server.py esté corriendo.',
+    wakeLogEmpty:'Sin registros aún',
+    logStarting:'WOL Console iniciando...', logLoaded:' equipo(s) cargado(s)',
+    logNoPerms:'Sin permisos de ejecución',
+    sessionExpired:'Sesión expirada',
+    searchPlaceholder:'Buscar por nombre, MAC, IP...'
+  }
+};
+let _lang = localStorage.getItem('pi-lang') || 'en';
+var _i18nReady = false;
+function t(k){ return (LANG[_lang]||LANG.en)[k] || (LANG.en)[k] || k; }
+function setLang(l){
+  _lang = l;
+  localStorage.setItem('pi-lang', l);
+  document.documentElement.lang = l;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.getAttribute('data-i18n');
+    el.textContent = t(k);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+  });
+  const si = document.getElementById('search-input');
+  if(si) si.placeholder = t('searchPlaceholder');
+  ['en','es'].forEach(x => document.getElementById('lang-'+x)?.classList.toggle('active', x===l));
+  // Re-render dynamic content only after full script initialization
+  if(_i18nReady && typeof renderAll === 'function') renderAll();
+}
+(()=>{ setLang(_lang); })();
+
+// ── Auth & permissions ─────────────────────────────────
+let ME = null;  // { username, permissions: {wol, nut} }
+
+function canExecute(){ return ME && ['execute','admin'].includes(ME.permissions?.wol); }
+function canAdmin()  { return ME && ME.permissions?.wol === 'admin'; }
+
+async function doLogin(){
+  const btn=document.getElementById('btn-l');
+  const err=document.getElementById('login-err');
+  const u=document.getElementById('l-user').value.trim();
+  const p=document.getElementById('l-pass').value;
+  err.className='login-err';
+  if(!u||!p){err.textContent='Completa todos los campos';err.className='login-err show';return;}
+  btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span> Entrando...';
+  try{
+    const r=await fetch('api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const d=await r.json();
+    if(!r.ok||!d.ok){err.textContent=d.error||'Credenciales incorrectas';err.className='login-err show';return;}
+    if(!d.permissions?.wol||d.permissions.wol==='none'){
+      err.textContent='No tienes acceso a WOL Console';err.className='login-err show';return;
+    }
+    ME=d;
+    document.getElementById('login-screen').style.display='none';
+    applyPermissions();
+    await initApp();
+  }catch(e){err.textContent='Error: '+e.message;err.className='login-err show';}
+  finally{btn.disabled=false;btn.textContent='Entrar';}
+}
+
+async function checkSession(){
+  try{
+    const r=await fetch('api/me');
+    if(!r.ok)return false;
+    const d=await r.json();
+    if(!d.username||!d.permissions?.wol||d.permissions.wol==='none')return false;
+    ME=d;return true;
+  }catch{return false;}
+}
+
+function applyPermissions(){
+  document.getElementById('me-name').textContent=ME.username;
+  document.getElementById('avatar').textContent=ME.username[0].toUpperCase();
+  const perm=ME.permissions?.wol||'readonly';
+  const LABELS={readonly:t('permReadonly'),execute:t('permExecute'),admin:t('permAdmin')};
+  document.getElementById('me-role').textContent=LABELS[perm]||perm;
+  // Mostrar/ocultar según permisos
+  if(!canAdmin()){
+    document.getElementById('form-card').style.display='none';
+    document.getElementById('readonly-banner').className='readonly-banner show';
+  }
+  if(ME.permissions?.wol==='admin'||ME.permissions?.nut==='admin'){
+    document.getElementById('nav-admin').style.display='';
+  }
+}
+
+async function logout(){
+  await fetch('api/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  location.reload();
+}
+
+// ── State ──────────────────────────────────────────────
+let devices=[],filterTag='ALL',searchQ='',sortCol='name',sortAsc=true,wakeCount=0,lastWakeName=null,editingId=null,sessionStart=Date.now();
+const LOCAL_KEY='wol_meta';
+function loadMeta(){try{return JSON.parse(localStorage.getItem(LOCAL_KEY)||'{}')}catch{return{}}}
+function saveMeta(m){try{localStorage.setItem(LOCAL_KEY,JSON.stringify(m))}catch{}}
+let meta=loadMeta();
+
+let pollTimer=null;
+const POLL_MS=5000;
+
+async function initApp(){
+  updateClock();setInterval(updateClock,1000);setInterval(updateUptime,1000);
+  document.getElementById('search-input').addEventListener('input',e=>{searchQ=e.target.value.trim().toLowerCase();renderTable();});
+  log('INFO', t('logStarting'));
+  await refreshDevices(true);
+  pollTimer=setInterval(()=>refreshDevices(false), POLL_MS);
+  // Refrescar también al volver a la pestaña (vuelve de background/sleep)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshDevices(false);
+  });
+}
+
+async function refreshDevices(isInitial){
+  try{
+    const fresh=await apiFetch('api/devices').then(d=>d.devices);
+    // Merge preservando estado visual (indicadores de wake en curso) sin perder animaciones
+    devices=fresh;
+    if(isInitial) log('OK', devices.length + t('logLoaded'));
+    renderAll();
+  }catch(e){
+    if(isInitial){ log('ERR','Error al cargar: '+e.message); showConnError(); }
+  }
+}
+
+// ── API ────────────────────────────────────────────────
+async function apiFetch(url, opts={}){
+  const r=await fetch(url,opts);
+  if(r.status===401){location.reload();throw new Error(t('sessionExpired'));}
+  if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||'HTTP '+r.status);}
+  return r.json();
+}
+
+// ── Render ─────────────────────────────────────────────
+function renderAll(){updateStats();renderTable();}
+function filtered(){
+  return devices.filter(d=>{
+    if(filterTag!=='ALL'&&d.tag!==filterTag)return false;
+    if(!searchQ)return true;
+    return(d.name+' '+d.mac+' '+(d.ip||'')+' '+d.tag).toLowerCase().includes(searchQ);
+  });
+}
+function sorted(arr){
+  return[...arr].sort((a,b)=>{
+    let va,vb;
+    if(sortCol==='lastWoke'){va=meta[a.id]?.lastWoke||0;vb=meta[b.id]?.lastWoke||0;}
+    else{va=(a[sortCol]||'').toString().toLowerCase();vb=(b[sortCol]||'').toString().toLowerCase();}
+    if(va<vb)return sortAsc?-1:1;if(va>vb)return sortAsc?1:-1;return 0;
+  });
+}
+function renderTable(){
+  const tbody=document.getElementById('dev-tbody');
+  const list=sorted(filtered());
+  document.getElementById('dev-count').textContent=list.length===devices.length?devices.length+(devices.length!==1?' devices':' device'):list.length+' / '+devices.length+' devices';
+  if(!list.length){
+    tbody.innerHTML='<tr><td colspan="6"><div class="empty"><strong>'+(devices.length?t('noResults'):t('noDevices'))+'</strong>'+(devices.length?t('tryFilter'):t('addFirst'))+'</div></td></tr>';
+    return;
+  }
+  tbody.innerHTML='';
+  list.forEach((d,i)=>{
+    // Priorizar last_wake del servidor (más preciso) sobre meta local
+    const serverTs = d.last_wake ? d.last_wake*1000 : 0;
+    const localTs  = meta[d.id]?.lastWoke || 0;
+    const lw       = Math.max(serverTs, localTs) || null;
+    const lwUser   = d.last_wake_user ? ' · <span style="color:var(--blue);font-size:10px">'+esc(d.last_wake_user)+'</span>' : '';
+    const lwText   = lw ? relTime(lw)+lwUser : '<span style="opacity:.3">—</span>';
+    const notes    = meta[d.id]?.notes||d.notes||'';
+    const tr=document.createElement('tr');
+    tr.style.animationDelay=i*18+'ms';
+    const canWake=canExecute();
+    const canEdit=canAdmin();
+    tr.innerHTML=`
+      <td class="col-st"><span class="ind" id="ind-${d.id}"></span></td>
+      <td><span class="dev-name">${esc(d.name)}</span><span class="dev-mac">${esc(d.mac)}${notes?' · <span style="color:var(--text-dim)">'+esc(notes)+'</span>':''}</span></td>
+      <td><span class="tag tag-${d.tag.toLowerCase()}">${esc(d.tag)}</span></td>
+      <td class="col-ip">${d.ip?esc(d.ip):'<span style="opacity:.25">—</span>'}</td>
+      <td class="col-lw">${lwText}</td>
+      <td class="col-act">
+        <button class="btn-wake" id="wake-${d.id}" onclick="wakeDevice('${d.id}')" ${canWake?'':'disabled title="Sin permisos"'}>Wake</button>
+        ${canEdit?`<button class="btn-ri e" onclick="editDevice('${d.id}')" title="Editar">✎</button><button class="btn-ri d" onclick="confirmDelete('${d.id}')" title="Eliminar">✕</button>`:''}
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+function updateStats(){
+  document.getElementById('st-total').textContent=devices.length;
+  document.getElementById('st-wakes').textContent=wakeCount;
+  document.getElementById('st-last').textContent=lastWakeName||'—';
+}
+function showConnError(){
+  document.getElementById('dev-tbody').innerHTML='<tr><td colspan="6"><div class="empty"><strong style="color:var(--red)">'+t('connError')+'</strong>'+t('connErrorSub')+'</div></td></tr>';
+}
+// ── Wake ────────────────────────────────────────────────
+async function wakeDevice(id, force=false){
+  if(!canExecute()){toast(t('wakeNoPerms'),true);return;}
+  const device=devices.find(d=>d.id===id);if(!device)return;
+  const btn=document.getElementById('wake-'+id),ind=document.getElementById('ind-'+id);
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';}
+  if(ind)ind.className='ind waking';
+  log('WARN','TX → "'+device.name+'" ['+device.mac+']');
+  try{
+    const res=await apiFetch('api/wake',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id, force})});
+    if(res.already_online && !force){
+      // Ya está encendido — preguntar si enviar de todas formas
+      if(ind)ind.className='ind';
+      if(btn){btn.disabled=!canExecute();btn.textContent='Wake';}
+      showAlreadyOnlineModal(id, device.name);
+      return;
+    }
+    wakeCount++;lastWakeName=device.name;
+    meta[id]={...meta[id],lastWoke:Date.now()};saveMeta(meta);
+    const msg = res.message||'Paquete enviado a "'+device.name+'"';
+    log('OK', msg);
+    toast('Magic packet → '+device.name,false);
+    if(ind)ind.className='ind sent';
+    setTimeout(()=>{if(ind)ind.className='ind';},9000);
+    updateStats();renderTable();
+  }catch(e){log('ERR','Error WOL: '+e.message);toast(e.message,true);if(ind)ind.className='ind';}
+  finally{if(btn){btn.disabled=!canExecute();btn.textContent='Wake';}}
+}
+function showAlreadyOnlineModal(id, name){
+  document.getElementById('aol-name').textContent = name;
+  document.getElementById('aol-btn').onclick = ()=>{ closeModals(); wakeDevice(id, true); };
+  document.getElementById('aol-overlay').classList.add('show');
+}
+function openWakeAll(){
+  const list=filtered();
+  if(!list.length){toast('No hay equipos visibles',true);return;}
+  document.getElementById('wakeall-list').innerHTML=list.map(d=>'<div>'+esc(d.name)+' <span style="color:var(--text-dim)">'+esc(d.mac)+'</span></div>').join('');
+  document.getElementById('wakeall-btn').onclick=async()=>{closeModals();for(const d of list){await wakeDevice(d.id);await sleep(300);}};
+  document.getElementById('wakeall-overlay').classList.add('show');
+}
+// ── Form ────────────────────────────────────────────────
+function submitForm(){if(editingId)saveEdit();else addDevice();}
+async function addDevice(){
+  if(!canAdmin())return;
+  const nameEl=document.getElementById('f-name'),macEl=document.getElementById('f-mac'),btn=document.getElementById('btn-submit');
+  const{name,mac,ip,port,tag,notes}=readForm();
+  [nameEl,macEl].forEach(e=>e.classList.remove('err'));
+  if(!name){nameEl.classList.add('err');nameEl.focus();return;}
+  if(!mac){macEl.classList.add('err');macEl.focus();return;}
+  btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';
+  try{
+    const device=await apiFetch('api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,mac,ip,port,tag})});
+    if(notes){meta[device.device.id]={...meta[device.device.id],notes};saveMeta(meta);}
+    devices.push(device.device);resetForm();renderAll();
+    log('OK','"'+device.device.name+'" registered');toast(device.device.name+' added',false);
+  }catch(e){log('ERR',e.message);toast(e.message,true);if(e.message.toLowerCase().includes('mac'))macEl.classList.add('err');}
+  finally{btn.disabled=false;btn.textContent=t('btnSubmitAdd');}
+}
+function editDevice(id){
+  if(!canAdmin())return;
+  const d=devices.find(x=>x.id===id);if(!d)return;
+  editingId=id;
+  document.getElementById('f-id').value=id;
+  document.getElementById('f-name').value=d.name;
+  document.getElementById('f-mac').value=d.mac;
+  document.getElementById('f-ip').value=d.ip||'';
+  document.getElementById('f-port').value=d.port;
+  document.getElementById('f-tag').value=d.tag;
+  document.getElementById('f-notes').value=meta[id]?.notes||d.notes||'';
+  document.getElementById('form-title').textContent=t('editMode');
+  document.getElementById('edit-banner').classList.add('show');
+  document.getElementById('btn-submit').textContent=t('btnSubmitSave');
+  document.getElementById('f-name').focus();
+}
+async function saveEdit(){
+  const{name,mac,ip,port,tag,notes}=readForm();
+  const nameEl=document.getElementById('f-name'),macEl=document.getElementById('f-mac'),btn=document.getElementById('btn-submit');
+  [nameEl,macEl].forEach(e=>e.classList.remove('err'));
+  if(!name){nameEl.classList.add('err');nameEl.focus();return;}
+  if(!mac){macEl.classList.add('err');macEl.focus();return;}
+  btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span> Guardando...';
+  try{
+    const r1=await fetch('api/devices/'+editingId,{method:'DELETE'});
+    if(!r1.ok)throw new Error('Error al eliminar');
+    const d2=await apiFetch('api/devices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,mac,ip,port,tag})});
+    const updated=d2.device;
+    const oldMeta=meta[editingId]||{};delete meta[editingId];
+    meta[updated.id]={...oldMeta,notes:notes||''};saveMeta(meta);
+    const idx=devices.findIndex(x=>x.id===editingId);
+    if(idx!==-1)devices[idx]=updated;else devices=await apiFetch('api/devices').then(d=>d.devices);
+    cancelEdit();renderAll();log('OK','Editado: "'+updated.name+'"');toast(updated.name+' actualizado',false);
+  }catch(e){log('ERR',e.message);toast(e.message,true);}
+  finally{btn.disabled=false;btn.textContent=t('btnSubmitSave');}
+}
+function cancelEdit(){
+  editingId=null;
+  document.getElementById('form-title').textContent=t('addDevice');
+  document.getElementById('edit-banner').classList.remove('show');
+  document.getElementById('btn-submit').textContent=t('btnSubmitAdd');
+  resetForm();
+}
+function readForm(){
+  return{name:document.getElementById('f-name').value.trim(),mac:document.getElementById('f-mac').value.trim(),ip:document.getElementById('f-ip').value.trim()||null,port:parseInt(document.getElementById('f-port').value)||9,tag:document.getElementById('f-tag').value,notes:document.getElementById('f-notes').value.trim()};
+}
+function resetForm(){
+  ['f-name','f-mac','f-ip','f-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-port').value='9';document.getElementById('f-tag').value='PC';document.getElementById('f-id').value='';
+}
+function confirmDelete(id){
+  if(!canAdmin())return;
+  const d=devices.find(x=>x.id===id);if(!d)return;
+  document.getElementById('del-msg').textContent='¿Eliminar "'+d.name+'" ('+d.mac+')? No se puede deshacer.';
+  document.getElementById('del-btn').onclick=async()=>{
+    closeModals();
+    try{
+      await fetch('api/devices/'+id,{method:'DELETE'});
+      delete meta[id];saveMeta(meta);
+      log('WARN','Eliminado: "'+d.name+'"');
+      devices=devices.filter(x=>x.id!==id);
+      if(editingId===id)cancelEdit();
+      renderAll();toast(d.name+' eliminado',false);
+    }catch(e){log('ERR',e.message);toast(e.message,true);}
+  };
+  document.getElementById('del-overlay').classList.add('show');
+}
+function exportJSON(){
+  const data=devices.map(d=>({...d,notes:meta[d.id]?.notes||'',lastWoke:meta[d.id]?.lastWoke||null}));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+  a.download='wol-devices-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  log('INFO','Exportados '+data.length+' dispositivos');
+}
+function sortBy(col){
+  if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}
+  document.querySelectorAll('thead th').forEach(th=>{th.classList.remove('sorted');const a=th.querySelector('.sa');if(a)a.textContent='↕';});
+  const th=document.querySelector('[data-col="'+col+'"]');
+  if(th){th.classList.add('sorted');const a=th.querySelector('.sa');if(a)a.textContent=sortAsc?'↑':'↓';}
+  renderTable();
+}
+function setFilter(el){document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));el.classList.add('active');filterTag=el.dataset.filter;renderTable();}
+// ── Theme ─────────────────────────────────────────────────────────────────────
+function setTheme(t){
+  localStorage.setItem('pi-theme',t);
+  applyTheme(t);
+  ['light','dark','system'].forEach(x=>{
+    document.getElementById('theme-'+x)?.classList.toggle('active',x===t);
+  });
+}
+function applyTheme(t){
+  const pref=t==='system'?(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):t;
+  document.documentElement.setAttribute('data-theme',pref==='dark'?'dark':'light');
+}
+(()=>{
+  const t=localStorage.getItem('pi-theme')||'system';
+  applyTheme(t);
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{
+    if((localStorage.getItem('pi-theme')||'system')==='system') applyTheme('system');
+  });
+  setTimeout(()=>{
+    ['light','dark','system'].forEach(x=>{
+      document.getElementById('theme-'+x)?.classList.toggle('active',x===t);
+    });
+  },0);
+})();
+
+function closeModals(){document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('show'));}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function relTime(ts){const d=Math.floor((Date.now()-ts)/1000);if(d<60)return'hace '+d+'s';if(d<3600)return'hace '+Math.floor(d/60)+'m';if(d<86400)return'hace '+Math.floor(d/3600)+'h';return new Date(ts).toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'});}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function updateClock(){const el=document.getElementById('hclock');if(el)el.textContent=new Date().toTimeString().slice(0,8);}
+function updateUptime(){const s=Math.floor((Date.now()-sessionStart)/1000);const el=document.getElementById('st-uptime');if(el)el.textContent=String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor(s/60)%60).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+let _tt;
+function toast(msg,isErr=false){const el=document.getElementById('toast');el.textContent=msg;el.className=isErr?'err':'';void el.offsetWidth;el.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3400);}
+function log(level,msg){const out=document.getElementById('log-out'),ts=new Date().toTimeString().slice(0,8);const el=document.createElement('div');el.className='log-row';el.innerHTML='<span class="lt">'+ts+'</span><span class="lv '+level+'">'+level+'</span><span class="lm">'+esc(msg)+'</span>';out.appendChild(el);out.scrollTop=out.scrollHeight;while(out.children.length>120)out.removeChild(out.firstChild);}
+function clearLog(){document.getElementById('log-out').innerHTML='';}
+let _wakeLogData = [];
+async function showWakeLog(){
+  try{
+    const r = await apiFetch('api/wake_log');
+    _wakeLogData = r.log || [];
+    const tbody = document.getElementById('wl-tbody');
+    if(!_wakeLogData.length){
+      tbody.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-dim)">'+t('wakeLogEmpty')+'</td></tr>';
+    } else {
+      tbody.innerHTML = _wakeLogData.map(e=>`
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:8px 12px;font-size:12px;font-family:var(--mono);color:var(--text-dim)">${fmtTs(e.ts)}</td>
+          <td style="padding:8px 12px;font-size:13px;font-weight:500">${esc(e.device_name)}</td>
+          <td style="padding:8px 12px;font-size:11px;font-family:var(--mono);color:var(--text-dim)">${esc(e.mac)}</td>
+          <td style="padding:8px 12px;font-size:12px;color:var(--blue)">${esc(e.user||'?')}</td>
+        </tr>`).join('');
+    }
+    document.getElementById('wl-overlay').classList.add('show');
+  }catch(e){ toast('Error cargando historial: '+e.message, true); }
+}
+function fmtTs(ts){ const d=new Date(ts*1000); return d.toLocaleDateString('es-CL')+' '+d.toTimeString().slice(0,8); }
+_i18nReady = true;
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('f-mac').addEventListener('input',function(){let v=this.value.replace(/[^0-9a-fA-F]/g,'');if(v.length>12)v=v.slice(0,12);const pos=this.selectionStart;this.value=(v.match(/.{1,2}/g)||[]).join(':').toUpperCase();try{this.setSelectionRange(pos,pos);}catch{}});
+  document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModals();if(editingId)cancelEdit();}if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();document.getElementById('search-input').focus();}});
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeModals();}));
+// ── Boot ────────────────────────────────────────────────
+(async()=>{
+  const ok=await checkSession();
+  if(ok){
+    document.getElementById('login-screen').style.display='none';
+    applyPermissions();
+    await initApp();
+  }
+})();
+</script>
+</body>
+</html>

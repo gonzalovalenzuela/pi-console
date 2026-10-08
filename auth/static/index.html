@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pi Console — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f0f2f5;--surface:#fff;--surface2:#f8f9fb;--border:#e3e8ef;--border-b:#cdd4e0;--blue:#4361ee;--blue-dim:rgba(67,97,238,.1);--green:#22c55e;--green-dim:rgba(34,197,94,.1);--red:#ef4444;--red-dim:rgba(239,68,68,.1);--orange:#f97316;--orange-dim:rgba(249,115,22,.1);--purple:#8b5cf6;--purple-dim:rgba(139,92,246,.1);--text:#1a2033;--text-mid:#5a6a85;--text-dim:#94a3b8;--sidebar-w:220px;--r:10px;--r-sm:6px;--shadow:0 1px 3px rgba(0,0,0,.07);--shadow-md:0 4px 16px rgba(0,0,0,.1);--sans:'DM Sans',sans-serif;--mono:'DM Mono',monospace}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;display:flex}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--border-b);border-radius:99px}
+.sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100}
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sb-icon{width:34px;height:34px;border-radius:8px;background:var(--purple);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sb-icon svg{width:16px;height:16px;stroke:#fff;fill:none;stroke-width:2}
+.sb-name{font-size:15px;font-weight:600;color:var(--text)}
+.sb-ver{font-size:10px;color:var(--text-dim);font-family:var(--mono)}
+.sb-sec{padding:14px 10px 6px}
+.sb-lbl{font-size:10px;font-weight:600;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;padding:0 8px;margin-bottom:3px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-sm);cursor:pointer;color:var(--text-mid);font-size:13.5px;font-weight:500;transition:all .15s;text-decoration:none}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2}
+.nav-item:hover{background:var(--bg);color:var(--text)}
+.nav-item.active{background:var(--purple-dim);color:var(--purple)}
+.sb-footer{margin-top:auto;padding:12px 12px 14px;border-top:1px solid var(--border)}
+.user-badge{display:flex;align-items:center;gap:8px;padding:9px 10px;background:var(--bg);border-radius:var(--r-sm);border:1px solid var(--border)}
+.user-avatar{width:28px;height:28px;border-radius:50%;background:var(--purple-dim);color:var(--purple);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.user-info{flex:1;min-width:0}
+.user-name{font-size:11px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-role{font-size:10px;color:var(--text-dim)}
+.btn-logout{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;padding:2px 4px;transition:color .15s;line-height:1}
+.btn-logout:hover{color:var(--red)}
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-title{font-size:14px;font-weight:600;color:var(--text)}
+.content{padding:24px;display:flex;flex-direction:column;gap:20px}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px 18px;display:flex;align-items:center;gap:13px;box-shadow:var(--shadow)}
+.stat-ico{width:40px;height:40px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stat-ico svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
+.stat-ico.purple{background:var(--purple-dim);color:var(--purple)}
+.stat-ico.green{background:var(--green-dim);color:var(--green)}
+.stat-ico.orange{background:var(--orange-dim);color:var(--orange)}
+.stat-body .stat-val{font-size:22px;font-weight:600;color:var(--text);line-height:1}
+.stat-body .stat-lbl{font-size:11px;color:var(--text-dim);margin-top:2px;font-weight:500}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.card-hd{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:13px;font-weight:600;color:var(--text)}
+.btn-primary{background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-family:var(--sans);font-size:12px;font-weight:600;padding:7px 14px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px}
+.btn-primary svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.5}
+.btn-primary:hover{background:#3451d1}
+/* Table */
+table{width:100%;border-collapse:collapse}
+thead th{padding:9px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--bg)}
+td{padding:11px 16px;vertical-align:middle}
+.uname{font-weight:600;font-size:13.5px;color:var(--text)}
+.ucreated{font-size:11px;color:var(--text-dim);font-family:var(--mono)}
+.perm-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;text-transform:uppercase;letter-spacing:.3px}
+.perm-admin{background:var(--purple-dim);color:var(--purple)}
+.perm-execute{background:var(--blue-dim);color:var(--blue)}
+.perm-readonly{background:var(--green-dim);color:var(--green)}
+.perm-none{background:var(--bg);color:var(--text-dim);border:1px solid var(--border)}
+.must-change{background:var(--orange-dim);color:var(--orange);font-size:10px;padding:2px 7px;border-radius:99px;font-weight:600}
+.col-actions{white-space:nowrap;text-align:right}
+.btn-ri{background:transparent;border:none;cursor:pointer;padding:5px 6px;border-radius:var(--r-sm);font-size:13px;color:var(--text-dim);transition:all .15s}
+.btn-ri:hover{background:var(--bg)}
+.btn-ri.edit:hover{color:var(--blue)}
+.btn-ri.del:hover{color:var(--red)}
+/* Drawer */
+.drawer-overlay{position:fixed;inset:0;background:rgba(15,20,30,.4);backdrop-filter:blur(2px);z-index:8000;display:none;justify-content:flex-end}
+.drawer-overlay.show{display:flex}
+.drawer{background:var(--surface);width:380px;max-width:95vw;height:100%;display:flex;flex-direction:column;box-shadow:var(--shadow-md);animation:din .2s ease}
+@keyframes din{from{transform:translateX(100%)}to{transform:none}}
+.drawer-hd{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.drawer-title{font-size:15px;font-weight:600;color:var(--text)}
+.btn-close{background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:20px;line-height:1;transition:color .15s}
+.btn-close:hover{color:var(--text)}
+.drawer-body{padding:20px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.drawer-footer{padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+.field{display:flex;flex-direction:column;gap:5px}
+label{font-size:11px;font-weight:600;color:var(--text-mid)}
+input,select{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:8px 10px;outline:none;transition:all .15s;width:100%}
+input:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-dim);background:var(--surface)}
+input.err{border-color:var(--red)}
+.hint{font-size:11px;color:var(--text-dim)}
+.perm-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-save{background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:600;padding:9px 20px;cursor:pointer;transition:all .15s}
+.btn-save:hover{background:#3451d1}
+.btn-save:disabled{opacity:.5;cursor:not-allowed}
+.btn-cancel{background:transparent;color:var(--text-mid);border:1px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:500;padding:9px 20px;cursor:pointer;transition:all .15s}
+.btn-cancel:hover{background:var(--bg);color:var(--text)}
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(15,20,30,.45);backdrop-filter:blur(2px);z-index:9000;display:none;align-items:center;justify-content:center}
+.overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;max-width:380px;width:92%;box-shadow:var(--shadow-md);animation:min .2s ease}
+@keyframes min{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+.modal h3{font-size:15px;font-weight:600;margin-bottom:8px}
+.modal p{font-size:13px;color:var(--text-mid);line-height:1.6;margin-bottom:20px}
+.modal-acts{display:flex;gap:8px;justify-content:flex-end}
+.btn-mc{padding:8px 16px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-mid);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer}
+.btn-mc:hover{background:var(--bg)}
+.btn-mok{padding:8px 16px;border-radius:var(--r-sm);border:none;background:var(--red);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
+.btn-mok:hover{background:#dc2626}
+/* Toast */
+#toast{position:fixed;bottom:22px;right:22px;background:var(--text);color:#fff;border-radius:var(--r-sm);padding:10px 15px;font-size:13px;font-weight:500;z-index:9999;opacity:0;transform:translateY(6px);transition:all .2s;max-width:280px;pointer-events:none;box-shadow:var(--shadow-md);display:flex;align-items:center;gap:8px}
+#toast::before{content:'✓';font-size:13px;color:#86efac}
+#toast.err::before{content:'✕';color:#fca5a5}
+#toast.show{opacity:1;transform:none}
+.spin{display:inline-block;animation:spin .5s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Login screen */
+#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:99999}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:32px;width:100%;max-width:360px;box-shadow:var(--shadow-md)}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+.login-logo-ico{width:36px;height:36px;border-radius:8px;background:var(--purple);display:flex;align-items:center;justify-content:center}
+.login-logo-ico svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2}
+.login-title{font-size:18px;font-weight:600;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--text-dim);margin-bottom:22px}
+.login-err{background:var(--red-dim);border:1px solid rgba(239,68,68,.2);border-radius:var(--r-sm);padding:10px;font-size:12px;color:var(--red);margin-bottom:14px;display:none}
+.login-err.show{display:block}
+.btn-login{background:var(--purple);color:#fff;border:none;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:600;padding:11px;cursor:pointer;width:100%;margin-top:6px;transition:all .15s}
+.btn-login:hover{background:#7c3aed}
+.btn-login:disabled{opacity:.5;cursor:not-allowed}
+</style>
+</head>
+<body>
+
+<!-- Login screen -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-ico"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <div><div style="font-size:15px;font-weight:600">Pi Console</div><div style="font-size:10px;color:var(--text-dim);font-family:var(--mono)">Panel de administración</div></div>
+    </div>
+    <div class="login-title">Acceso de administrador</div>
+    <div class="login-sub">Solo administradores pueden acceder.</div>
+    <div class="login-err" id="login-err"></div>
+    <div class="field" style="margin-bottom:12px"><label>Usuario</label><input type="text" id="l-user" autocomplete="username" autofocus></div>
+    <div class="field" style="margin-bottom:16px"><label>Contraseña</label><input type="password" id="l-pass" autocomplete="current-password"></div>
+    <button class="btn-login" id="btn-l" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+    <div><div class="sb-name">Admin Panel</div><div class="sb-ver">Pi Console</div></div>
+  </div>
+  <div class="sb-sec">
+    <div class="sb-lbl">Panel</div>
+    <div class="nav-item active"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuarios</div>
+  </div>
+  <div class="sb-sec">
+    <div class="sb-lbl">Aplicaciones</div>
+    <a class="nav-item" href="/wol/"><svg viewBox="0 0 24 24"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg>WOL Console</a>
+    <a class="nav-item" href="/nut/" style="margin-top:2px"><svg viewBox="0 0 24 24"><path d="M5 9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><rect x="3" y="9" width="18" height="11" rx="2"/><line x1="12" y1="13" x2="12" y2="16"/></svg>UPS Monitor</a>
+    <a class="nav-item" href="/net/" style="margin-top:2px"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>Net Monitor</a>
+    <a class="nav-item" href="/pve/" style="margin-top:2px"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Proxmox</a>
+
+  </div>
+  <div class="sb-footer">
+    <div class="user-badge">
+      <div class="user-avatar" id="avatar">?</div>
+      <div class="user-info">
+        <div class="user-name" id="me-name">—</div>
+        <div class="user-role">Administrador</div>
+      </div>
+      <button class="btn-logout" onclick="logout()" title="Cerrar sesión">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title">Gestión de usuarios</span>
+  </div>
+  <div class="content">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-ico purple"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+        <div class="stat-body"><div class="stat-val" id="st-total">—</div><div class="stat-lbl">Usuarios totales</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-ico green"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <div class="stat-body"><div class="stat-val" id="st-admins">—</div><div class="stat-lbl">Administradores</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-ico orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M12 14c-5 0-8 2.5-8 4v1h16v-1c0-1.5-3-4-8-4z"/></svg></div>
+        <div class="stat-body"><div class="stat-val" id="st-readonly">—</div><div class="stat-lbl">Solo lectura</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title">Usuarios del sistema</span>
+        <button class="btn-primary" onclick="openDrawer(null)">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nuevo usuario
+        </button>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Usuario</th>
+          <th>WOL</th>
+          <th>UPS Monitor</th>
+          <th>Estado</th>
+          <th>Creado</th>
+          <th style="text-align:right">Acciones</th>
+        </tr></thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Drawer: crear/editar usuario -->
+<div class="drawer-overlay" id="drawer-overlay">
+  <div class="drawer">
+    <div class="drawer-hd">
+      <span class="drawer-title" id="drawer-title">Nuevo usuario</span>
+      <button class="btn-close" onclick="closeDrawer()">×</button>
+    </div>
+    <div class="drawer-body">
+      <input type="hidden" id="d-mode">
+      <input type="hidden" id="d-username-orig">
+      <div class="field" id="field-username">
+        <label>Nombre de usuario</label>
+        <input type="text" id="d-username" placeholder="gonzalo" autocomplete="off">
+        <span class="hint">2-32 caracteres alfanuméricos, guion o guion bajo</span>
+      </div>
+      <div class="field" id="field-password">
+        <label>Contraseña</label>
+        <input type="password" id="d-password" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+      </div>
+      <div class="field" id="field-must-change">
+        <label style="flex-direction:row;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="d-must-change" style="width:auto;padding:0">
+          Solicitar cambio de contraseña en el próximo login
+        </label>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:12px;font-weight:600;color:var(--text-mid);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">Permisos</div>
+        <div class="perm-row">
+          <div class="field">
+            <label>WOL Console</label>
+            <select id="d-wol">
+              <option value="none">Sin acceso</option>
+              <option value="readonly">Solo lectura</option>
+              <option value="execute" selected>Ejecución</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>UPS Monitor</label>
+            <select id="d-nut">
+              <option value="none">Sin acceso</option>
+              <option value="readonly" selected>Solo lectura</option>
+              <option value="execute">Ejecución</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:10px 12px;background:var(--bg);border-radius:var(--r-sm);font-size:11px;color:var(--text-dim);line-height:1.7">
+          <strong style="color:var(--text-mid)">Sin acceso</strong> — no puede entrar al dashboard<br>
+          <strong style="color:var(--text-mid)">Solo lectura</strong> — puede ver datos, no ejecutar acciones<br>
+          <strong style="color:var(--text-mid)">Ejecución</strong> — puede ver y ejecutar (ej: Wake)<br>
+          <strong style="color:var(--text-mid)">Administrador</strong> — acceso total + gestión de dispositivos
+        </div>
+      </div>
+      <div class="field" id="field-change-pw" style="display:none;border-top:1px solid var(--border);padding-top:14px">
+        <label>Nueva contraseña (dejar vacío para no cambiar)</label>
+        <input type="password" id="d-new-pw" placeholder="Nueva contraseña" autocomplete="new-password">
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn-cancel" onclick="closeDrawer()">Cancelar</button>
+      <button class="btn-save" id="btn-save" onclick="saveUser()">Crear usuario</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete modal -->
+<div class="overlay" id="del-overlay">
+  <div class="modal">
+    <h3>Eliminar usuario</h3>
+    <p id="del-msg"></p>
+    <div class="modal-acts">
+      <button class="btn-mc" onclick="closeModals()">Cancelar</button>
+      <button class="btn-mok" id="del-btn">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let me = null;
+
+// ── Login ──────────────────────────────────────────────
+document.getElementById('l-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+async function doLogin() {
+  const btn = document.getElementById('btn-l');
+  const err = document.getElementById('login-err');
+  const u   = document.getElementById('l-user').value.trim();
+  const p   = document.getElementById('l-pass').value;
+  err.className = 'login-err';
+  if (!u || !p) { err.textContent='Completa todos los campos'; err.className='login-err show'; return; }
+  btn.disabled = true; btn.innerHTML = '<span class="spin">⟳</span> Entrando...';
+  try {
+    const r = await fetch('api/login', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({username:u, password:p})
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) { err.textContent = d.error||'Credenciales incorrectas'; err.className='login-err show'; return; }
+    document.getElementById('login-screen').style.display = 'none';
+    await loadMe();
+    await loadUsers();
+  } catch(e) {
+    err.textContent = 'Error: '+e.message; err.className='login-err show';
+  } finally {
+    btn.disabled=false; btn.textContent='Entrar';
+  }
+}
+
+async function loadMe() {
+  const r = await fetch('api/me');
+  if (!r.ok) return;
+  me = await r.json();
+  if (!me.username) return;
+  document.getElementById('me-name').textContent = me.username;
+  document.getElementById('avatar').textContent  = me.username[0].toUpperCase();
+}
+
+async function logout() {
+  await fetch('api/logout', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+  location.reload();
+}
+
+// ── Users ──────────────────────────────────────────────
+async function loadUsers() {
+  const r = await fetch('api/users');
+  if (!r.ok) { if(r.status===401) location.reload(); return; }
+  const d = await r.json();
+  const users = d.users || [];
+  renderUsers(users);
+  updateStats(users);
+}
+
+function updateStats(users) {
+  document.getElementById('st-total').textContent   = users.length;
+  document.getElementById('st-admins').textContent  = users.filter(u=>u.permissions.wol==='admin'||u.permissions.nut==='admin').length;
+  document.getElementById('st-readonly').textContent= users.filter(u=>u.permissions.wol==='readonly'&&u.permissions.nut==='readonly').length;
+}
+
+function renderUsers(users) {
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = '';
+  users.forEach(u => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="uname">${esc(u.username)}</span></td>
+      <td>${permBadge(u.permissions.wol)}</td>
+      <td>${permBadge(u.permissions.nut)}</td>
+      <td>${u.must_change_password ? '<span class="must-change">Cambiar pwd</span>' : '<span style="font-size:11px;color:var(--text-dim)">—</span>'}</td>
+      <td><span class="ucreated">${u.created ? new Date(u.created*1000).toLocaleDateString('es-CL') : '—'}</span></td>
+      <td class="col-actions">
+        <button class="btn-ri edit" onclick='editUser(${JSON.stringify(u)})' title="Editar">✎</button>
+        ${u.username !== me?.username
+          ? `<button class="btn-ri del" onclick="confirmDelete('${esc(u.username)}')" title="Eliminar">✕</button>`
+          : '<span style="width:30px;display:inline-block"></span>'}
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function permBadge(perm) {
+  const labels = {admin:'Admin',execute:'Ejecución',readonly:'Solo lectura',none:'Sin acceso'};
+  return `<span class="perm-badge perm-${perm||'none'}">${labels[perm]||'—'}</span>`;
+}
+
+// ── Drawer ─────────────────────────────────────────────
+function openDrawer(user) {
+  const isEdit = !!user;
+  document.getElementById('d-mode').value          = isEdit ? 'edit' : 'create';
+  document.getElementById('d-username-orig').value = isEdit ? user.username : '';
+  document.getElementById('d-username').value      = isEdit ? user.username : '';
+  document.getElementById('d-password').value      = '';
+  document.getElementById('d-must-change').checked = isEdit ? user.must_change_password : false;
+  document.getElementById('d-wol').value            = isEdit ? (user.permissions.wol||'none') : 'execute';
+  document.getElementById('d-nut').value            = isEdit ? (user.permissions.nut||'none') : 'readonly';
+  document.getElementById('d-new-pw').value         = '';
+
+  document.getElementById('drawer-title').textContent  = isEdit ? `Editar — ${user.username}` : 'Nuevo usuario';
+  document.getElementById('btn-save').textContent       = isEdit ? 'Guardar cambios' : 'Crear usuario';
+  document.getElementById('field-username').style.display  = isEdit ? 'none' : '';
+  document.getElementById('field-password').style.display  = isEdit ? 'none' : '';
+  document.getElementById('field-must-change').style.display = isEdit ? 'none' : '';
+  document.getElementById('field-change-pw').style.display  = isEdit ? '' : 'none';
+
+  document.getElementById('drawer-overlay').classList.add('show');
+}
+
+function editUser(u) { openDrawer(u); }
+
+function closeDrawer() {
+  document.getElementById('drawer-overlay').classList.remove('show');
+}
+
+async function saveUser() {
+  const mode = document.getElementById('d-mode').value;
+  const btn  = document.getElementById('btn-save');
+  btn.disabled = true; btn.innerHTML = '<span class="spin">⟳</span>';
+
+  try {
+    if (mode === 'create') {
+      const uname = document.getElementById('d-username').value.trim();
+      const pwd   = document.getElementById('d-password').value;
+      const wol   = document.getElementById('d-wol').value;
+      const nut   = document.getElementById('d-nut').value;
+      const must  = document.getElementById('d-must-change').checked;
+      if (!uname || !pwd) { toast('Completa todos los campos', true); return; }
+      const r = await fetch('api/users', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username:uname, password:pwd, wol_permission:wol, nut_permission:nut, must_change_password:must})
+      });
+      const d = await r.json();
+      if (!r.ok) { toast(d.error||'Error', true); return; }
+      toast('Usuario '+uname+' creado', false);
+    } else {
+      const uorig = document.getElementById('d-username-orig').value;
+      const wol   = document.getElementById('d-wol').value;
+      const nut   = document.getElementById('d-nut').value;
+      const newPw = document.getElementById('d-new-pw').value;
+      // Actualizar permisos
+      const r = await fetch('api/users/'+uorig, {
+        method: 'PUT', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({wol_permission:wol, nut_permission:nut})
+      });
+      const d = await r.json();
+      if (!r.ok) { toast(d.error||'Error', true); return; }
+      // Cambiar contraseña si se ingresó
+      if (newPw) {
+        const r2 = await fetch('api/change_password', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({username:uorig, new_password:newPw})
+        });
+        const d2 = await r2.json();
+        if (!r2.ok) { toast(d2.error||'Error cambiando contraseña', true); return; }
+      }
+      toast('Usuario '+uorig+' actualizado', false);
+    }
+    closeDrawer(); await loadUsers();
+  } catch(e) { toast(e.message, true); }
+  finally { btn.disabled=false; btn.textContent= mode==='create'?'Crear usuario':'Guardar cambios'; }
+}
+
+// ── Delete ─────────────────────────────────────────────
+function confirmDelete(username) {
+  document.getElementById('del-msg').textContent = `¿Eliminar al usuario "${username}"? Esta acción no se puede deshacer.`;
+  document.getElementById('del-btn').onclick = async () => {
+    closeModals();
+    const r = await fetch('api/users/'+username, {method:'DELETE'});
+    const d = await r.json();
+    if (!r.ok) { toast(d.error||'Error', true); return; }
+    toast('Usuario eliminado', false);
+    await loadUsers();
+  };
+  document.getElementById('del-overlay').classList.add('show');
+}
+
+function closeModals() { document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('show')); }
+
+// ── Helpers ────────────────────────────────────────────
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+let _tt;
+function toast(msg, isErr=false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = isErr?'err':'';
+  void el.offsetWidth; el.classList.add('show');
+  clearTimeout(_tt); _tt = setTimeout(()=>el.classList.remove('show'), 3400);
+}
+
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeModals();}));
+document.getElementById('drawer-overlay').addEventListener('click', e=>{ if(e.target===document.getElementById('drawer-overlay')) closeDrawer(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){closeModals();closeDrawer();} });
+document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
+// ── Check session on load ──────────────────────────────
+(async()=>{
+  try {
+    const r = await fetch('api/me');
+    if (r.ok) {
+      const d = await r.json();
+      if (d.username) {
+        document.getElementById('login-screen').style.display='none';
+        me = d;
+        document.getElementById('me-name').textContent = d.username;
+        document.getElementById('avatar').textContent  = d.username[0].toUpperCase();
+        await loadUsers();
+      }
+    }
+  } catch{}
+})();
+</script>
+</body>
+</html>

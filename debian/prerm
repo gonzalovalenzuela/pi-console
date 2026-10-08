@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+
+echo "pi-console: deteniendo servicios..."
+for svc in wol-console nut-monitor admin-panel net-monitor proxmox-monitor; do
+    systemctl stop "$svc" 2>/dev/null || true
+    systemctl disable "$svc" 2>/dev/null || true
+done
+
+# Hacer backup final antes de desinstalar
+echo "pi-console: backup final de datos..."
+BACKUP_DIR="/var/backups/pi-console"
+STAMP=$(date +%Y%m%d_%H%M%S)
+mkdir -p "$BACKUP_DIR"
+
+for f in \
+    /opt/pi-console/auth/users.json \
+    /opt/pi-console/auth/sessions.json \
+    /opt/pi-console/wol-console/devices.json \
+    /opt/pi-console/nut-monitor/servers.json \
+    /opt/pi-console/nut-monitor/history.db \
+    /opt/pi-console/net-monitor/hosts.json \
+    /opt/pi-console/net-monitor/config.json \
+    /opt/pi-console/proxmox-monitor/clusters.json
+do
+    [ -f "$f" ] && cp "$f" "$BACKUP_DIR/$(basename $f).${STAMP}.bak"
+done
+echo "pi-console: datos guardados en $BACKUP_DIR"

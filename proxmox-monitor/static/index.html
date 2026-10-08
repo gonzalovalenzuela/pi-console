@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="author" content="Gonzalo Valenzuela <gonzalo@rave.cl>">
+<meta name="description" content="Pi Console — Homelab dashboard · Proxmox Monitor module">
+<meta name="version" content="1.0.4">
+<title>Proxmox Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f0f2f5;--surface:#fff;--surface2:#f8f9fb;--border:#e3e8ef;--border-b:#cdd4e0;--blue:#4361ee;--blue-dim:rgba(67,97,238,.1);--green:#22c55e;--green-dim:rgba(34,197,94,.1);--red:#ef4444;--red-dim:rgba(239,68,68,.1);--orange:#f97316;--orange-dim:rgba(249,115,22,.1);--yellow:#eab308;--yellow-dim:rgba(234,179,8,.1);--purple:#8b5cf6;--purple-dim:rgba(139,92,246,.1);--pve:#e15c00;--pve-dim:rgba(225,92,0,.1);--text:#1a2033;--text-mid:#5a6a85;--text-dim:#94a3b8;--sidebar-w:224px;--r:10px;--r-sm:6px;--shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);--shadow-md:0 4px 16px rgba(0,0,0,.1);--sans:'DM Sans',sans-serif;--mono:'DM Mono',monospace}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;display:flex}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--border-b);border-radius:99px}
+[data-theme="dark"]{--bg:#0f1117;--surface:#1a1d27;--surface2:#1e2130;--border:#2a2f45;--border-b:#363d57;--text:#e2e8f0;--text-mid:#94a3b8;--text-dim:#5a6a85;--shadow:0 1px 3px rgba(0,0,0,.3);--shadow-md:0 4px 16px rgba(0,0,0,.4);--blue-dim:rgba(67,97,238,.2);--green-dim:rgba(34,197,94,.15);--red-dim:rgba(239,68,68,.15);--orange-dim:rgba(249,115,22,.15);--pve-dim:rgba(225,92,0,.15)}
+/* Login */
+#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:99999;padding:24px}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:32px;width:100%;max-width:360px;box-shadow:var(--shadow-md)}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+.login-logo-ico{width:36px;height:36px;border-radius:8px;background:var(--pve);display:flex;align-items:center;justify-content:center}
+.login-logo-ico svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2}
+.login-err{background:var(--red-dim);border:1px solid rgba(239,68,68,.2);border-radius:var(--r-sm);padding:10px;font-size:12px;color:var(--red);margin-bottom:14px;display:none}
+.login-err.show{display:block}
+.lfield{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.lfield label{font-size:11px;font-weight:600;color:var(--text-mid)}
+.lfield input{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:9px 12px;outline:none;transition:all .15s;width:100%}
+.lfield input:focus{border-color:var(--pve);box-shadow:0 0 0 3px var(--pve-dim);background:var(--surface)}
+.btn-login{background:var(--pve);color:#fff;border:none;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:600;padding:11px;cursor:pointer;width:100%;margin-top:4px;transition:all .15s}
+.btn-login:hover{background:#c44f00}
+.btn-login:disabled{opacity:.5;cursor:not-allowed}
+/* Sidebar */
+.sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto}
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.sb-icon{width:34px;height:34px;border-radius:8px;background:var(--pve-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sb-icon svg{width:16px;height:16px;stroke:var(--pve);fill:none;stroke-width:2}
+.sb-name{font-size:15px;font-weight:600;color:var(--text)}
+.sb-ver{font-size:10px;color:var(--text-dim);font-family:var(--mono)}
+.sb-sec{padding:14px 10px 6px}
+.sb-lbl{font-size:10px;font-weight:600;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;padding:0 8px;margin-bottom:3px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-sm);cursor:pointer;color:var(--text-mid);font-size:13.5px;font-weight:500;transition:all .15s;text-decoration:none}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2}
+.nav-item:hover{background:var(--bg);color:var(--text)}
+.nav-item.active{background:var(--pve-dim);color:var(--pve)}
+/* Cluster list sidebar */
+.cluster-list{padding:0 10px 6px;display:flex;flex-direction:column;gap:2px}
+.cluster-nav{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--r-sm);cursor:pointer;transition:background .12s}
+.cluster-nav:hover{background:var(--bg)}
+.cluster-nav.active{background:var(--pve-dim)}
+.cluster-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.cluster-dot.ok{background:var(--green);box-shadow:0 0 0 2px var(--green-dim)}
+.cluster-dot.err{background:var(--red);box-shadow:0 0 0 2px var(--red-dim)}
+.cluster-dot.loading{background:var(--orange);box-shadow:0 0 0 2px var(--orange-dim)}
+.cluster-nav-name{font-size:12.5px;font-weight:500;color:var(--text-mid);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cluster-nav-name.act{color:var(--pve)}
+.cluster-nav-host{font-size:10px;color:var(--text-dim);font-family:var(--mono)}
+.btn-add-cluster{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:var(--r-sm);cursor:pointer;color:var(--pve);font-size:12.5px;font-weight:500;transition:all .15s;border:1px dashed rgba(225,92,0,.3);margin:4px 10px;background:transparent}
+.btn-add-cluster:hover{background:var(--pve-dim)}
+.btn-add-cluster svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5;flex-shrink:0}
+/* Main */
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-title{font-size:14px;font-weight:600;color:var(--text)}
+.topbar-sub{font-size:12px;color:var(--text-dim);font-family:var(--mono)}
+.tb-right{display:flex;align-items:center;gap:8px}
+#clock{font-family:var(--mono);font-size:12px;color:var(--text-dim)}
+.btn-logout{background:none;border:none;color:var(--text-dim);cursor:pointer;padding:4px;line-height:1;transition:color .15s;display:flex;align-items:center}
+.btn-logout svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+.btn-logout:hover{color:var(--red)}
+.topbar-user{display:flex;align-items:center;gap:7px;padding:5px 10px 5px 6px;background:var(--bg);border:1px solid var(--border);border-radius:99px}
+.topbar-avatar{width:24px;height:24px;border-radius:50%;background:var(--pve-dim);color:var(--pve);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.topbar-user-info{display:flex;flex-direction:column;line-height:1.2}
+.topbar-user-name{font-size:12px;font-weight:600;color:var(--text)}
+.topbar-user-role{font-size:10px;color:var(--text-dim)}
+.theme-btns{display:flex;gap:6px;align-items:center}
+.theme-btn{background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:10px;font-weight:600;color:var(--text-dim);cursor:pointer;padding:5px 8px;transition:all .15s;display:flex;align-items:center;gap:3px}
+.theme-btn svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0}
+.theme-btn.active{background:var(--blue-dim);border-color:var(--blue);color:var(--blue)}
+.lang-btns{display:flex;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden}
+.lang-btn{background:transparent;border:none;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--text-dim);cursor:pointer;padding:4px 8px;transition:all .15s;letter-spacing:.5px}
+.lang-btn:hover{color:var(--text)}
+.lang-btn.active{background:var(--blue);color:#fff}
+/* Content */
+.content{padding:22px 24px;display:flex;flex-direction:column;gap:18px}
+/* Stats */
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);transition:box-shadow .15s}
+.stat-card:hover{box-shadow:var(--shadow-md)}
+.stat-ico{width:38px;height:38px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stat-ico svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2}
+.stat-ico.pve{background:var(--pve-dim);color:var(--pve)}
+.stat-ico.green{background:var(--green-dim);color:var(--green)}
+.stat-ico.blue{background:var(--blue-dim);color:var(--blue)}
+.stat-ico.orange{background:var(--orange-dim);color:var(--orange)}
+.stat-ico.purple{background:var(--purple-dim);color:var(--purple)}
+.stat-val{font-size:20px;font-weight:600;color:var(--text);line-height:1}
+.stat-lbl{font-size:11px;color:var(--text-dim);margin-top:2px;font-weight:500}
+/* Node cards */
+.nodes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.node-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;transition:box-shadow .15s}
+.node-card:hover{box-shadow:var(--shadow-md)}
+.node-hd{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.node-name{font-size:14px;font-weight:600;color:var(--text)}
+.node-sub{font-size:11px;color:var(--text-dim);margin-top:1px}
+.node-badge{font-size:10px;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.badge-online{background:var(--green-dim);color:var(--green)}
+.badge-offline{background:var(--red-dim);color:var(--red)}
+/* Resource bars */
+.res-bars{padding:12px 16px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--border)}
+.res-row{display:flex;align-items:center;gap:10px}
+.res-lbl{font-size:11px;font-weight:600;color:var(--text-dim);width:36px;flex-shrink:0}
+.res-bar-wrap{flex:1;height:6px;background:var(--border);border-radius:99px;overflow:hidden}
+.res-bar{height:100%;border-radius:99px;transition:width .6s ease}
+.res-val{font-size:11px;font-family:var(--mono);color:var(--text);min-width:70px;text-align:right}
+/* VM/CT list */
+.vm-list{padding:8px 0}
+.vm-row{display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:1px solid var(--border);transition:background .1s}
+.vm-row:last-child{border-bottom:none}
+.vm-row:hover{background:var(--bg)}
+.vm-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.vm-dot.running{background:var(--green);box-shadow:0 0 0 2px var(--green-dim)}
+.vm-dot.stopped{background:var(--border-b)}
+.vm-dot.paused{background:var(--yellow);box-shadow:0 0 0 2px var(--yellow-dim)}
+.vm-id{font-size:11px;font-family:var(--mono);color:var(--text-dim);width:36px;flex-shrink:0}
+.vm-name{font-size:12.5px;font-weight:500;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vm-type{font-size:10px;padding:1px 6px;border-radius:99px;font-weight:600;flex-shrink:0}
+.vm-type.vm{background:var(--blue-dim);color:var(--blue)}
+.vm-type.ct{background:var(--purple-dim);color:var(--purple)}
+.vm-cpu{font-size:11px;font-family:var(--mono);color:var(--text-dim);min-width:42px;text-align:right}
+.vm-mem{font-size:11px;font-family:var(--mono);color:var(--text-dim);min-width:56px;text-align:right}
+.vm-uptime{font-size:10px;color:var(--text-dim);min-width:50px;text-align:right}
+/* Collapsible section */
+.section-hd{padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:var(--surface2)}
+.section-hd:hover{background:var(--bg)}
+.section-title{font-size:11px;font-weight:600;color:var(--text-mid);text-transform:uppercase;letter-spacing:.5px}
+.section-count{font-size:11px;font-family:var(--mono);color:var(--text-dim)}
+.section-arrow{font-size:10px;color:var(--text-dim);transition:transform .2s}
+.section-arrow.open{transform:rotate(90deg)}
+.section-body{display:none}
+.section-body.show{display:block}
+/* Add cluster form */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.card-hd{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.card-title{font-size:13px;font-weight:600;color:var(--text)}
+.form-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:4px}
+label{font-size:11px;font-weight:600;color:var(--text-mid)}
+input[type=text],input[type=number],input[type=password]{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:8px 10px;outline:none;transition:all .15s;width:100%}
+input:focus{border-color:var(--pve);box-shadow:0 0 0 3px var(--pve-dim);background:var(--surface)}
+input.err{border-color:var(--red)}
+.hint{font-size:11px;color:var(--text-dim)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-primary{background:var(--pve);color:#fff;border:none;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:600;padding:9px;cursor:pointer;transition:all .15s;width:100%}
+.btn-primary:hover{background:#c44f00}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary{background:transparent;color:var(--text-mid);border:1px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:500;padding:8px;cursor:pointer;transition:all .15s;width:100%}
+.btn-secondary:hover{background:var(--surface2);color:var(--text)}
+.test-result{padding:10px 12px;border-radius:var(--r-sm);font-size:12px;font-family:var(--mono);display:none}
+.test-result.show{display:block}
+.test-result.ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.test-result.fail{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+/* State */
+.state-msg{padding:44px 24px;text-align:center;color:var(--text-dim);font-size:13px;line-height:1.8}
+.state-msg strong{display:block;font-size:14px;font-weight:600;color:var(--text-mid);margin-bottom:8px}
+.state-msg.err strong{color:var(--red)}
+/* Toast */
+#toast{position:fixed;bottom:22px;right:22px;background:var(--text);color:#fff;border-radius:var(--r-sm);padding:10px 15px;font-size:13px;font-weight:500;z-index:9000;opacity:0;transform:translateY(6px);transition:all .2s;max-width:280px;pointer-events:none;box-shadow:var(--shadow-md)}
+#toast.show{opacity:1;transform:none}
+.spin{display:inline-block;animation:spin .5s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Overlay */
+.overlay{position:fixed;inset:0;background:rgba(15,20,30,.45);backdrop-filter:blur(2px);z-index:8000;display:none;align-items:center;justify-content:center}
+.overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;max-width:380px;width:92%;box-shadow:var(--shadow-md);animation:min .2s ease}
+@keyframes min{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+.modal h3{font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px}
+.modal p{font-size:13px;color:var(--text-mid);line-height:1.6;margin-bottom:20px}
+.modal-acts{display:flex;gap:8px;justify-content:flex-end}
+.btn-mc{padding:8px 16px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-mid);font-family:var(--sans);font-size:13px;cursor:pointer}
+.btn-mok{padding:8px 16px;border-radius:var(--r-sm);border:none;background:var(--red);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
+@media(max-width:960px){.sidebar{display:none}.main{margin-left:0}.stats-row{grid-template-columns:repeat(3,1fr)}.nodes-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.stats-row{grid-template-columns:1fr 1fr}.content{padding:12px 14px}}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-ico"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+      <div><div style="font-size:15px;font-weight:600">Proxmox Monitor</div><div style="font-size:10px;color:var(--text-dim);font-family:var(--mono)">PVE Dashboard</div></div>
+    </div>
+    <div style="font-size:18px;font-weight:600;margin-bottom:4px" data-i18n="loginTitle">Sign in</div>
+    <div style="font-size:13px;color:var(--text-dim);margin-bottom:22px" data-i18n="loginSub">Enter your credentials to continue.</div>
+    <div class="login-err" id="login-err"></div>
+    <div class="lfield"><label data-i18n="username">Username</label><input type="text" id="l-user" autocomplete="username" autofocus></div>
+    <div class="lfield"><label data-i18n="password">Password</label><input type="password" id="l-pass"></div>
+    <button class="btn-login" id="btn-l" onclick="doLogin()" data-i18n="loginBtn">Sign in</button>
+  </div>
+</div>
+
+<aside class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-icon"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+    <div><div class="sb-name">Proxmox Monitor</div><div class="sb-ver">PVE Dashboard</div></div>
+  </div>
+  <div class="sb-sec">
+    <div class="sb-lbl" data-i18n="navSection">Navigation</div>
+    <a class="nav-item" href="/wol/"><svg viewBox="0 0 24 24"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg>WOL Console</a>
+    <a class="nav-item" href="/nut/" style="margin-top:2px"><svg viewBox="0 0 24 24"><path d="M5 9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><rect x="3" y="9" width="18" height="11" rx="2"/><line x1="12" y1="13" x2="12" y2="16"/></svg>UPS Monitor</a>
+    <a class="nav-item" href="/net/" style="margin-top:2px"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>Net Monitor</a>
+    <a class="nav-item active" href="#" style="margin-top:2px"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Proxmox</a>
+    <a class="nav-item" href="/admin/" style="margin-top:2px" id="nav-admin" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Admin Panel</a>
+  </div>
+  <div class="sb-sec">
+    <div class="sb-lbl" data-i18n="clustersPVE">PVE Clusters</div>
+    <div class="cluster-list" id="cluster-list"></div>
+    <div class="btn-add-cluster" id="btn-add-cluster" onclick="openAddCluster()" style="display:none">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span data-i18n="addCluster">Add cluster</span>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="topbar-title" id="tb-title">Proxmox Dashboard</span>
+      <span class="topbar-sub" id="tb-sub"></span>
+    </div>
+    <div class="tb-right">
+      <div class="lang-btns">
+        <button class="lang-btn" id="lang-en" onclick="setLang('en')">EN</button>
+        <button class="lang-btn" id="lang-es" onclick="setLang('es')">ES</button>
+      </div>
+      <div class="theme-btns">
+        <button class="theme-btn" id="theme-light" onclick="setTheme('light')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg><span data-i18n="themeLight">Light</span></button>
+        <button class="theme-btn" id="theme-dark" onclick="setTheme('dark')"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span data-i18n="themeDark">Dark</span></button>
+        <button class="theme-btn" id="theme-system" onclick="setTheme('system')"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Auto</button>
+      </div>
+      <span id="clock"></span>
+      <div style="width:1px;height:20px;background:var(--border);margin:0 4px;flex-shrink:0"></div>
+      <div class="topbar-user">
+        <div class="topbar-avatar" id="avatar">?</div>
+        <div class="topbar-user-info">
+          <span class="topbar-user-name" id="me-name">—</span>
+          <span class="topbar-user-role" id="me-role">—</span>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-ico pve"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/></svg></div><div><div class="stat-val" id="st-nodes">—</div><div class="stat-lbl" data-i18n="statNodesOnline">Nodes online</div></div></div>
+      <div class="stat-card"><div class="stat-ico green"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="11" rx="1"/><path d="M8 21h8M12 17v4"/></svg></div><div><div class="stat-val" id="st-vms">—</div><div class="stat-lbl" data-i18n="statVMsRunning">VMs running</div></div></div>
+      <div class="stat-card"><div class="stat-ico purple"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div><div><div class="stat-val" id="st-cts">—</div><div class="stat-lbl" data-i18n="statCTsRunning">CTs running</div></div></div>
+      <div class="stat-card"><div class="stat-ico orange"><svg viewBox="0 0 24 24"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg></div><div><div class="stat-val" id="st-cpu">—<span style="font-size:13px;color:var(--text-dim)">%</span></div><div class="stat-lbl" data-i18n="statAvgCPU">Avg CPU</div></div></div>
+      <div class="stat-card"><div class="stat-ico blue"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div><div><div class="stat-val" id="st-mem">—<span style="font-size:13px;color:var(--text-dim)">%</span></div><div class="stat-lbl" data-i18n="statAvgRAM">Avg RAM</div></div></div>
+    </div>
+
+    <div id="main-content">
+      <div class="state-msg" id="no-clusters-msg"><strong data-i18n="noClusters">No clusters configured</strong><span data-i18n="noClustersHint">Add a Proxmox cluster to get started.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Add cluster form -->
+<div class="overlay" id="add-overlay">
+  <div class="modal" style="max-width:460px;width:95%">
+    <h3 data-i18n="addClusterTitle">Add Proxmox cluster</h3>
+    <p data-i18n="addClusterHint">You need an API Token in Proxmox: Datacenter → API Tokens → Add</p>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px">
+      <div class="two-col">
+        <div class="field"><label data-i18n="fieldName">Name</label><input type="text" id="f-name" placeholder="Penalolen" autocomplete="off"></div>
+        <div class="two-col" style="gap:6px">
+          <div class="field"><label>Host / IP</label><input type="text" id="f-host" placeholder="192.168.0.10" autocomplete="off"></div>
+          <div class="field"><label data-i18n="fieldPort">Port</label><input type="number" id="f-port" value="8006" min="1" max="65535"></div>
+        </div>
+      </div>
+      <div class="field"><label data-i18n="fieldPVEUser">PVE User</label><input type="text" id="f-user" placeholder="root@pam" autocomplete="off"></div>
+      <div class="two-col">
+        <div class="field"><label>Token ID</label><input type="text" id="f-tname" placeholder="pi-console" autocomplete="off"></div>
+        <div class="field"><label>Token Secret</label><input type="password" id="f-tval" placeholder="xxxxxxxx-xxxx-..." autocomplete="off"></div>
+      </div>
+      <div class="hint"><span data-i18n="formatLabel">Format:</span> <code style="font-family:var(--mono);background:var(--bg);padding:1px 5px;border-radius:3px">root@pam!pi-console=token-secret</code></div>
+      <div class="test-result" id="test-result"></div>
+    </div>
+    <div class="modal-acts">
+      <button class="btn-mc" onclick="closeModals()" data-i18n="cancel">Cancel</button>
+      <button class="btn-secondary" id="btn-test" onclick="testCluster()" style="width:auto;padding:8px 14px" data-i18n="test">Test</button>
+      <button class="btn-primary" id="btn-save" onclick="saveCluster()" style="width:auto;padding:8px 14px;background:var(--pve)" data-i18n="addCluster">Add cluster</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="del-overlay">
+  <div class="modal"><h3 data-i18n="deleteCluster">Delete cluster</h3><p id="del-msg"></p>
+  <div class="modal-acts"><button class="btn-mc" onclick="closeModals()" data-i18n="cancel">Cancel</button><button class="btn-mok" id="del-btn" data-i18n="delete">Delete</button></div></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const LANG={
+  en:{loginTitle:'Sign in',loginSub:'Enter your credentials to continue.',
+    username:'Username',password:'Password',loginBtn:'Sign in',
+    navSection:'Navigation',clustersPVE:'PVE Clusters',addCluster:'Add cluster',
+    themeLight:'Light',themeDark:'Dark',
+    statNodesOnline:'Nodes online',statVMsRunning:'VMs running',
+    statCTsRunning:'CTs running',statAvgCPU:'Avg CPU',statAvgRAM:'Avg RAM',
+    noClusters:'No clusters configured',noClustersHint:'Add a Proxmox cluster to get started.',
+    addClusterTitle:'Add Proxmox cluster',
+    addClusterHint:'You need an API Token in Proxmox: Datacenter → API Tokens → Add',
+    fieldName:'Name',fieldPort:'Port',fieldPVEUser:'PVE User',
+    formatLabel:'Format',cancel:'Cancel',test:'Test',delete:'Delete',
+    deleteCluster:'Delete cluster',
+    permReadonly:'Read-only',permExecute:'Execute',permAdmin:'Administrator',
+    sessionExpired:'Session expired',
+    nodeOnline:'Online',nodeOffline:'Offline',
+    vmsRunning:'VMs',ctsRunning:'CTs',
+    cpu:'CPU',memory:'Memory',disk:'Disk'},
+  es:{loginTitle:'Iniciar sesión',loginSub:'Ingresa tus credenciales para continuar.',
+    username:'Usuario',password:'Contraseña',loginBtn:'Entrar',
+    navSection:'Navegación',clustersPVE:'Clusters PVE',addCluster:'Agregar cluster',
+    themeLight:'Claro',themeDark:'Oscuro',
+    statNodesOnline:'Nodos online',statVMsRunning:'VMs corriendo',
+    statCTsRunning:'CTs corriendo',statAvgCPU:'CPU promedio',statAvgRAM:'RAM promedio',
+    noClusters:'Sin clusters configurados',noClustersHint:'Agrega un cluster Proxmox para comenzar.',
+    addClusterTitle:'Agregar cluster Proxmox',
+    addClusterHint:'Necesitas un API Token en Proxmox: Datacenter → API Tokens → Add',
+    fieldName:'Nombre',fieldPort:'Puerto',fieldPVEUser:'Usuario PVE',
+    formatLabel:'Formato',cancel:'Cancelar',test:'Probar',delete:'Eliminar',
+    deleteCluster:'Eliminar cluster',
+    permReadonly:'Solo lectura',permExecute:'Ejecución',permAdmin:'Administrador',
+    sessionExpired:'Sesión expirada',
+    nodeOnline:'Online',nodeOffline:'Offline',
+    vmsRunning:'VMs',ctsRunning:'CTs',
+    cpu:'CPU',memory:'Memoria',disk:'Disco'}
+};
+let _lang=localStorage.getItem('pi-lang')||'en';
+var _i18nReady=false;
+function t(k){return(LANG[_lang]||LANG.en)[k]||(LANG.en)[k]||k;}
+function setLang(l){
+  _lang=l;localStorage.setItem('pi-lang',l);document.documentElement.lang=l;
+  document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.getAttribute('data-i18n')));
+  ['en','es'].forEach(x=>document.getElementById('lang-'+x)?.classList.toggle('active',x===l));
+  if(_i18nReady && typeof renderAll==='function')renderAll();
+}
+(()=>setLang(_lang))();
+
+let ME=null, clusters=[], activeId=null, pollTimer=null;
+const POLL=15000;
+
+// ── Theme ────────────────────────────────────────────────────────────────────
+function setTheme(t){localStorage.setItem('pi-theme',t);applyTheme(t);['light','dark','system'].forEach(x=>document.getElementById('theme-'+x)?.classList.toggle('active',x===t));}
+function applyTheme(t){const p=t==='system'?(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):t;document.documentElement.setAttribute('data-theme',p==='dark'?'dark':'light');}
+(()=>{const t=localStorage.getItem('pi-theme')||'system';applyTheme(t);window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if((localStorage.getItem('pi-theme')||'system')==='system')applyTheme('system');});setTimeout(()=>{['light','dark','system'].forEach(x=>document.getElementById('theme-'+x)?.classList.toggle('active',x===(localStorage.getItem('pi-theme')||'system')));},0);})();
+
+// ── Login ────────────────────────────────────────────────────────────────────
+document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+async function doLogin(){
+  const btn=document.getElementById('btn-l'),err=document.getElementById('login-err');
+  const u=document.getElementById('l-user').value.trim(),p=document.getElementById('l-pass').value;
+  err.className='login-err';
+  if(!u||!p){err.textContent='Completa todos los campos';err.className='login-err show';return;}
+  btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';
+  try{
+    const r=await fetch('api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const d=await r.json();
+    if(!r.ok||!d.ok){err.textContent=d.error||'Credenciales incorrectas';err.className='login-err show';return;}
+    ME=d;document.getElementById('login-screen').style.display='none';
+    applyPermissions();await initApp();
+  }catch(e){err.textContent='Error: '+e.message;err.className='login-err show';}
+  finally{btn.disabled=false;btn.textContent='Entrar';}
+}
+async function checkSession(){
+  try{
+    const r=await fetch('api/me');
+    if(!r.ok) return false;
+    const d=await r.json();
+    if(!d.username) return false;
+    ME=d;
+    return true;
+  }catch{return false;}
+}
+
+// Si hay sesión válida en otra app, pre-rellena el usuario y muestra aviso
+async function tryAutoLogin(){
+  // Intenta reusar sesión existente vía cookie
+  const ok = await checkSession();
+  if(ok) return true;
+  // No hay sesión — mostrar login normal
+  return false;
+}
+function applyPermissions(){
+  document.getElementById('me-name').textContent=ME.username;
+  document.getElementById('avatar').textContent=ME.username[0].toUpperCase();
+  const LABELS={readonly:'Solo lectura',admin:'Administrador'};
+  document.getElementById('me-role').textContent=LABELS[ME.permissions?.pve]||'—';
+  if(ME.permissions?.pve==='admin') document.getElementById('btn-add-cluster').style.display='';
+  if(ME.permissions?.wol==='admin'||ME.permissions?.nut==='admin') document.getElementById('nav-admin').style.display='';
+}
+async function logout(){await fetch('api/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});location.reload();}
+
+// ── Init ────────────────────────────────────────────────────────────────────
+async function initApp(){
+  updateClock();setInterval(updateClock,1000);
+  await fetchAll();
+  pollTimer=setInterval(fetchAll,POLL);
+}
+
+async function fetchAll(){
+  try{
+    const r=await fetch('api/clusters');
+    if(r.status===401){location.reload();return;}
+    const d=await r.json();
+    clusters=d.clusters||[];
+    renderSidebar();
+    if(!activeId&&clusters.length>0) selectCluster(clusters[0].id);
+    else if(activeId) renderDashboard();
+    updateGlobalStats();
+  }catch(e){console.error(e);}
+}
+
+function selectCluster(id){activeId=id;renderSidebar();renderDashboard();}
+
+function renderSidebar(){
+  const list=document.getElementById('cluster-list');list.innerHTML='';
+  clusters.forEach(c=>{
+    const snap=c.snap;
+    const isActive=c.id===activeId;
+    const dotCls=!snap?.ts?'loading':snap?.error?'err':'ok';
+    const nodeCount=(snap?.data?.nodes||[]).length;
+    const div=document.createElement('div');
+    div.className='cluster-nav'+(isActive?' active':'');
+    div.onclick=()=>selectCluster(c.id);
+    div.innerHTML=`<span class="cluster-dot ${dotCls}"></span>
+      <div style="flex:1;min-width:0">
+        <div class="cluster-nav-name ${isActive?'act':''}">${esc(c.name)}</div>
+        <div class="cluster-nav-host">${esc(c.host)}:${c.port}${nodeCount?' · '+nodeCount+' nodos':''}</div>
+      </div>
+      ${c.id!=='local'&&ME?.permissions?.pve==='admin'?`<button style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:12px;padding:2px 4px" onclick="confirmDelete('${c.id}','${esc(c.name)}');event.stopPropagation()">✕</button>`:''}`;
+    list.appendChild(div);
+  });
+}
+
+// ── Stats globales ────────────────────────────────────────────────────────────
+function updateGlobalStats(){
+  let totalNodes=0, runVMs=0, runCTs=0, cpuSum=0, memSum=0, cpuN=0, memN=0;
+  clusters.forEach(c=>{
+    const nodes=c.snap?.data?.nodes||[];
+    nodes.forEach(n=>{
+      if(n.status==='online'){
+        totalNodes++;
+        if(n.cpu>0){cpuSum+=n.cpu*100;cpuN++;}
+        if(n.maxmem>0){memSum+=(n.mem/n.maxmem)*100;memN++;}
+      }
+      runVMs+=(n.vms||[]).filter(v=>v.status==='running').length;
+      runCTs+=(n.cts||[]).filter(v=>v.status==='running').length;
+    });
+  });
+  document.getElementById('st-nodes').textContent=totalNodes||'—';
+  document.getElementById('st-vms').textContent=runVMs||'—';
+  document.getElementById('st-cts').textContent=runCTs||'—';
+  document.getElementById('st-cpu').innerHTML=(cpuN?Math.round(cpuSum/cpuN):'—')+'<span style="font-size:13px;color:var(--text-dim)">%</span>';
+  document.getElementById('st-mem').innerHTML=(memN?Math.round(memSum/memN):'—')+'<span style="font-size:13px;color:var(--text-dim)">%</span>';
+}
+
+// ── Dashboard cluster activo ──────────────────────────────────────────────────
+function renderDashboard(){
+  const cluster=clusters.find(c=>c.id===activeId);
+  if(!cluster) return;
+  const snap=cluster.snap;
+  document.getElementById('tb-title').textContent=cluster.name;
+  document.getElementById('tb-sub').textContent=cluster.host+':'+cluster.port+(snap?.data?.version?' · PVE '+snap.data.version:'');
+  const main=document.getElementById('main-content');
+
+  if(!snap?.ts){
+    main.innerHTML='<div class="state-msg"><strong>Conectando...</strong>Obteniendo datos de Proxmox.</div>';return;
+  }
+  if(snap.error&&!snap.data?.nodes?.length){
+    main.innerHTML=`<div class="state-msg err"><strong>Error de conexión</strong>${esc(snap.error)}<br><br><span style="font-size:12px;font-family:var(--mono)">Verifica host, puerto y token API</span></div>`;return;
+  }
+
+  const nodes=snap.data?.nodes||[];
+  if(!nodes.length){
+    main.innerHTML='<div class="state-msg"><strong>Sin nodos</strong>No se encontraron nodos en este cluster.</div>';return;
+  }
+
+  main.innerHTML='';
+  const grid=document.createElement('div');grid.className='nodes-grid';
+  nodes.forEach(node=>{grid.appendChild(buildNodeCard(node));});
+  main.appendChild(grid);
+
+  // Agregar sección Ceph si está disponible
+  const ceph=cluster.snap?.data?.ceph;
+  if(ceph&&!ceph.error){
+    const cephDiv=document.createElement('div');
+    const cephStatus=ceph.health?.status||'UNKNOWN';
+    const cephColor=cephStatus==='HEALTH_OK'?'var(--green)':cephStatus==='HEALTH_WARN'?'var(--orange)':'var(--red)';
+    const pools=(ceph.pools||[]).length;
+    const osds=ceph.osdmap?.num_osds||'?';
+    const osdsUp=ceph.osdmap?.num_up_osds||'?';
+    cephDiv.innerHTML=`
+      <div style="margin-top:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:13px;font-weight:600">Ceph Cluster</span>
+          <span style="font-size:11px;font-weight:700;color:${cephColor};background:${cephStatus==='HEALTH_OK'?'rgba(34,197,94,.12)':cephStatus==='HEALTH_WARN'?'rgba(249,115,22,.12)':'rgba(239,68,68,.12)'};padding:2px 8px;border-radius:99px">${cephStatus}</span>
+        </div>
+        <div style="display:flex;gap:24px;font-size:12px;color:var(--text-mid)">
+          <div>OSDs: <strong>${osdsUp}/${osds}</strong> online</div>
+          <div>Pools: <strong>${pools}</strong></div>
+          ${ceph.pgmap?.bytes_used!=null?`<div>Usado: <strong>${fmtBytes(ceph.pgmap.bytes_used)}</strong> / ${fmtBytes(ceph.pgmap.bytes_total||0)}</div>`:''}
+        </div>
+      </div>`;
+    main.appendChild(cephDiv);
+  }
+
+  // Dibujar sparklines después de que el DOM esté pintado
+  renderSparklines(nodes);
+}
+
+function buildNodeCard(node){
+  const card=document.createElement('div');card.className='node-card';
+  const isOnline=node.status==='online';
+  const cpuPct=Math.round((node.cpu||0)*100);
+  const memPct=node.maxmem?Math.round((node.mem/node.maxmem)*100):0;
+  const diskPct=node.maxdisk?Math.round((node.disk/node.maxdisk)*100):0;
+  const allVMs=(node.vms||[]);
+  const allCTs=(node.cts||[]);
+  const runVMs=allVMs.filter(v=>v.status==='running').length;
+  const runCTs=allCTs.filter(v=>v.status==='running').length;
+
+  card.innerHTML=`
+    <div class="node-hd">
+      <div>
+        <div class="node-name">${esc(node.name)}</div>
+        <div class="node-sub">${allVMs.length} VMs · ${allCTs.length} CTs · uptime: ${fmtUptime(node.uptime)}</div>
+      </div>
+      <span class="node-badge ${isOnline?'badge-online':'badge-offline'}">${isOnline?'Online':'Offline'}</span>
+    </div>
+    ${isOnline?`
+    ${cpuPct>80||memPct>90?`<div style="padding:6px 12px 0"><div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:4px;padding:6px 10px;font-size:11px;color:var(--red);font-weight:600">
+      ⚠ ${cpuPct>80?`CPU al ${cpuPct}%`:''} ${cpuPct>80&&memPct>90?' · ':''} ${memPct>90?`RAM al ${memPct}%`:''}
+    </div></div>`:''}
+    <div class="res-bars">
+      <div class="res-row">
+        <span class="res-lbl">CPU</span>
+        <div class="res-bar-wrap"><div class="res-bar" style="width:${cpuPct}%;background:${cpuPct>85?'var(--red)':cpuPct>60?'var(--orange)':'var(--blue)'}"></div></div>
+        <span class="res-val">${cpuPct}% / ${node.maxcpu} cores</span>
+      </div>
+      <div class="res-row">
+        <span class="res-lbl">RAM</span>
+        <div class="res-bar-wrap"><div class="res-bar" style="width:${memPct}%;background:${memPct>85?'var(--red)':memPct>70?'var(--orange)':'var(--green)'}"></div></div>
+        <span class="res-val">${memPct}% / ${fmtBytes(node.maxmem)}</span>
+      </div>
+      <div class="res-row">
+        <span class="res-lbl">Disk</span>
+        <div class="res-bar-wrap"><div class="res-bar" style="width:${diskPct}%;background:${diskPct>85?'var(--red)':diskPct>70?'var(--orange)':'var(--text-dim)'}"></div></div>
+        <span class="res-val">${diskPct}% / ${fmtBytes(node.maxdisk)}</span>
+      </div>
+    </div>
+    ${node.history?.length>2?`<div style="padding:4px 12px 8px">
+      <div style="font-size:10px;color:var(--text-dim);margin-bottom:3px;font-weight:500">Historial CPU/RAM (últimas muestras)</div>
+      <canvas id="spark-${esc(node.name)}" height="32" style="width:100%;height:32px;display:block;border-radius:4px;background:var(--bg)"></canvas>
+    </div>`:''}
+    ${buildVMSection(allVMs, 'VM', runVMs)}
+    ${buildVMSection(allCTs, 'CT', runCTs)}
+    `:'<div style="padding:20px;text-align:center;color:var(--text-dim);font-size:12px">Nodo offline — sin datos disponibles</div>'}`;
+  return card;
+}
+
+function drawSparkline(nodeId, history){
+  const canvas=document.getElementById('spark-'+nodeId);
+  if(!canvas||!history?.length) return;
+  const W=canvas.offsetWidth||canvas.parentElement?.offsetWidth||300;
+  canvas.width=W; canvas.height=32;
+  const ctx=canvas.getContext('2d');
+  const max=history.length;
+  if(max<2) return;
+  // Draw CPU (blue) and RAM (green)
+  ['cpu','mem'].forEach((key,ki)=>{
+    const color=ki===0?'rgba(67,97,238,0.8)':'rgba(34,197,94,0.6)';
+    ctx.beginPath();
+    history.forEach((pt,i)=>{
+      const x=Math.round((i/(max-1))*W);
+      const y=Math.round(32-((pt[key]||0)/100)*28)-2;
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.stroke();
+  });
+}
+
+function renderSparklines(nodes){
+  requestAnimationFrame(()=>{
+    nodes.forEach(n=>{
+      if(n.history?.length>2) drawSparkline(n.name, n.history);
+    });
+  });
+}
+
+function buildVMSection(items, type, running){
+  if(!items.length) return '';
+  const id='sec-'+Math.random().toString(36).slice(2);
+  const sorted=[...items].sort((a,b)=>{
+    if(a.status==='running'&&b.status!=='running')return-1;
+    if(b.status==='running'&&a.status!=='running')return 1;
+    return(a.vmid||0)-(b.vmid||0);
+  });
+  return `<div>
+    <div class="section-hd" onclick="toggleSection('${id}')">
+      <span class="section-title">${type === 'VM' ? 'Máquinas Virtuales' : 'Contenedores'}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="section-count">${running}/${items.length} corriendo</span>
+        <span class="section-arrow open" id="arr-${id}">▶</span>
+      </div>
+    </div>
+    <div class="section-body show" id="${id}">
+      <div class="vm-list">
+        ${sorted.map(v=>{
+          const cpuPct=Math.round((v.cpu||0)*100);
+          const memPct=v.maxmem?Math.round((v.mem/v.maxmem)*100):0;
+          const dotCls=v.status==='running'?'running':v.status==='paused'?'paused':'stopped';
+          return `<div class="vm-row">
+            <span class="vm-dot ${dotCls}"></span>
+            <span class="vm-id">${v.vmid}</span>
+            <span class="vm-name" title="${esc(v.name||'')}">${esc(v.name||'—')}</span>
+            <span class="vm-type ${type.toLowerCase()}">${type}</span>
+            ${v.status==='running'?`
+              <span class="vm-cpu">${cpuPct}%</span>
+              <span class="vm-mem">${fmtBytes(v.mem||0)}</span>
+              <span class="vm-uptime">${fmtUptime(v.uptime)}</span>
+            `:`<span style="font-size:10px;color:var(--text-dim);flex:1;text-align:right">${v.status}</span>`}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleSection(id){
+  const body=document.getElementById(id);
+  const arr=document.getElementById('arr-'+id);
+  if(!body||!arr)return;
+  const isOpen=body.classList.contains('show');
+  body.classList.toggle('show',!isOpen);
+  arr.classList.toggle('open',!isOpen);
+}
+
+// ── Add cluster ───────────────────────────────────────────────────────────────
+function openAddCluster(){document.getElementById('add-overlay').classList.add('show');document.getElementById('f-name').focus();}
+
+async function testCluster(){
+  const btn=document.getElementById('btn-test'),res=document.getElementById('test-result');
+  const host=document.getElementById('f-host').value.trim();
+  const port=parseInt(document.getElementById('f-port').value)||8006;
+  const user=document.getElementById('f-user').value.trim();
+  const tname=document.getElementById('f-tname').value.trim();
+  const tval=document.getElementById('f-tval').value.trim();
+  if(!host||!user||!tname||!tval){res.className='test-result fail show';res.textContent='✕ Completa todos los campos';return;}
+  btn.innerHTML='<span class="spin">⟳</span>';btn.disabled=true;
+  try{
+    const r=await fetch('api/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host,port,user,token_name:tname,token_value:tval})});
+    const d=await r.json();
+    if(d.ok){res.className='test-result ok show';res.textContent=`✓ PVE ${d.version} — ${d.nodes} nodo${d.nodes!==1?'s':''}`;log('OK','Conexión OK: '+host);}
+    else{res.className='test-result fail show';res.textContent='✕ '+d.error;}
+  }catch(e){res.className='test-result fail show';res.textContent='✕ '+e.message;}
+  finally{btn.disabled=false;btn.textContent='Probar';}
+}
+
+async function saveCluster(){
+  const name=document.getElementById('f-name').value.trim();
+  const host=document.getElementById('f-host').value.trim();
+  const port=parseInt(document.getElementById('f-port').value)||8006;
+  const user=document.getElementById('f-user').value.trim();
+  const tname=document.getElementById('f-tname').value.trim();
+  const tval=document.getElementById('f-tval').value.trim();
+  const btn=document.getElementById('btn-save');
+  if(!name||!host||!user||!tname||!tval){toast('Completa todos los campos',true);return;}
+  btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';
+  try{
+    const r=await fetch('api/clusters',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,host,port,user,token_name:tname,token_value:tval})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||'HTTP '+r.status);
+    toast(name+' agregado');closeModals();await fetchAll();selectCluster(d.cluster.id);
+  }catch(e){toast(e.message,true);}
+  finally{btn.disabled=false;btn.textContent='Agregar';}
+}
+
+function confirmDelete(id,name){
+  document.getElementById('del-msg').textContent=`¿Eliminar el cluster "${name}"?`;
+  document.getElementById('del-btn').onclick=async()=>{
+    closeModals();
+    try{await fetch('api/clusters/'+id,{method:'DELETE'});toast(name+' eliminado');await fetchAll();}
+    catch(e){toast(e.message,true);}
+  };
+  document.getElementById('del-overlay').classList.add('show');
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function fmtBytes(b){if(!b)return'0B';const u=['B','KB','MB','GB','TB'];let i=0;while(b>=1024&&i<u.length-1){b/=1024;i++;}return b.toFixed(i>0?1:0)+' '+u[i];}
+function fmtUptime(s){if(!s)return'—';const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);if(d>0)return d+'d '+h+'h';if(h>0)return h+'h '+m+'m';return m+'m';}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function updateClock(){const el=document.getElementById('clock');if(el)el.textContent=new Date().toTimeString().slice(0,8);}
+function closeModals(){document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('show'));}
+let _tt;
+function toast(msg,isErr=false){const el=document.getElementById('toast');el.textContent=msg;el.style.background=isErr?'var(--red)':'var(--text)';void el.offsetWidth;el.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3400);}
+function log(l,m){console.log(`[${l}] ${m}`);}
+
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeModals();}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
+
+_i18nReady=true;
+(async()=>{
+  const ok=await tryAutoLogin();
+  if(ok){document.getElementById('login-screen').style.display='none';applyPermissions();await initApp();}
+})();
+</script>
+</body>
+</html>

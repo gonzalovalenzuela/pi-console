@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pi Console — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f0f2f5;--surface:#fff;--border:#e3e8ef;--blue:#4361ee;--blue-dim:rgba(67,97,238,.1);--red:#ef4444;--red-dim:rgba(239,68,68,.1);--text:#1a2033;--text-mid:#5a6a85;--text-dim:#94a3b8;--r:10px;--r-sm:6px;--shadow-md:0 4px 16px rgba(0,0,0,.1);--sans:'DM Sans',sans-serif;--mono:'DM Mono',monospace}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:32px;width:100%;max-width:360px;box-shadow:var(--shadow-md)}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
+.logo-ico{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.logo-ico svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2}
+.logo-name{font-size:16px;font-weight:600;color:var(--text)}
+.logo-sub{font-size:10px;color:var(--text-dim);font-family:var(--mono)}
+h2{font-size:18px;font-weight:600;color:var(--text);margin-bottom:4px}
+.sub{font-size:13px;color:var(--text-dim);margin-bottom:24px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+label{font-size:11px;font-weight:600;color:var(--text-mid)}
+input{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:9px 12px;outline:none;transition:all .15s;width:100%}
+input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-dim);background:var(--surface)}
+input.err{border-color:var(--red);box-shadow:0 0 0 3px var(--red-dim)}
+.btn{background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:600;padding:11px;cursor:pointer;transition:all .15s;width:100%;margin-top:4px}
+.btn:hover{background:#3451d1;box-shadow:0 2px 10px rgba(67,97,238,.25)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.error-msg{background:var(--red-dim);border:1px solid rgba(239,68,68,.2);border-radius:var(--r-sm);padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:16px;display:none}
+.error-msg.show{display:block}
+.spin{display:inline-block;animation:spin .5s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="logo">
+    <div class="logo-ico" id="logo-ico" style="background:var(--blue)">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    </div>
+    <div><div class="logo-name">Pi Console</div><div class="logo-sub" id="logo-sub">Acceso al sistema</div></div>
+  </div>
+  <h2 id="login-title">Iniciar sesión</h2>
+  <div class="sub" id="login-sub">Ingresa tus credenciales para continuar</div>
+  <div class="error-msg" id="err"></div>
+  <div class="field"><label>Usuario</label><input type="text" id="username" autocomplete="username" autofocus></div>
+  <div class="field"><label>Contraseña</label><input type="password" id="password" autocomplete="current-password"></div>
+  <button class="btn" id="btn-login" onclick="doLogin()">Entrar</button>
+</div>
+<script>
+// El destino y el endpoint se configuran desde el padre (iframe/redirect)
+const params = new URLSearchParams(location.search);
+const dest     = params.get('dest') || '/';
+const endpoint = params.get('endpoint') || '/api/login';
+const appName  = params.get('app') || 'Pi Console';
+const appColor = params.get('color') || '#4361ee';
+
+document.getElementById('logo-sub').textContent = appName;
+document.getElementById('logo-ico').style.background = appColor;
+
+document.getElementById('password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+async function doLogin() {
+  const btn = document.getElementById('btn-login');
+  const err = document.getElementById('err');
+  const u   = document.getElementById('username').value.trim();
+  const p   = document.getElementById('password').value;
+  err.className = 'error-msg';
+  if (!u || !p) { showErr('Completa todos los campos'); return; }
+  btn.disabled = true; btn.innerHTML = '<span class="spin">⟳</span> Entrando...';
+  try {
+    const r = await fetch(endpoint, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: u, password: p})
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) { showErr(d.error || 'Credenciales incorrectas'); return; }
+    if (d.must_change_password) {
+      location.href = dest + '?must_change=1';
+    } else {
+      location.href = dest;
+    }
+  } catch(e) {
+    showErr('Error de conexión: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+}
+
+function showErr(msg) {
+  const el = document.getElementById('err');
+  el.textContent = msg; el.className = 'error-msg show';
+}
+</script>
+</body>
+</html>
