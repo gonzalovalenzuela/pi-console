@@ -81,7 +81,7 @@ El instalador:
 ### Opción B — desde fuente (desarrollo)
 
 ```bash
-git clone https://github.com/<tu-usuario>/pi-console.git
+git clone https://github.com/gonzalovalenzuela/pi-console.git
 cd pi-console
 
 # Copiar archivos
