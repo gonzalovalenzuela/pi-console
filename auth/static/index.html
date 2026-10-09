@@ -115,7 +115,7 @@ input.err{border-color:var(--red)}
 .spin{display:inline-block;animation:spin .5s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 /* Login screen */
-#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:99999}
+#login-screen{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:99999}
 .login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:32px;width:100%;max-width:360px;box-shadow:var(--shadow-md)}
 .login-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px}
 .login-logo-ico{width:36px;height:36px;border-radius:8px;background:var(--purple);display:flex;align-items:center;justify-content:center}
@@ -713,9 +713,11 @@ document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Ent
         document.getElementById('avatar').textContent  = d.username[0].toUpperCase();
         await loadUsers();
         document.getElementById('login-screen').style.display='none';
+        return;
       }
     }
   } catch{}
+  document.getElementById('login-screen').style.display='flex';
 })();
 </script>
 </body>

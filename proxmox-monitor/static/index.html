@@ -14,7 +14,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--border-b);border-radius:99px}
 [data-theme="dark"]{--bg:#0f1117;--surface:#1a1d27;--surface2:#1e2130;--border:#2a2f45;--border-b:#363d57;--text:#e2e8f0;--text-mid:#94a3b8;--text-dim:#5a6a85;--shadow:0 1px 3px rgba(0,0,0,.3);--shadow-md:0 4px 16px rgba(0,0,0,.4);--blue-dim:rgba(67,97,238,.2);--green-dim:rgba(34,197,94,.15);--red-dim:rgba(239,68,68,.15);--orange-dim:rgba(249,115,22,.15);--pve-dim:rgba(225,92,0,.15)}
 /* Login */
-#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:99999;padding:24px;transition:opacity .15s}
+#login-screen{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:99999;padding:24px;transition:opacity .15s}
 .login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:32px;width:100%;max-width:360px;box-shadow:var(--shadow-md)}
 .login-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px}
 .login-logo-ico{width:36px;height:36px;border-radius:8px;background:var(--pve);display:flex;align-items:center;justify-content:center}
@@ -783,7 +783,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
 _i18nReady=true;
 (async()=>{
   const ok=await tryAutoLogin();
-  if(ok){applyPermissions();await initApp();const ls=document.getElementById('login-screen');ls.style.opacity='0';setTimeout(()=>ls.style.display='none',150);}
+  if(ok){applyPermissions();await initApp();const ls=document.getElementById('login-screen');ls.style.opacity='0';setTimeout(()=>ls.style.display='none',150);}else{document.getElementById('login-screen').style.display='flex';}
 })();
 </script>
 </body>
