@@ -62,7 +62,7 @@ class H(BaseHTTPRequestHandler):
 
         if not auth.check_permission(tok, "wol", "admin") and \
            not auth.check_permission(tok, "nut", "admin"):
-            return self._json(401, {"error": "No autorizado"})
+            return self._json(401, {"error": "Unauthorized"})
 
         if path == "/api/users":
             users = auth.load_users()
@@ -82,16 +82,16 @@ class H(BaseHTTPRequestHandler):
         path = urlparse(self.path).path.rstrip("/")
         tok  = self._tok()
         body = self._body()
-        if body is None: return self._json(400, {"error": "Cuerpo inválido"})
+        if body is None: return self._json(400, {"error": "Invalid request body"})
 
         # Login público
         if path == "/api/login":
             u = auth.authenticate(body.get("username",""), body.get("password",""))
-            if not u: return self._json(401, {"error": "Credenciales incorrectas"})
+            if not u: return self._json(401, {"error": "Invalid credentials"})
             # Solo admins pueden acceder al panel
             if auth.LEVELS.get(u["permissions"].get("wol",""),0) < 3 and \
                auth.LEVELS.get(u["permissions"].get("nut",""),0) < 3:
-                return self._json(403, {"error": "Solo administradores pueden acceder al panel"})
+                return self._json(403, {"error": "Administrator access required"})
             token = auth.create_session(body["username"], u["permissions"])
             users = auth.load_users()
             must  = users.get(body["username"],{}).get("must_change_password", False)
@@ -109,7 +109,7 @@ class H(BaseHTTPRequestHandler):
 
         if not auth.check_permission(tok, "wol", "admin") and \
            not auth.check_permission(tok, "nut", "admin"):
-            return self._json(401, {"error": "No autorizado"})
+            return self._json(401, {"error": "Unauthorized"})
 
         sess = auth.get_session(tok)
         me   = sess["username"] if sess else ""
@@ -123,9 +123,9 @@ class H(BaseHTTPRequestHandler):
             if not uname or not pwd:
                 return self._json(400, {"error": "username y password requeridos"})
             if not re.match(r'^[a-zA-Z0-9_\-]{2,32}$', uname):
-                return self._json(400, {"error": "Username inválido (2-32 chars alfanuméricos)"})
+                return self._json(400, {"error": "Invalid username (2-32 alphanumeric chars)"})
             if wol_p not in VALID_PERMS or nut_p not in VALID_PERMS:
-                return self._json(400, {"error": "Permiso inválido"})
+                return self._json(400, {"error": "Invalid permission"})
             users = auth.load_users()
             if uname in users:
                 return self._json(409, {"error": "Usuario ya existe"})
@@ -144,10 +144,10 @@ class H(BaseHTTPRequestHandler):
             target = (body.get("username") or me).strip()
             new_pw = (body.get("new_password") or "").strip()
             if not new_pw or len(new_pw) < 6:
-                return self._json(400, {"error": "La contraseña debe tener al menos 6 caracteres"})
+                return self._json(400, {"error": "Password must be at least 6 characters"})
             # No-admin solo puede cambiar la suya
             if target != me and not auth.check_permission(tok, "wol", "admin"):
-                return self._json(403, {"error": "Solo puedes cambiar tu propia contraseña"})
+                return self._json(403, {"error": "You can only change your own password"})
             users = auth.load_users()
             if target not in users:
                 return self._json(404, {"error": "Usuario no encontrado"})
@@ -164,11 +164,11 @@ class H(BaseHTTPRequestHandler):
         path = urlparse(self.path).path.rstrip("/")
         tok  = self._tok()
         body = self._body()
-        if body is None: return self._json(400, {"error": "Cuerpo inválido"})
+        if body is None: return self._json(400, {"error": "Invalid request body"})
 
         if not auth.check_permission(tok, "wol", "admin") and \
            not auth.check_permission(tok, "nut", "admin"):
-            return self._json(401, {"error": "No autorizado"})
+            return self._json(401, {"error": "Unauthorized"})
 
         sess = auth.get_session(tok)
         me   = sess["username"] if sess else ""
@@ -179,9 +179,9 @@ class H(BaseHTTPRequestHandler):
             wol_p = body.get("wol_permission")
             nut_p = body.get("nut_permission")
             if wol_p and wol_p not in VALID_PERMS:
-                return self._json(400, {"error": "Permiso WOL inválido"})
+                return self._json(400, {"error": "Invalid WOL permission"})
             if nut_p and nut_p not in VALID_PERMS:
-                return self._json(400, {"error": "Permiso NUT inválido"})
+                return self._json(400, {"error": "Invalid NUT permission"})
             # Proteger al propio admin de quitarse permisos
             if uname == me and (wol_p == "none" or nut_p == "none"):
                 return self._json(400, {"error": "No puedes quitarte tus propios permisos de admin"})
@@ -201,11 +201,11 @@ class H(BaseHTTPRequestHandler):
         tok  = self._tok()
         if not auth.check_permission(tok, "wol", "admin") and \
            not auth.check_permission(tok, "nut", "admin"):
-            return self._json(401, {"error": "No autorizado"})
+            return self._json(401, {"error": "Unauthorized"})
         sess = auth.get_session(tok)
         me   = sess["username"] if sess else ""
         m = re.match(r'^/api/users/([a-zA-Z0-9_\-]+)$', path)
-        if not m: return self._json(400, {"error": "Usuario inválido"})
+        if not m: return self._json(400, {"error": "Invalid user"})
         uname = m.group(1)
         if uname == me: return self._json(400, {"error": "No puedes eliminarte a ti mismo"})
         users = auth.load_users()

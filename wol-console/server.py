@@ -79,7 +79,7 @@ def send_wol(mac, port):
     log.info(f"Ejecutando: {' '.join(cmd)}")
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
     if r.returncode != 0:
-        raise RuntimeError(r.stderr.strip() or "wakeonlan falló")
+        raise RuntimeError(r.stderr.strip() or "wakeonlan failed")
     log.info(f"Magic packet → MAC={clean} broadcast={broadcast}:{port}")
 
 # ─── Wake log ─────────────────────────────────────────────────────────────────
@@ -120,14 +120,14 @@ def save_devices(devs):
 
 def validate_device(d):
     if not isinstance(d.get("name"), str) or not d["name"].strip():
-        return False, "Nombre inválido"
+        return False, "Invalid name"
     if not isinstance(d.get("mac"), str) or not norm_mac(d["mac"]):
-        return False, "MAC inválida"
+        return False, "Invalid MAC address"
     p = d.get("port", 9)
     if not isinstance(p, int) or not (1 <= p <= 65535):
-        return False, "Puerto inválido"
+        return False, "Invalid port"
     if d.get("tag","PC") not in ("PC","SERVER","NAS","VM","OTHER"):
-        return False, "Categoría inválida"
+        return False, "Invalid category"
     return True, ""
 
 # ─── HTTP Handler ─────────────────────────────────────────────────────────────
@@ -180,7 +180,7 @@ class H(BaseHTTPRequestHandler):
             return self._json(200, {"token": gen_token()})
 
         if not auth.check_permission(tok, "wol", "readonly"):
-            return self._json(401, {"error": "No autorizado"})
+            return self._json(401, {"error": "Unauthorized"})
 
         if path == "/api/devices":
             devs = load_devices()
@@ -215,11 +215,11 @@ class H(BaseHTTPRequestHandler):
         path = urlparse(self.path).path.rstrip("/")
         tok  = self._tok()
         body = self._body()
-        if body is None: return self._json(400, {"error": "Cuerpo inválido"})
+        if body is None: return self._json(400, {"error": "Invalid request body"})
 
         if path == "/api/login":
             u = auth.authenticate(body.get("username",""), body.get("password",""))
-            if not u: return self._json(401, {"error": "Credenciales incorrectas"})
+            if not u: return self._json(401, {"error": "Invalid credentials"})
             token = auth.create_session(body["username"], u["permissions"])
             users = auth.load_users()
             must  = users.get(body["username"],{}).get("must_change_password", False)
@@ -237,7 +237,7 @@ class H(BaseHTTPRequestHandler):
             auth.delete_session(tok); return self._json(200, {"ok": True})
 
         if not auth.check_permission(tok, "wol", "readonly"):
-            return self._json(401, {"error": "No autorizado"})
+            return self._json(401, {"error": "Unauthorized"})
 
         if path == "/api/devices":
             if not auth.check_permission(tok, "wol", "admin"):
@@ -259,7 +259,7 @@ class H(BaseHTTPRequestHandler):
         elif path == "/api/ping":
             # Verificar si un equipo ya está online antes de despertar
             if not auth.check_permission(tok, "wol", "readonly"):
-                return self._json(403, {"error": "No autorizado"})
+                return self._json(403, {"error": "Unauthorized"})
             ip = (body.get("ip") or "").strip()
             if not ip:
                 return self._json(400, {"error": "IP requerida"})
@@ -279,7 +279,7 @@ class H(BaseHTTPRequestHandler):
             already_online = ping_host(dev.get("ip","")) if dev.get("ip") else False
             if already_online and not body.get("force"):
                 return self._json(200, {"ok": False, "already_online": True,
-                                        "message": f"{dev['name']} ya está encendido"})
+                                        "message": f"{dev['name']} is already on"})
             try:
                 send_wol(dev["mac"], dev.get("port",9))
                 sess = auth.get_session(tok)
@@ -333,7 +333,7 @@ class H(BaseHTTPRequestHandler):
         if not auth.check_permission(tok, "wol", "admin"):
             return self._json(403, {"error": "Requiere permiso admin"})
         m = re.match(r'^/api/devices/([0-9a-f\-]{36})$', path)
-        if not m: return self._json(400, {"error": "ID inválido"})
+        if not m: return self._json(400, {"error": "Invalid ID"})
         devs = load_devices()
         new  = [d for d in devs if d["id"] != m.group(1)]
         if len(new) == len(devs): return self._json(404, {"error": "No encontrado"})

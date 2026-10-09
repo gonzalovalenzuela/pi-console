@@ -496,7 +496,7 @@ class H(BaseHTTPRequestHandler):
             return self._file(STATIC_DIR / "index.html", "text/html; charset=utf-8")
 
         if not auth.check_permission(tok, "net", "readonly"):
-            return self._json(401, {"error": "No autorizado"})
+            return self._json(401, {"error": "Unauthorized"})
 
         if path == "/api/hosts":
             hosts = load_hosts()
@@ -537,11 +537,11 @@ class H(BaseHTTPRequestHandler):
         path = urlparse(self.path).path.rstrip("/")
         tok  = self._tok()
         body = self._body()
-        if body is None: return self._json(400, {"error": "Cuerpo inválido"})
+        if body is None: return self._json(400, {"error": "Invalid request body"})
 
         if path == "/api/login":
             u = auth.authenticate(body.get("username", ""), body.get("password", ""))
-            if not u: return self._json(401, {"error": "Credenciales incorrectas"})
+            if not u: return self._json(401, {"error": "Invalid credentials"})
             token = auth.create_session(body["username"], u["permissions"])
             users = auth.load_users()
             must  = users.get(body["username"], {}).get("must_change_password", False)
@@ -559,7 +559,7 @@ class H(BaseHTTPRequestHandler):
             auth.delete_session(tok); return self._json(200, {"ok": True})
 
         if not auth.check_permission(tok, "net", "readonly"):
-            return self._json(401, {"error": "No autorizado"})
+            return self._json(401, {"error": "Unauthorized"})
 
         if path == "/api/scan/start":
             if _scan_status["running"]:
@@ -608,7 +608,7 @@ class H(BaseHTTPRequestHandler):
             global _current_interval, _scan_timer
             interval = int(body.get("interval", 3600))
             if interval < 0 or (interval > 0 and interval < 60):
-                return self._json(400, {"error": "Mínimo 60 segundos o 0 para manual"})
+                return self._json(400, {"error": "Minimum 60 seconds or 0 for manual"})
             # Cancelar timer anterior
             if _scan_timer:
                 _scan_timer.cancel()
