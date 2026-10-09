@@ -8,9 +8,9 @@ from pathlib import Path
 
 log = logging.getLogger("auth")
 
-USERS_FILE = Path(os.environ.get("PICONSOLE_USERS", "/opt/pi-console-auth/users.json"))
+USERS_FILE    = Path(os.environ.get("PICONSOLE_USERS",    "/var/lib/pi-console/users.json"))
 SESSION_TTL = 24 * 3600   # 24 horas
-SESSIONS_FILE = Path(os.environ.get("PICONSOLE_SESSIONS", "/opt/pi-console-auth/sessions.json"))
+SESSIONS_FILE = Path(os.environ.get("PICONSOLE_SESSIONS", "/var/lib/pi-console/sessions.json"))
 _slock = None
 def _get_lock():
     global _slock

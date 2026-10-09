@@ -1,26 +1,33 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
-# Si ya hay una instalación previa, hacer backup de datos antes de actualizar
-if [ -d /opt/pi-console ]; then
-    echo "pi-console: detectada instalación previa, creando backup de datos..."
-    BACKUP_DIR="/var/backups/pi-console"
-    STAMP=$(date +%Y%m%d_%H%M%S)
-    mkdir -p "$BACKUP_DIR"
+BACKUP_DIR="/var/backups/pi-console"
+STAMP=$(date +%Y%m%d_%H%M%S)
 
-    # Backup de datos importantes (no código — eso se reemplaza)
-    for f in \
-        /opt/pi-console/auth/users.json \
-        /opt/pi-console/auth/sessions.json \
-        /opt/pi-console/wol-console/devices.json \
-        /opt/pi-console/nut-monitor/servers.json \
-        /opt/pi-console/nut-monitor/history.db \
-        /opt/pi-console/net-monitor/hosts.json \
-        /opt/pi-console/net-monitor/config.json \
-        /opt/pi-console/proxmox-monitor/clusters.json
-    do
-        [ -f "$f" ] && cp "$f" "$BACKUP_DIR/$(basename $f).${STAMP}.bak" && \
-            echo "  backup: $(basename $f)"
-    done
+# Backup de seguridad de datos (rutas antiguas y nuevas)
+# En versiones >= 1.1.4 los datos ya están en /var/lib/pi-console/ y sobreviven solos.
+# Este backup sirve como safety net y para migración desde versiones anteriores.
+BACKED_UP=false
+for f in \
+    /var/lib/pi-console/users.json \
+    /var/lib/pi-console/sessions.json \
+    /opt/pi-console/auth/users.json \
+    /opt/pi-console/auth/sessions.json \
+    /opt/pi-console/wol-console/devices.json \
+    /opt/pi-console/nut-monitor/servers.json \
+    /opt/pi-console/nut-monitor/history.db \
+    /opt/pi-console/net-monitor/hosts.json \
+    /opt/pi-console/net-monitor/config.json \
+    /opt/pi-console/proxmox-monitor/clusters.json
+do
+    if [ -f "$f" ]; then
+        mkdir -p "$BACKUP_DIR"
+        cp "$f" "$BACKUP_DIR/$(basename $f).${STAMP}.bak"
+        BACKED_UP=true
+        echo "  backup: $(basename $f)"
+    fi
+done
+
+if [ "$BACKED_UP" = true ]; then
     echo "pi-console: backup en $BACKUP_DIR"
 fi
