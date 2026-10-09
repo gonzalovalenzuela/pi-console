@@ -122,6 +122,38 @@ if [ ! -f "$DATA_DIR/sessions.json" ]; then
     fi
 fi
 
+# ── 7b. Restaurar datos de los módulos desde backup (solo si faltan) ──────────
+# Dispositivos WOL, servidores UPS, historial, hosts, config y clusters viven
+# dentro de /opt/pi-console. Si no existen (reinstalación tras remove/purge),
+# se recuperan del backup. Nunca se sobrescribe un archivo existente.
+# history.db: se usa el respaldo MÁS GRANDE (el más reciente puede ser una base
+# casi vacía creada por un reinicio previo); el resto, el más reciente.
+if [ -d "$BACKUP_DIR" ]; then
+    MODULE_FILES="
+wol-console/devices.json:devices.json
+nut-monitor/servers.json:servers.json
+nut-monitor/history.db:history.db
+net-monitor/hosts.json:hosts.json
+net-monitor/config.json:config.json
+proxmox-monitor/clusters.json:clusters.json
+"
+    printf '%s\n' "$MODULE_FILES" | grep -v '^$' | while IFS=: read -r rel_path base; do
+        dest="$PI_HOME/$rel_path"
+        [ -f "$dest" ] && continue
+        if [ "$base" = "history.db" ]; then
+            src=$(ls -S "$BACKUP_DIR/${base}".*.bak 2>/dev/null | head -1)
+        else
+            src=$(ls -t "$BACKUP_DIR/${base}".*.bak 2>/dev/null | head -1)
+        fi
+        if [ -n "$src" ]; then
+            mkdir -p "$(dirname "$dest")"
+            cp "$src" "$dest"
+            chown pi-console:pi-console "$dest"
+            echo "  restaurado: $rel_path (desde $src)"
+        fi
+    done
+fi
+
 # ── 8. Recargar y habilitar servicios ─────────────────────────────────────────
 systemctl daemon-reload
 
