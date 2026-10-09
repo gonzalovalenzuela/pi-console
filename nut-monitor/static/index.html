@@ -633,8 +633,8 @@ async function doLogin(){
     const d=await r.json();
     if(!r.ok||!d.ok){err.textContent=d.error||'Credenciales incorrectas';err.className='login-err show';return;}
     if(!d.permissions?.nut||d.permissions.nut==='none'){err.textContent=t('noAccess')||'No access to UPS Monitor';err.className='login-err show';return;}
-    ME=d;document.getElementById('login-screen').style.display='none';
-    applyPermissions();await initApp();
+    ME=d;applyPermissions();await initApp();
+    document.getElementById('login-screen').style.display='none';
   }catch(e){err.textContent='Error: '+e.message;err.className='login-err show';}
   finally{btn.disabled=false;btn.textContent=t('loginBtn');}
 }
@@ -1441,7 +1441,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals();});
 _i18nReady=true;
 (async()=>{
   const ok=await checkSession();
-  if(ok){document.getElementById('login-screen').style.display='none';applyPermissions();await initApp();}
+  if(ok){applyPermissions();await initApp();document.getElementById('login-screen').style.display='none';}
 })();
 </script>
 </body>
