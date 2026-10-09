@@ -667,8 +667,8 @@ async function initApp(){
   pollTimer=setInterval(fetchAll,POLL);
 }
 
-// Rango activo global (se actualiza cuando el usuario cambia filtro)
-let _activeRange = 'all';
+// Siempre pedimos todo el historial al servidor; el filtro es solo visual
+const _activeRange = 'all';
 let _obStartTs = {}; // { "srvId:upsName": timestamp cuando entró en OB }
 
 function exportCSV(){
@@ -977,10 +977,7 @@ function renderDashboard(){
               <div class="vchart-legend-item"><div class="vchart-legend-dot" style="background:#22c55e"></div>${t('chartLegend_output')}</div>
             </div>
             <div class="vchart-filters" id="vchart-filters-${key.replace(/[^a-z0-9]/gi,'-')}">
-              <button class="vchart-filter active" data-range="all"   onclick="setVChartRange(this,'${key}','v')">${t('filterAll')}</button>
-              <button class="vchart-filter"         data-range="1h"   onclick="setVChartRange(this,'${key}','v')">1h</button>
-              <button class="vchart-filter"         data-range="1d"   onclick="setVChartRange(this,'${key}','v')">1d</button>
-              <button class="vchart-filter"         data-range="1mo"  onclick="setVChartRange(this,'${key}','v')">1mo</button>
+              ${['all','1h','1d','1mo'].map(r=>`<button class="vchart-filter${(vchartRanges[key]||'all')===r?' active':''}" data-range="${r}" onclick="setVChartRange(this,'${key}','v')">${r==='all'?t('filterAll'):r}</button>`).join('')}
             </div>
           </div>
           <div class="vchart-body" style="position:relative">
@@ -997,10 +994,7 @@ function renderDashboard(){
               <div class="vchart-legend-item"><div class="vchart-legend-dot" style="background:#f97316"></div>${t('chartLegend_watts')}</div>
             </div>
             <div class="vchart-filters" id="wchart-filters-${key.replace(/[^a-z0-9]/gi,'-')}">
-              <button class="vchart-filter active" data-range="all"   onclick="setVChartRange(this,'${key}','w')">${t('filterAll')}</button>
-              <button class="vchart-filter"         data-range="1h"   onclick="setVChartRange(this,'${key}','w')">1h</button>
-              <button class="vchart-filter"         data-range="1d"   onclick="setVChartRange(this,'${key}','w')">1d</button>
-              <button class="vchart-filter"         data-range="1mo"  onclick="setVChartRange(this,'${key}','w')">1mo</button>
+              ${['all','1h','1d','1mo'].map(r=>`<button class="vchart-filter${(wchartRanges[key]||'all')===r?' active':''}" data-range="${r}" onclick="setVChartRange(this,'${key}','w')">${r==='all'?t('filterAll'):r}</button>`).join('')}
             </div>
           </div>
           <div class="vchart-body" style="position:relative">
@@ -1041,7 +1035,7 @@ function toggleExpand(key,row){
 const vchartRanges = {};  // { key: 'all'|'1h'|'1d'|'1mo' }
 const wchartRanges = {};  // idem para watts
 
-async function setVChartRange(btn, key, type){
+function setVChartRange(btn, key, type){
   type = type||'v';
   const pfx = type==='w' ? 'wchart' : 'vchart';
   const cid = pfx+'-filters-'+key.replace(/[^a-z0-9]/gi,'-');
@@ -1049,9 +1043,7 @@ async function setVChartRange(btn, key, type){
   btn.classList.add('active');
   const store = type==='w' ? wchartRanges : vchartRanges;
   store[key] = btn.dataset.range;
-  // Sincronizar el rango global y recargar datos del servidor
-  _activeRange = btn.dataset.range;
-  await fetchAll();
+  // Redibujar solo con los datos ya en memoria — sin re-fetch
   const snap = allData[key.split('/')[0]];
   if(!snap) return;
   const upsName = key.split('/').slice(1).join('/');
