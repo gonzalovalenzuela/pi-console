@@ -35,7 +35,7 @@ def save_config(cfg: dict):
     tmp.write_text(json.dumps(cfg, indent=2))
     tmp.replace(CONF_FILE)
 NETWORK       = os.environ.get("SCAN_NETWORK",   "192.168.0.0/24")
-SCAN_PORTS    = os.environ.get("SCAN_PORTS",     "21,22,23,25,53,80,111,135,139,443,445,548,554,873,1883,2049,3260,3306,3389,5000,5001,5357,5432,5555,5900,6379,7547,8009,8080,8291,8443,9100,27017,62078")
+SCAN_PORTS    = os.environ.get("SCAN_PORTS",     "21,22,23,25,53,80,111,135,139,443,445,548,554,873,1883,2049,3260,3306,3389,5000,5001,5357,5432,5555,5900,6379,7547,8001,8002,8008,8009,8080,8291,8443,9100,27017,62078")
 SCAN_INTERVAL = int(os.environ.get("SCAN_INTERVAL", 3600))
 PORT_TIMEOUT  = float(os.environ.get("PORT_TIMEOUT", 0.5))
 MAX_WORKERS   = int(os.environ.get("MAX_WORKERS", 30))
@@ -59,7 +59,7 @@ PORT_NAMES = {
     8080:"HTTP-Alt", 8443:"HTTPS-Alt", 27017:"MongoDB", 62078:"iTunes",
     111:"RPC", 135:"MSRPC", 548:"AFP", 873:"rsync", 2049:"NFS", 3260:"iSCSI",
     5000:"DSM/HTTP", 5001:"DSM/HTTPS", 5357:"WSDD", 5555:"ADB", 7547:"TR-069",
-    8009:"Cast", 8291:"Winbox", 9100:"Print"
+    8001:"Tizen", 8002:"Tizen-TLS", 8008:"Cast", 8009:"Cast", 8291:"Winbox", 9100:"Print"
 }
 
 OS_GROUPS = ["Windows", "Linux", "macOS", "iOS", "IoT", "Android", "BSD", "Desconocido"]
@@ -219,7 +219,7 @@ def mdns_hint(hostname: str) -> str:
     return ""
 
 # ─── Device identification (OS + device type, no nmap) ───────────────────────
-DEVICE_TYPES = ["computer", "router", "switch", "ap", "storage", "other"]
+DEVICE_TYPES = ["computer", "phone", "router", "switch", "ap", "storage", "tv", "camera", "appliance", "other"]
 
 _OUI_PATHS = ["/usr/share/ieee-data/oui.txt", "/var/lib/ieee-data/oui.txt",
               "/usr/share/misc/oui.txt"]
@@ -295,6 +295,15 @@ V_AP      = ("ruckus", "aruba", "engenius", "cambium", "meraki", "aerohive", "gr
 V_NETGEAR = ("ubiquiti", "tp-link", "tp link", "d-link", "netgear", "cisco", "linksys", "huawei technologies", "hewlett packard enterprise")
 V_ANDROID = ("samsung", "xiaomi", "oppo", "oneplus", "vivo", "motorola", "realme", "honor",
              "tecno", "infinix", "hmd global", "nokia", "zte", "lenovo mobile", "google, inc", "google llc")
+V_CAMERA  = ("hikvision", "dahua", "axis communications", "reolink", "amcrest", "foscam", "ezviz",
+             "vivotek", "uniview", "annke", "hanwha", "wyze", "lorex", "swann", "tp-link tapo")
+V_TV      = ("roku", "vizio", "hisense", "tcl ", "tcl,", "lg electronics", "sony visual", "skyworth")
+V_APPL    = ("espressif", "tuya", "shelly", "allterco", "sonoff", "itead", "irobot", "roborock", "ecovacs",
+             "dyson", "signify", "philips lighting", "sonos", "amazon technologies", "ecobee", "nest labs",
+             "lifx", "meross", "govee", "bsh", "miele", "whirlpool", "electrolux", "smartthings", "xiaomi communications")
+H_CAMERA  = re.compile(r"cam(era)?([-_.\d]|$)|^ipc|nvr|dvr|doorbell|hikvision|dahua|reolink", re.I)
+H_TV      = re.compile(r"(^|[-_.])tv([-_.\d]|$)|bravia|roku|fire-?tv|apple-?tv|chromecast|webos|tizen|android-?tv|shield|smarttv", re.I)
+H_APPL    = re.compile(r"^esp[-_]?\d|esp32|esp8266|shelly|tasmota|roomba|alexa|echo|sonos|homekit|plug|bulb|lamp|fridge|washer|dryer|oven|vacuum|robot|aspirad|thermostat", re.I)
 H_WIN     = re.compile(r"^(desktop|laptop|win|pc|workstation|surface)[-_]", re.I)
 H_ANDROID = re.compile(r"android|galaxy|pixel|redmi|xiaomi|poco|oneplus|oppo|realme|huawei|honor|moto[-_ ]|^sm-|^sm[a-z]\d", re.I)
 H_STORAGE = re.compile(r"nas|diskstation|synology|qnap|truenas|freenas|openmediavault|\bomv\b|unraid|storage|backup", re.I)
@@ -350,13 +359,28 @@ def identify(ip: str, open_ports: list, ttl: int, hostname: str, banner: str,
     if H_WIN.search(host) or "iphone" in host or "macbook" in host: s["computer"] += 3
     if "windows" in ban or "microsoft" in ban:        s["computer"] += 3
 
+    # camera
+    if _has(ven, V_CAMERA):                           s["camera"] += 4
+    if 554 in ports:                                  s["camera"] += 4
+    if _has(ban, ("hikvision", "dahua", "ipcam", "netcam", "dnvrs", "app-webs")): s["camera"] += 4
+    if H_CAMERA.search(host):                         s["camera"] += 4
+    # tv / media
+    if _has(ven, V_TV):                               s["tv"] += 3
+    if H_TV.search(host):                             s["tv"] += 5
+    s["tv"] += 2 * len(ports & {8008, 8009})
+    if ports & {8001, 8002}:                          s["tv"] += 4
+    # appliance / smart home
+    if _has(ven, V_APPL):                             s["appliance"] += 4
+    if H_APPL.search(host):                           s["appliance"] += 4
+    if 1883 in ports:                                 s["appliance"] += 2
+
     best = max(DEVICE_TYPES[:-1], key=lambda t: s[t])
     dtype = best if s[best] >= 4 else ("computer" if s["computer"] >= 1 else "other")
 
     # ── OS ──
     win_strong = ("windows" in ban or "microsoft" in ban or "iis" in ban or H_WIN.search(host)
                   or "microsoft" in ven)
-    if dtype in ("router", "switch", "ap"):
+    if dtype in ("router", "switch", "ap", "tv", "camera", "appliance"):
         os_name = "IoT"
     elif dtype == "storage":
         os_name = "Linux"
@@ -389,6 +413,8 @@ def identify(ip: str, open_ports: list, ttl: int, hostname: str, banner: str,
 
     if dtype == "other" and os_name in ("Windows", "Linux", "macOS", "Android", "iOS"):
         dtype = "computer"
+    if os_name in ("Android", "iOS") and dtype in ("computer", "other"):
+        dtype = "phone"
     return os_name, dtype
 
 # ─── Scan host completo ───────────────────────────────────────────────────────

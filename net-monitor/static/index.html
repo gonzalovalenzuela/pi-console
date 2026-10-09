@@ -415,7 +415,7 @@ const LANG={
     uptimeEmpty:'No events recorded yet',uptimeStats:(h,d)=>`${h}h monitored · ${d} outage${d!==1?'s':''}`,
     availHistory:'Availability history',
     chartMonitoring:'Monitoring — data will appear after several scans',
-    osUnknown:'Unknown',colType:'Type',deviceTypes:'Device type',editDevice:'Edit device',fieldType:'Device type',fieldOs:'Operating system',autoDetect:'Auto-detect',saved:'Device updated',tComputer:'Computer',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tOther:'Other',newDevice:'NEW',
+    osUnknown:'Unknown',colType:'Type',deviceTypes:'Device type',editDevice:'Edit device',fieldType:'Device type',fieldOs:'Operating system',autoDetect:'Auto-detect',saved:'Device updated',tComputer:'Computer',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tPhone:'Phone',tTv:'TV',tCamera:'Camera',tAppliance:'Appliance',tOther:'Other',newDevice:'NEW',
     newDeviceMsg:(n,names,more)=>`${n} new device${n>1?'s':''} detected: ${names}${more?' and more':''}`,
     osEditTitle:'Edit OS'},
   es:{loginTitle:'Iniciar sesión',loginSub:'Ingresa tus credenciales para continuar.',
@@ -445,17 +445,18 @@ const LANG={
     uptimeEmpty:'Sin eventos registrados aún',uptimeStats:(h,d)=>`${h}h monitoreado · ${d} caída${d!==1?'s':''}`,
     availHistory:'Historial de disponibilidad',
     chartMonitoring:'Monitoreando — los datos aparecerán tras varios escaneos',
-    osUnknown:'Desconocido',colType:'Tipo',deviceTypes:'Tipo de dispositivo',editDevice:'Editar dispositivo',fieldType:'Tipo de dispositivo',fieldOs:'Sistema operativo',autoDetect:'Detección automática',saved:'Dispositivo actualizado',tComputer:'Equipo',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tOther:'Otro',newDevice:'NUEVO',
+    osUnknown:'Desconocido',colType:'Tipo',deviceTypes:'Tipo de dispositivo',editDevice:'Editar dispositivo',fieldType:'Tipo de dispositivo',fieldOs:'Sistema operativo',autoDetect:'Detección automática',saved:'Dispositivo actualizado',tComputer:'Equipo',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tPhone:'Teléfono',tTv:'TV',tCamera:'Cámara',tAppliance:'Electrodoméstico',tOther:'Otro',newDevice:'NUEVO',
     newDeviceMsg:(n,names,more)=>`${n} nuevo${n>1?'s dispositivos':'dispositivo'} detectado${n>1?'s':''}: ${names}${more?' y más':''}`,
     osEditTitle:'Editar OS'}
 };
 let _lang=localStorage.getItem('pi-lang')||'en';
 var _i18nReady=false;
 function t(k,...args){const v=(LANG[_lang]||LANG.en)[k]||(LANG.en)[k]||k;return typeof v==='function'?v(...args):v;}
-const DEVICE_TYPES=['computer','router','switch','ap','storage','other'];
+const DEVICE_TYPES=['computer','phone','router','switch','ap','storage','tv','camera','appliance','other'];
 const TYPE_META={computer:{icon:'💻',key:'tComputer',color:'#4361ee'},router:{icon:'🌐',key:'tRouter',color:'#f4a261'},
   switch:{icon:'🔀',key:'tSwitch',color:'#2a9d8f'},ap:{icon:'📡',key:'tAp',color:'#9b5de5'},
-  storage:{icon:'🗄️',key:'tStorage',color:'#e76f51'},other:{icon:'❔',key:'tOther',color:'#8d99ae'}};
+  storage:{icon:'🗄️',key:'tStorage',color:'#e76f51'},phone:{icon:'📱',key:'tPhone',color:'#06b6d4'},
+  tv:{icon:'📺',key:'tTv',color:'#e63946'},camera:{icon:'📷',key:'tCamera',color:'#6c757d'},appliance:{icon:'🏠',key:'tAppliance',color:'#d4a017'},other:{icon:'❔',key:'tOther',color:'#8d99ae'}};
 const devType=h=>TYPE_META[h.device_type]?h.device_type:'other';
 const tType=ty=>t(TYPE_META[ty].key);
 function tOs(os){return os==='Desconocido'||os==='Unknown'?t('osUnknown'):os;}
