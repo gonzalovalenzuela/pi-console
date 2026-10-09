@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.7 — 2026-10-09
+## 1.1.7a — 2026-10-09
 
 ### Net Monitor
 - **Tipos de dispositivo**: computer, phone, router, switch, ap, storage, tv, camera, appliance, other. Columna *Type* con icono, filtros por tipo y edición manual (con opción `auto` para volver a la detección).
