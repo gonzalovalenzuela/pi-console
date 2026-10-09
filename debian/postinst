@@ -1,43 +1,47 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 PI_HOME="/opt/pi-console"
-AUTH_DIR="/opt/pi-console-auth"
+DATA_DIR="/var/lib/pi-console"
+AUTH_LINK="/opt/pi-console-auth"
 
-echo "pi-console: configurando instalación..."
+echo "pi-console: configurando instalacion..."
 
 # ── 1. Crear usuario del sistema ──────────────────────────────────────────────
-if ! id -u pi-console &>/dev/null; then
+if ! id -u pi-console >/dev/null 2>&1; then
     useradd --system --no-create-home --shell /usr/sbin/nologin pi-console
     echo "  usuario pi-console creado"
 fi
 
-# ── 2. Symlink auth compartido ────────────────────────────────────────────────
-mkdir -p "$AUTH_DIR"
-ln -sf "$PI_HOME/auth/auth.py"       "$AUTH_DIR/auth.py"       2>/dev/null || true
-ln -sf "$PI_HOME/auth/users.json"    "$AUTH_DIR/users.json"    2>/dev/null || true
-ln -sf "$PI_HOME/auth/sessions.json" "$AUTH_DIR/sessions.json" 2>/dev/null || true
-chown -h pi-console:pi-console "$AUTH_DIR"/* 2>/dev/null || true
-chown pi-console:pi-console "$AUTH_DIR"
+# ── 2. Directorio de datos persistentes (nunca tocado por dpkg) ───────────────
+mkdir -p "$DATA_DIR"
+chown pi-console:pi-console "$DATA_DIR"
+chmod 750 "$DATA_DIR"
 
-# ── 3. Permisos de directorios de datos ───────────────────────────────────────
+# ── 3. Symlink auth compartido → datos persistentes ───────────────────────────
+mkdir -p "$AUTH_LINK"
+ln -sf "$PI_HOME/auth/auth.py"        "$AUTH_LINK/auth.py"        2>/dev/null || true
+ln -sf "$DATA_DIR/users.json"         "$AUTH_LINK/users.json"     2>/dev/null || true
+ln -sf "$DATA_DIR/sessions.json"      "$AUTH_LINK/sessions.json"  2>/dev/null || true
+chown -h pi-console:pi-console "$AUTH_LINK"/* 2>/dev/null || true
+chown pi-console:pi-console "$AUTH_LINK"
+
+# ── 4. Permisos de directorios de código ─────────────────────────────────────
 chown -R pi-console:pi-console "$PI_HOME"
 chmod 755 "$PI_HOME"
-
-# Cada módulo puede escribir en su propio directorio
 for module in wol-console nut-monitor net-monitor proxmox-monitor auth; do
     chown pi-console:pi-console "$PI_HOME/$module"
     chmod 755 "$PI_HOME/$module"
 done
 
 # ttyUSB0 para NUT (UPS por serial)
-if getent group dialout &>/dev/null; then
+if getent group dialout >/dev/null 2>&1; then
     usermod -aG dialout pi-console 2>/dev/null || true
 fi
 
-# ── 4. Instalar archivos de servicio systemd ──────────────────────────────────
+# ── 5. Instalar archivos de servicio systemd ──────────────────────────────────
 install_service() {
-    local name="$1" desc="$2" port="$3" module="$4" script="$5"
+    name="$1" desc="$2" module="$3" script="$4"
     cat > "/etc/systemd/system/${name}.service" <<EOF
 [Unit]
 Description=Pi Console — ${desc}
@@ -61,60 +65,35 @@ EOF
     echo "  servicio ${name} instalado"
 }
 
-install_service "wol-console"      "WOL Console"      8080 "wol-console"      "server.py"
-install_service "nut-monitor"      "NUT Monitor"      8081 "nut-monitor"       "server.py"
-install_service "admin-panel"      "Admin Panel"      8082 "auth"              "admin_panel.py"
-install_service "net-monitor"      "Net Monitor"      8083 "net-monitor"       "server.py"
-install_service "proxmox-monitor"  "Proxmox Monitor"  8084 "proxmox-monitor"   "server.py"
+install_service "wol-console"     "WOL Console"     "wol-console"     "server.py"
+install_service "nut-monitor"     "NUT Monitor"      "nut-monitor"     "server.py"
+install_service "admin-panel"     "Admin Panel"      "auth"            "admin_panel.py"
+install_service "net-monitor"     "Net Monitor"      "net-monitor"     "server.py"
+install_service "proxmox-monitor" "Proxmox Monitor"  "proxmox-monitor" "server.py"
 
-# ── 5. Nginx ──────────────────────────────────────────────────────────────────
+# ── 6. Nginx ──────────────────────────────────────────────────────────────────
 if [ -f /etc/nginx/sites-enabled/default ]; then
     rm -f /etc/nginx/sites-enabled/default
 fi
 ln -sf /etc/nginx/sites-available/pi-console.conf \
        /etc/nginx/sites-enabled/pi-console.conf 2>/dev/null || true
 
-# ── 6. Restaurar datos de usuario desde backup (upgrade) ──────────────────────
-# El preinst guarda un backup antes de que dpkg sobreescriba los archivos.
-# Aquí siempre restauramos el backup más reciente para preservar cuentas,
-# contraseñas y configuraciones creadas por el usuario.
+# ── 7. Migrar datos desde rutas antiguas (solo una vez) ──────────────────────
+# Si los datos estaban en la ruta antigua /opt/pi-console/auth/ o en backup,
+# los movemos a /var/lib/pi-console/ — solo si aún no existen ahí.
 BACKUP_DIR="/var/backups/pi-console"
-if [ -d "$BACKUP_DIR" ]; then
-    # Formato: "ruta/relativa/dest:nombre_base_backup"
-    # Sintaxis POSIX — compatible con dash/sh/bash
-    DATA_FILES="
-auth/users.json:users.json
-auth/sessions.json:sessions.json
-wol-console/devices.json:devices.json
-nut-monitor/servers.json:servers.json
-nut-monitor/history.db:history.db
-net-monitor/hosts.json:hosts.json
-net-monitor/config.json:config.json
-proxmox-monitor/clusters.json:clusters.json
-"
-    printf '%s\n' "$DATA_FILES" | grep -v '^$' | while IFS=: read -r rel_path base; do
-        latest=$(ls -t "$BACKUP_DIR/${base}".*.bak 2>/dev/null | head -1)
-        dest="$PI_HOME/$rel_path"
-        if [ -n "$latest" ]; then
-            mkdir -p "$(dirname "$dest")"
-            cp "$latest" "$dest"
-            chown pi-console:pi-console "$dest"
-            echo "  restaurado: $rel_path"
-        fi
-    done
-    echo "pi-console: datos de usuario restaurados desde $BACKUP_DIR"
-fi
 
-# ── 7. Inicializar users.json solo en instalación nueva (sin backup) ──────────
-# Si existe un backup, ya fue restaurado arriba. Solo crear el default
-# cuando es la primera instalación y no hay datos previos.
-FRESH_INSTALL=true
-if [ -d "$BACKUP_DIR" ] && ls "$BACKUP_DIR/users.json".*.bak >/dev/null 2>&1; then
-    FRESH_INSTALL=false
-fi
-if [ "$FRESH_INSTALL" = true ] && [ ! -f "$PI_HOME/auth/users.json" ]; then
-    # Hash SHA256 de "admin" con el salt por defecto
-    PASS_HASH=$(python3 -c "
+if [ ! -f "$DATA_DIR/users.json" ]; then
+    # Intentar migrar desde backup (upgrade desde versión anterior)
+    latest_users=$(ls -t "$BACKUP_DIR/users.json".*.bak 2>/dev/null | head -1)
+    if [ -n "$latest_users" ]; then
+        cp "$latest_users" "$DATA_DIR/users.json"
+        chown pi-console:pi-console "$DATA_DIR/users.json"
+        chmod 600 "$DATA_DIR/users.json"
+        echo "  usuarios migrados desde backup: $latest_users"
+    else
+        # Fresh install: crear admin/admin
+        python3 -c "
 import hashlib, json, time
 salt = 'pi-console-salt-change-me'
 pw   = hashlib.sha256(f'{salt}:admin'.encode()).hexdigest()
@@ -122,11 +101,25 @@ users = {'admin': {'password_hash': pw, 'permissions': {
     'wol':'admin','nut':'admin','net':'admin','pve':'admin'
 }, 'created': int(time.time()), 'must_change_password': True}}
 print(json.dumps(users, indent=2))
-")
-    echo "$PASS_HASH" > "$PI_HOME/auth/users.json"
-    chown pi-console:pi-console "$PI_HOME/auth/users.json"
-    chmod 600 "$PI_HOME/auth/users.json"
-    echo "  users.json creado (admin / admin — cambiar en primer login)"
+" > "$DATA_DIR/users.json"
+        chown pi-console:pi-console "$DATA_DIR/users.json"
+        chmod 600 "$DATA_DIR/users.json"
+        echo "  users.json creado (admin / admin)"
+    fi
+else
+    echo "  usuarios existentes conservados en $DATA_DIR"
+fi
+
+# Migrar sessions.json si existe en backup y no hay uno nuevo
+if [ ! -f "$DATA_DIR/sessions.json" ]; then
+    latest_sess=$(ls -t "$BACKUP_DIR/sessions.json".*.bak 2>/dev/null | head -1)
+    if [ -n "$latest_sess" ]; then
+        cp "$latest_sess" "$DATA_DIR/sessions.json"
+        chown pi-console:pi-console "$DATA_DIR/sessions.json"
+    else
+        echo "{}" > "$DATA_DIR/sessions.json"
+        chown pi-console:pi-console "$DATA_DIR/sessions.json"
+    fi
 fi
 
 # ── 8. Recargar y habilitar servicios ─────────────────────────────────────────
@@ -138,13 +131,12 @@ for svc in wol-console nut-monitor admin-panel net-monitor proxmox-monitor; do
     echo "  $svc habilitado"
 done
 
-# Nginx
 if nginx -t -q 2>/dev/null; then
     systemctl enable nginx 2>/dev/null || true
     systemctl reload nginx 2>/dev/null || systemctl restart nginx 2>/dev/null || true
     echo "  nginx recargado"
 else
-    echo "  AVISO: nginx -t falló, verificar configuración manualmente"
+    echo "  AVISO: nginx -t fallo, verificar configuracion manualmente"
 fi
 
 echo ""
@@ -152,5 +144,5 @@ echo "╔═══════════════════════�
 echo "║  Pi Console instalado correctamente            ║"
 echo "║  URL: http://$(hostname -I | awk '{print $1}')                  ║"
 echo "║  Usuario inicial: admin / admin                ║"
-echo "║  (cambiar contraseña en el primer login)       ║"
+echo "║  (cambiar contrasena en el primer login)       ║"
 echo "╚════════════════════════════════════════════════╝"
