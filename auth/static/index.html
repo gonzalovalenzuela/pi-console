@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Pi Console — Admin</title>
@@ -144,6 +144,11 @@ input.err{border-color:var(--red)}
 .theme-btn svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0}
 .theme-btn:hover{border-color:var(--border-b);color:var(--text)}
 .theme-btn.active{background:var(--blue-dim);border-color:var(--blue);color:var(--blue)}
+/* Lang buttons */
+.lang-btns{display:flex;gap:4px}
+.lang-btn{background:transparent;border:1px solid var(--border);border-radius:var(--r-sm);font-family:var(--sans);font-size:10px;font-weight:600;color:var(--text-dim);cursor:pointer;padding:5px 8px;transition:all .15s}
+.lang-btn:hover{border-color:var(--border-b);color:var(--text)}
+.lang-btn.active{background:var(--blue-dim);border-color:var(--blue);color:var(--blue)}
 </style>
 </head>
 <body>
@@ -153,14 +158,14 @@ input.err{border-color:var(--red)}
   <div class="login-box">
     <div class="login-logo">
       <div class="login-logo-ico"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
-      <div><div style="font-size:15px;font-weight:600">Pi Console</div><div style="font-size:10px;color:var(--text-dim);font-family:var(--mono)">Panel de administración</div></div>
+      <div><div style="font-size:15px;font-weight:600">Pi Console</div><div style="font-size:10px;color:var(--text-dim);font-family:var(--mono)">Admin Panel</div></div>
     </div>
-    <div class="login-title">Acceso de administrador</div>
-    <div class="login-sub">Solo administradores pueden acceder.</div>
+    <div class="login-title" data-i18n="loginTitle">Admin access</div>
+    <div class="login-sub" data-i18n="loginSub">Only administrators can access.</div>
     <div class="login-err" id="login-err"></div>
-    <div class="field" style="margin-bottom:12px"><label>Usuario</label><input type="text" id="l-user" autocomplete="username" autofocus></div>
-    <div class="field" style="margin-bottom:16px"><label>Contraseña</label><input type="password" id="l-pass" autocomplete="current-password"></div>
-    <button class="btn-login" id="btn-l" onclick="doLogin()">Entrar</button>
+    <div class="field" style="margin-bottom:12px"><label data-i18n="loginUser">Username</label><input type="text" id="l-user" autocomplete="username" autofocus></div>
+    <div class="field" style="margin-bottom:16px"><label data-i18n="loginPass">Password</label><input type="password" id="l-pass" autocomplete="current-password"></div>
+    <button class="btn-login" id="btn-l" onclick="doLogin()" data-i18n="loginBtn">Sign in</button>
   </div>
 </div>
 
@@ -170,7 +175,7 @@ input.err{border-color:var(--red)}
     <div><div class="sb-name">Admin Panel</div><div class="sb-ver">Pi Console</div></div>
   </div>
   <div class="sb-sec">
-    <div class="sb-lbl">Navegación</div>
+    <div class="sb-lbl" data-i18n="navLabel">Navigation</div>
     <div id="nav-items"></div>
   </div>
   <div class="sb-footer">
@@ -178,63 +183,69 @@ input.err{border-color:var(--red)}
       <div class="user-avatar" id="avatar">?</div>
       <div class="user-info">
         <div class="user-name" id="me-name">—</div>
-        <div class="user-role">Administrador</div>
+        <div class="user-role" data-i18n="userRole">Administrator</div>
       </div>
-      <button class="btn-logout" onclick="logout()" title="Cerrar sesión">⏻</button>
+      <button class="btn-logout" onclick="logout()" id="btn-logout">⏻</button>
     </div>
   </div>
 </aside>
 
 <div class="main">
   <div class="topbar">
-    <span class="topbar-title">Gestión de usuarios</span>
-    <div class="theme-btns">
-      <button class="theme-btn" id="theme-light" onclick="setTheme('light')" title="Light">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        Light
-      </button>
-      <button class="theme-btn" id="theme-dark" onclick="setTheme('dark')" title="Dark">
-        <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        Dark
-      </button>
-      <button class="theme-btn" id="theme-system" onclick="setTheme('system')" title="Auto">
-        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        Auto
-      </button>
+    <span class="topbar-title" data-i18n="topbarTitle">User management</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="lang-btns">
+        <button class="lang-btn" id="lang-en" onclick="setLang('en')">EN</button>
+        <button class="lang-btn" id="lang-es" onclick="setLang('es')">ES</button>
+      </div>
+      <div class="theme-btns">
+        <button class="theme-btn" id="theme-light" onclick="setTheme('light')" title="Light">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          Light
+        </button>
+        <button class="theme-btn" id="theme-dark" onclick="setTheme('dark')" title="Dark">
+          <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          Dark
+        </button>
+        <button class="theme-btn" id="theme-system" onclick="setTheme('system')" title="Auto">
+          <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Auto
+        </button>
+      </div>
     </div>
   </div>
   <div class="content">
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-ico purple"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
-        <div class="stat-body"><div class="stat-val" id="st-total">—</div><div class="stat-lbl">Usuarios totales</div></div>
+        <div class="stat-body"><div class="stat-val" id="st-total">—</div><div class="stat-lbl" data-i18n="statTotal">Total users</div></div>
       </div>
       <div class="stat-card">
         <div class="stat-ico green"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
-        <div class="stat-body"><div class="stat-val" id="st-admins">—</div><div class="stat-lbl">Administradores</div></div>
+        <div class="stat-body"><div class="stat-val" id="st-admins">—</div><div class="stat-lbl" data-i18n="statAdmins">Administrators</div></div>
       </div>
       <div class="stat-card">
         <div class="stat-ico orange"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M12 14c-5 0-8 2.5-8 4v1h16v-1c0-1.5-3-4-8-4z"/></svg></div>
-        <div class="stat-body"><div class="stat-val" id="st-readonly">—</div><div class="stat-lbl">Solo lectura</div></div>
+        <div class="stat-body"><div class="stat-val" id="st-readonly">—</div><div class="stat-lbl" data-i18n="statReadonly">Read-only</div></div>
       </div>
     </div>
 
     <div class="card">
       <div class="card-hd">
-        <span class="card-title">Usuarios del sistema</span>
+        <span class="card-title" data-i18n="cardTitle">System users</span>
         <button class="btn-primary" onclick="openDrawer(null)">
           <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Nuevo usuario
+          <span data-i18n="btnNewUser">New user</span>
         </button>
       </div>
       <table>
         <thead><tr>
-          <th>Usuario</th>
-          <th>WOL</th>
-          <th>UPS Monitor</th>
-          <th>Estado</th>
-          <th>Creado</th>
-          <th style="text-align:right">Acciones</th>
+          <th data-i18n="colUser">User</th>
+          <th data-i18n="colWOL">WOL</th>
+          <th data-i18n="colUPS">UPS Monitor</th>
+          <th data-i18n="colStatus">Status</th>
+          <th data-i18n="colCreated">Created</th>
+          <th style="text-align:right" data-i18n="colActions">Actions</th>
         </tr></thead>
         <tbody id="users-tbody"></tbody>
       </table>
@@ -246,64 +257,59 @@ input.err{border-color:var(--red)}
 <div class="drawer-overlay" id="drawer-overlay">
   <div class="drawer">
     <div class="drawer-hd">
-      <span class="drawer-title" id="drawer-title">Nuevo usuario</span>
+      <span class="drawer-title" id="drawer-title">New user</span>
       <button class="btn-close" onclick="closeDrawer()">×</button>
     </div>
     <div class="drawer-body">
       <input type="hidden" id="d-mode">
       <input type="hidden" id="d-username-orig">
       <div class="field" id="field-username">
-        <label>Nombre de usuario</label>
-        <input type="text" id="d-username" placeholder="usuario" autocomplete="off">
-        <span class="hint">2-32 caracteres alfanuméricos, guion o guion bajo</span>
+        <label data-i18n="fieldUsername">Username</label>
+        <input type="text" id="d-username" placeholder="user" autocomplete="off">
+        <span class="hint" data-i18n="fieldUsernameHint">2-32 alphanumeric chars, dash or underscore</span>
       </div>
       <div class="field" id="field-password">
-        <label>Contraseña</label>
-        <input type="password" id="d-password" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+        <label data-i18n="fieldPassword">Password</label>
+        <input type="password" id="d-password" placeholder="Minimum 6 characters" autocomplete="new-password">
       </div>
       <div class="field" id="field-must-change">
         <label style="flex-direction:row;align-items:center;gap:8px;cursor:pointer">
           <input type="checkbox" id="d-must-change" style="width:auto;padding:0">
-          Solicitar cambio de contraseña en el próximo login
+          <span data-i18n="fieldMustChange">Require password change on next login</span>
         </label>
       </div>
       <div style="border-top:1px solid var(--border);padding-top:14px">
-        <div style="font-size:12px;font-weight:600;color:var(--text-mid);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">Permisos</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text-mid);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px" data-i18n="permsLabel">Permissions</div>
         <div class="perm-row">
           <div class="field">
             <label>WOL Console</label>
             <select id="d-wol">
-              <option value="none">Sin acceso</option>
-              <option value="readonly">Solo lectura</option>
-              <option value="execute" selected>Ejecución</option>
-              <option value="admin">Administrador</option>
+              <option value="none">No access</option>
+              <option value="readonly">Read only</option>
+              <option value="execute" selected>Execute</option>
+              <option value="admin">Administrator</option>
             </select>
           </div>
           <div class="field">
             <label>UPS Monitor</label>
             <select id="d-nut">
-              <option value="none">Sin acceso</option>
-              <option value="readonly" selected>Solo lectura</option>
-              <option value="execute">Ejecución</option>
-              <option value="admin">Administrador</option>
+              <option value="none">No access</option>
+              <option value="readonly" selected>Read only</option>
+              <option value="execute">Execute</option>
+              <option value="admin">Administrator</option>
             </select>
           </div>
         </div>
-        <div style="margin-top:10px;padding:10px 12px;background:var(--bg);border-radius:var(--r-sm);font-size:11px;color:var(--text-dim);line-height:1.7">
-          <strong style="color:var(--text-mid)">Sin acceso</strong> — no puede entrar al dashboard<br>
-          <strong style="color:var(--text-mid)">Solo lectura</strong> — puede ver datos, no ejecutar acciones<br>
-          <strong style="color:var(--text-mid)">Ejecución</strong> — puede ver y ejecutar (ej: Wake)<br>
-          <strong style="color:var(--text-mid)">Administrador</strong> — acceso total + gestión de dispositivos
-        </div>
+        <div id="perm-help-box" style="margin-top:10px;padding:10px 12px;background:var(--bg);border-radius:var(--r-sm);font-size:11px;color:var(--text-dim);line-height:1.7"></div>
       </div>
       <div class="field" id="field-change-pw" style="display:none;border-top:1px solid var(--border);padding-top:14px">
-        <label>Nueva contraseña (dejar vacío para no cambiar)</label>
-        <input type="password" id="d-new-pw" placeholder="Nueva contraseña" autocomplete="new-password">
+        <label data-i18n="fieldNewPw">New password (leave blank to keep current)</label>
+        <input type="password" id="d-new-pw" autocomplete="new-password">
       </div>
     </div>
     <div class="drawer-footer">
-      <button class="btn-cancel" onclick="closeDrawer()">Cancelar</button>
-      <button class="btn-save" id="btn-save" onclick="saveUser()">Crear usuario</button>
+      <button class="btn-cancel" onclick="closeDrawer()" data-i18n="btnCancel">Cancel</button>
+      <button class="btn-save" id="btn-save" onclick="saveUser()" data-i18n="btnCreate">Create user</button>
     </div>
   </div>
 </div>
@@ -311,11 +317,11 @@ input.err{border-color:var(--red)}
 <!-- Delete modal -->
 <div class="overlay" id="del-overlay">
   <div class="modal">
-    <h3>Eliminar usuario</h3>
+    <h3 data-i18n="modalDeleteTitle">Delete user</h3>
     <p id="del-msg"></p>
     <div class="modal-acts">
-      <button class="btn-mc" onclick="closeModals()">Cancelar</button>
-      <button class="btn-mok" id="del-btn">Eliminar</button>
+      <button class="btn-mc" onclick="closeModals()" data-i18n="btnCancel">Cancel</button>
+      <button class="btn-mok" id="del-btn" data-i18n="modalDeleteBtn">Delete</button>
     </div>
   </div>
 </div>
@@ -324,6 +330,121 @@ input.err{border-color:var(--red)}
 
 <script>
 let me = null;
+
+// ── i18n ──────────────────────────────────────────────────────────────────────
+const LANG = {
+  en: {
+    loginTitle:'Admin access', loginSub:'Only administrators can access.',
+    loginUser:'Username', loginPass:'Password', loginBtn:'Sign in',
+    loginFill:'Fill in all fields', loginErr:'Invalid credentials', loginEntering:'Signing in…',
+    navLabel:'Navigation', dragHandle:'Drag',
+    userRole:'Administrator',
+    logoutTitle:'Sign out',
+    topbarTitle:'User management',
+    statTotal:'Total users', statAdmins:'Administrators', statReadonly:'Read-only',
+    cardTitle:'System users', btnNewUser:'New user',
+    colUser:'User', colWOL:'WOL', colUPS:'UPS Monitor', colStatus:'Status', colCreated:'Created', colActions:'Actions',
+    drawerNew:'New user', drawerEdit:'Edit — ',
+    fieldUsername:'Username', fieldUsernameHint:'2-32 alphanumeric chars, dash or underscore',
+    fieldPassword:'Password', fieldPasswordHint:'Minimum 6 characters',
+    fieldMustChange:'Require password change on next login',
+    permsLabel:'Permissions',
+    permNone:'No access', permReadonly:'Read only', permExecute:'Execute', permAdmin:'Administrator',
+    permHelpNone:'cannot access the dashboard',
+    permHelpReadonly:'can view data, cannot execute actions',
+    permHelpExecute:'can view and execute (e.g. Wake)',
+    permHelpAdmin:'full access + device management',
+    fieldNewPw:'New password (leave blank to keep current)',
+    fieldNewPwPlaceholder:'New password',
+    btnCancel:'Cancel', btnCreate:'Create user', btnSave:'Save changes',
+    modalDeleteTitle:'Delete user', modalDeleteBtn:'Delete',
+    mustChangeBadge:'Change pwd',
+    toastCreated: u=>`User ${u} created`,
+    toastUpdated: u=>`User ${u} updated`,
+    toastDeleted:'User deleted',
+    toastErrPw:'Error changing password',
+    confirmDelete: u=>`Delete user "${u}"? This action cannot be undone.`,
+    editTitle: u=>`Edit — ${u}`,
+  },
+  es: {
+    loginTitle:'Acceso de administrador', loginSub:'Solo administradores pueden acceder.',
+    loginUser:'Usuario', loginPass:'Contraseña', loginBtn:'Entrar',
+    loginFill:'Completa todos los campos', loginErr:'Credenciales incorrectas', loginEntering:'Entrando…',
+    navLabel:'Navegación', dragHandle:'Arrastrar',
+    userRole:'Administrador',
+    logoutTitle:'Cerrar sesión',
+    topbarTitle:'Gestión de usuarios',
+    statTotal:'Usuarios totales', statAdmins:'Administradores', statReadonly:'Solo lectura',
+    cardTitle:'Usuarios del sistema', btnNewUser:'Nuevo usuario',
+    colUser:'Usuario', colWOL:'WOL', colUPS:'UPS Monitor', colStatus:'Estado', colCreated:'Creado', colActions:'Acciones',
+    drawerNew:'Nuevo usuario', drawerEdit:'Editar — ',
+    fieldUsername:'Nombre de usuario', fieldUsernameHint:'2-32 caracteres alfanuméricos, guion o guion bajo',
+    fieldPassword:'Contraseña', fieldPasswordHint:'Mínimo 6 caracteres',
+    fieldMustChange:'Solicitar cambio de contraseña en el próximo login',
+    permsLabel:'Permisos',
+    permNone:'Sin acceso', permReadonly:'Solo lectura', permExecute:'Ejecución', permAdmin:'Administrador',
+    permHelpNone:'no puede entrar al dashboard',
+    permHelpReadonly:'puede ver datos, no ejecutar acciones',
+    permHelpExecute:'puede ver y ejecutar (ej: Wake)',
+    permHelpAdmin:'acceso total + gestión de dispositivos',
+    fieldNewPw:'Nueva contraseña (dejar vacío para no cambiar)',
+    fieldNewPwPlaceholder:'Nueva contraseña',
+    btnCancel:'Cancelar', btnCreate:'Crear usuario', btnSave:'Guardar cambios',
+    modalDeleteTitle:'Eliminar usuario', modalDeleteBtn:'Eliminar',
+    mustChangeBadge:'Cambiar pwd',
+    toastCreated: u=>`Usuario ${u} creado`,
+    toastUpdated: u=>`Usuario ${u} actualizado`,
+    toastDeleted:'Usuario eliminado',
+    toastErrPw:'Error cambiando contraseña',
+    confirmDelete: u=>`¿Eliminar al usuario "${u}"? Esta acción no se puede deshacer.`,
+    editTitle: u=>`Editar — ${u}`,
+  }
+};
+let _lang = localStorage.getItem('pi-lang') || 'en';
+function t(k,...args){ const v=(LANG[_lang]||LANG.en)[k]||(LANG.en)[k]||k; return typeof v==='function'?v(...args):v; }
+function setLang(l){
+  _lang=l; localStorage.setItem('pi-lang',l); document.documentElement.lang=l;
+  document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.getAttribute('data-i18n')));
+  ['en','es'].forEach(x=>document.getElementById('lang-'+x)?.classList.toggle('active',x===l));
+  // Update logout button title
+  document.getElementById('btn-logout').title = t('logoutTitle');
+  // Update new-pw placeholder
+  const npw = document.getElementById('d-new-pw');
+  if(npw) npw.placeholder = t('fieldNewPwPlaceholder');
+  // Update password placeholder
+  const dpw = document.getElementById('d-password');
+  if(dpw) dpw.placeholder = t('fieldPasswordHint');
+  // Update permission selects
+  ['d-wol','d-nut'].forEach(id=>{
+    const sel = document.getElementById(id); if(!sel) return;
+    const val = sel.value;
+    sel.innerHTML = ['none','readonly','execute','admin'].map(v=>`<option value="${v}"${val===v?' selected':''}>${t('perm'+v.charAt(0).toUpperCase()+v.slice(1))}</option>`).join('');
+  });
+  // Update perm help box
+  updatePermHelpBox();
+  // Update drawer title/button if open
+  const dTitle = document.getElementById('drawer-title');
+  const dMode  = document.getElementById('d-mode');
+  const dOrig  = document.getElementById('d-username-orig');
+  if(dTitle && dMode){
+    if(dMode.value==='create') dTitle.textContent=t('drawerNew');
+    else if(dMode.value==='edit' && dOrig.value) dTitle.textContent=t('editTitle',dOrig.value);
+  }
+  const bSave = document.getElementById('btn-save');
+  if(bSave && dMode){
+    bSave.textContent = dMode.value==='edit' ? t('btnSave') : t('btnCreate');
+  }
+}
+function updatePermHelpBox(){
+  const box = document.getElementById('perm-help-box');
+  if(!box) return;
+  box.innerHTML =
+    `<strong style="color:var(--text-mid)">${t('permNone')}</strong> — ${t('permHelpNone')}<br>`+
+    `<strong style="color:var(--text-mid)">${t('permReadonly')}</strong> — ${t('permHelpReadonly')}<br>`+
+    `<strong style="color:var(--text-mid)">${t('permExecute')}</strong> — ${t('permHelpExecute')}<br>`+
+    `<strong style="color:var(--text-mid)">${t('permAdmin')}</strong> — ${t('permHelpAdmin')}`;
+}
+(()=>{ setLang(_lang); updatePermHelpBox(); })();
 
 // ── Nav reordenable ───────────────────────────────────────────────────────────
 const _NAV_ITEMS=[
@@ -350,7 +471,7 @@ function renderNav(){
     const a=document.createElement('a');
     a.className='nav-item nav-drag-item'+(isSelf?' active':'');
     a.href=isSelf?'#':item.href;a.dataset.navId=item.id;a.draggable=true;
-    a.innerHTML=`<span class="nav-drag-handle" title="Arrastrar">⠿</span><svg viewBox="0 0 24 24">${item.svg}</svg>${item.label}`;
+    a.innerHTML=`<span class="nav-drag-handle" title="${t('dragHandle')}">⠿</span><svg viewBox="0 0 24 24">${item.svg}</svg>${item.label}`;
     a.addEventListener('dragstart',e=>{_navDragSrc=id;e.dataTransfer.effectAllowed='move';a.classList.add('nav-dragging');});
     a.addEventListener('dragend',()=>a.classList.remove('nav-dragging'));
     a.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';a.classList.add('nav-drag-over');});
@@ -372,11 +493,11 @@ function renderNav(){
 renderNav();
 
 // ── Theme ──────────────────────────────────────────────
-function setTheme(t){
-  localStorage.setItem('pi-theme',t);
-  const dark=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme:dark)').matches);
+function setTheme(th){
+  localStorage.setItem('pi-theme',th);
+  const dark=th==='dark'||(th==='system'&&matchMedia('(prefers-color-scheme:dark)').matches);
   document.documentElement.setAttribute('data-theme',dark?'dark':'light');
-  ['light','dark','system'].forEach(x=>document.getElementById('theme-'+x)?.classList.toggle('active',x===t));
+  ['light','dark','system'].forEach(x=>document.getElementById('theme-'+x)?.classList.toggle('active',x===th));
 }
 (()=>{setTheme(localStorage.getItem('pi-theme')||'system');})();
 
@@ -389,22 +510,22 @@ async function doLogin() {
   const u   = document.getElementById('l-user').value.trim();
   const p   = document.getElementById('l-pass').value;
   err.className = 'login-err';
-  if (!u || !p) { err.textContent='Completa todos los campos'; err.className='login-err show'; return; }
-  btn.disabled = true; btn.innerHTML = '<span class="spin">⟳</span> Entrando...';
+  if (!u || !p) { err.textContent=t('loginFill'); err.className='login-err show'; return; }
+  btn.disabled = true; btn.innerHTML = `<span class="spin">⟳</span> ${t('loginEntering')}`;
   try {
     const r = await fetch('api/login', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({username:u, password:p})
     });
     const d = await r.json();
-    if (!r.ok || !d.ok) { err.textContent = d.error||'Credenciales incorrectas'; err.className='login-err show'; return; }
-    document.getElementById('login-screen').style.display = 'none';
+    if (!r.ok || !d.ok) { err.textContent = d.error||t('loginErr'); err.className='login-err show'; return; }
     await loadMe();
     await loadUsers();
+    document.getElementById('login-screen').style.display = 'none';
   } catch(e) {
     err.textContent = 'Error: '+e.message; err.className='login-err show';
   } finally {
-    btn.disabled=false; btn.textContent='Entrar';
+    btn.disabled=false; btn.textContent=t('loginBtn');
   }
 }
 
@@ -441,18 +562,19 @@ function updateStats(users) {
 function renderUsers(users) {
   const tbody = document.getElementById('users-tbody');
   tbody.innerHTML = '';
+  const locale = _lang === 'es' ? 'es-CL' : 'en-US';
   users.forEach(u => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><span class="uname">${esc(u.username)}</span></td>
       <td>${permBadge(u.permissions.wol)}</td>
       <td>${permBadge(u.permissions.nut)}</td>
-      <td>${u.must_change_password ? '<span class="must-change">Cambiar pwd</span>' : '<span style="font-size:11px;color:var(--text-dim)">—</span>'}</td>
-      <td><span class="ucreated">${u.created ? new Date(u.created*1000).toLocaleDateString('es-CL') : '—'}</span></td>
+      <td>${u.must_change_password ? `<span class="must-change">${t('mustChangeBadge')}</span>` : '<span style="font-size:11px;color:var(--text-dim)">—</span>'}</td>
+      <td><span class="ucreated">${u.created ? new Date(u.created*1000).toLocaleDateString(locale) : '—'}</span></td>
       <td class="col-actions">
-        <button class="btn-ri edit" onclick='editUser(${JSON.stringify(u)})' title="Editar">✎</button>
+        <button class="btn-ri edit" onclick='editUser(${JSON.stringify(u)})' title="Edit">✎</button>
         ${u.username !== me?.username
-          ? `<button class="btn-ri del" onclick="confirmDelete('${esc(u.username)}')" title="Eliminar">✕</button>`
+          ? `<button class="btn-ri del" onclick="confirmDelete('${esc(u.username)}')" title="Delete">✕</button>`
           : '<span style="width:30px;display:inline-block"></span>'}
       </td>`;
     tbody.appendChild(tr);
@@ -460,7 +582,7 @@ function renderUsers(users) {
 }
 
 function permBadge(perm) {
-  const labels = {admin:'Admin',execute:'Ejecución',readonly:'Solo lectura',none:'Sin acceso'};
+  const labels = {admin:t('permAdmin'),execute:t('permExecute'),readonly:t('permReadonly'),none:t('permNone')};
   return `<span class="perm-badge perm-${perm||'none'}">${labels[perm]||'—'}</span>`;
 }
 
@@ -472,17 +594,25 @@ function openDrawer(user) {
   document.getElementById('d-username').value      = isEdit ? user.username : '';
   document.getElementById('d-password').value      = '';
   document.getElementById('d-must-change').checked = isEdit ? user.must_change_password : false;
-  document.getElementById('d-wol').value            = isEdit ? (user.permissions.wol||'none') : 'execute';
-  document.getElementById('d-nut').value            = isEdit ? (user.permissions.nut||'none') : 'readonly';
-  document.getElementById('d-new-pw').value         = '';
 
-  document.getElementById('drawer-title').textContent  = isEdit ? `Editar — ${user.username}` : 'Nuevo usuario';
-  document.getElementById('btn-save').textContent       = isEdit ? 'Guardar cambios' : 'Crear usuario';
+  // Rebuild selects with translated options at current perm values
+  ['d-wol','d-nut'].forEach(id=>{
+    const sel = document.getElementById(id); if(!sel) return;
+    const val = isEdit ? (id==='d-wol' ? (user.permissions.wol||'none') : (user.permissions.nut||'none')) : (id==='d-wol' ? 'execute' : 'readonly');
+    sel.innerHTML = ['none','readonly','execute','admin'].map(v=>`<option value="${v}"${val===v?' selected':''}>${t('perm'+v.charAt(0).toUpperCase()+v.slice(1))}</option>`).join('');
+  });
+
+  document.getElementById('d-new-pw').value = '';
+  document.getElementById('d-new-pw').placeholder = t('fieldNewPwPlaceholder');
+
+  document.getElementById('drawer-title').textContent  = isEdit ? t('editTitle', user.username) : t('drawerNew');
+  document.getElementById('btn-save').textContent       = isEdit ? t('btnSave') : t('btnCreate');
   document.getElementById('field-username').style.display  = isEdit ? 'none' : '';
   document.getElementById('field-password').style.display  = isEdit ? 'none' : '';
   document.getElementById('field-must-change').style.display = isEdit ? 'none' : '';
   document.getElementById('field-change-pw').style.display  = isEdit ? '' : 'none';
 
+  updatePermHelpBox();
   document.getElementById('drawer-overlay').classList.add('show');
 }
 
@@ -504,14 +634,14 @@ async function saveUser() {
       const wol   = document.getElementById('d-wol').value;
       const nut   = document.getElementById('d-nut').value;
       const must  = document.getElementById('d-must-change').checked;
-      if (!uname || !pwd) { toast('Completa todos los campos', true); return; }
+      if (!uname || !pwd) { toast(t('loginFill'), true); return; }
       const r = await fetch('api/users', {
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({username:uname, password:pwd, wol_permission:wol, nut_permission:nut, must_change_password:must})
       });
       const d = await r.json();
       if (!r.ok) { toast(d.error||'Error', true); return; }
-      toast('Usuario '+uname+' creado', false);
+      toast(t('toastCreated', uname), false);
     } else {
       const uorig = document.getElementById('d-username-orig').value;
       const wol   = document.getElementById('d-wol').value;
@@ -531,24 +661,24 @@ async function saveUser() {
           body: JSON.stringify({username:uorig, new_password:newPw})
         });
         const d2 = await r2.json();
-        if (!r2.ok) { toast(d2.error||'Error cambiando contraseña', true); return; }
+        if (!r2.ok) { toast(d2.error||t('toastErrPw'), true); return; }
       }
-      toast('Usuario '+uorig+' actualizado', false);
+      toast(t('toastUpdated', uorig), false);
     }
     closeDrawer(); await loadUsers();
   } catch(e) { toast(e.message, true); }
-  finally { btn.disabled=false; btn.textContent= mode==='create'?'Crear usuario':'Guardar cambios'; }
+  finally { btn.disabled=false; btn.textContent= mode==='create'?t('btnCreate'):t('btnSave'); }
 }
 
 // ── Delete ─────────────────────────────────────────────
 function confirmDelete(username) {
-  document.getElementById('del-msg').textContent = `¿Eliminar al usuario "${username}"? Esta acción no se puede deshacer.`;
+  document.getElementById('del-msg').textContent = t('confirmDelete', username);
   document.getElementById('del-btn').onclick = async () => {
     closeModals();
     const r = await fetch('api/users/'+username, {method:'DELETE'});
     const d = await r.json();
     if (!r.ok) { toast(d.error||'Error', true); return; }
-    toast('Usuario eliminado', false);
+    toast(t('toastDeleted'), false);
     await loadUsers();
   };
   document.getElementById('del-overlay').classList.add('show');
@@ -578,11 +708,11 @@ document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Ent
     if (r.ok) {
       const d = await r.json();
       if (d.username) {
-        document.getElementById('login-screen').style.display='none';
         me = d;
         document.getElementById('me-name').textContent = d.username;
         document.getElementById('avatar').textContent  = d.username[0].toUpperCase();
         await loadUsers();
+        document.getElementById('login-screen').style.display='none';
       }
     }
   } catch{}

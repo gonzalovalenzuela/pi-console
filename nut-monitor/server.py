@@ -302,7 +302,7 @@ def _poll(server):
         try:
             ver   = nut.get_version()
             ups_l = nut.list_ups()
-            if not ups_l: cache.set_error("No se encontraron UPS en upsd")
+            if not ups_l: cache.set_error("No UPS found in upsd")
             for u in ups_l:
                 vars_   = nut.get_vars(u["name"])
                 clients = nut.list_clients(u["name"])
@@ -312,7 +312,7 @@ def _poll(server):
         except ConnectionRefusedError:
             cache.set_error(f"upsd no disponible en {server['host']}:{server['port']}")
         except socket.timeout:
-            cache.set_error("Timeout conectando con upsd")
+            cache.set_error("Timeout connecting to upsd")
         except Exception as e:
             cache.set_error(str(e)); log.error(f"poll error: {e}")
         poll_n += 1
@@ -374,7 +374,7 @@ class H(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True})
 
         if not auth.check_permission(tok, "nut", "readonly"):
-            return self._json(401, {"error": "No autorizado"})
+            return self._json(401, {"error": "Unauthorized"})
 
         if path == "/api/config":
             self._json(200, {"poll_sec": POLL_SEC})
@@ -429,11 +429,11 @@ class H(BaseHTTPRequestHandler):
         path = urlparse(self.path).path.rstrip("/")
         tok  = self._token()
         body = self._body()
-        if body is None: return self._json(400, {"error": "Cuerpo inválido"})
+        if body is None: return self._json(400, {"error": "Invalid request body"})
 
         if path == "/api/login":
             u = auth.authenticate(body.get("username",""), body.get("password",""))
-            if not u: return self._json(401, {"error": "Credenciales incorrectas"})
+            if not u: return self._json(401, {"error": "Invalid credentials"})
             token = auth.create_session(body["username"], u["permissions"])
             users = auth.load_users()
             must  = users.get(body["username"], {}).get("must_change_password", False)
@@ -452,7 +452,7 @@ class H(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True})
 
         if not auth.check_permission(tok, "nut", "readonly"):
-            return self._json(401, {"error": "No autorizado"})
+            return self._json(401, {"error": "Unauthorized"})
 
         if path == "/api/servers":
             if not auth.check_permission(tok, "nut", "admin"):
@@ -486,7 +486,7 @@ class H(BaseHTTPRequestHandler):
         if not auth.check_permission(tok, "nut", "admin"):
             return self._json(403, {"error": "Requiere permiso admin"})
         m = re.match(r'^/api/servers/([a-zA-Z0-9\-]+)$', path)
-        if not m: return self._json(400, {"error": "ID inválido"})
+        if not m: return self._json(400, {"error": "Invalid ID"})
         sid = m.group(1)
         if sid == "local": return self._json(403, {"error": "No se puede eliminar el servidor local"})
         srvs = load_servers()

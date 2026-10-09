@@ -273,7 +273,7 @@ class H(BaseHTTPRequestHandler):
             return self._file(STATIC_DIR / "index.html", "text/html; charset=utf-8")
 
         if not auth.check_permission(tok, "pve", "readonly"):
-            return self._json(401, {"error": "No autorizado"})
+            return self._json(401, {"error": "Unauthorized"})
 
         if path == "/api/clusters":
             clusters = load_clusters()
@@ -348,11 +348,11 @@ class H(BaseHTTPRequestHandler):
         path = urlparse(self.path).path.rstrip("/")
         tok  = self._tok()
         body = self._body()
-        if body is None: return self._json(400, {"error": "Cuerpo inválido"})
+        if body is None: return self._json(400, {"error": "Invalid request body"})
 
         if path == "/api/login":
             u = auth.authenticate(body.get("username",""), body.get("password",""))
-            if not u: return self._json(401, {"error": "Credenciales incorrectas"})
+            if not u: return self._json(401, {"error": "Invalid credentials"})
             token = auth.create_session(body["username"], u["permissions"])
             users = auth.load_users()
             must  = users.get(body["username"],{}).get("must_change_password", False)
@@ -370,7 +370,7 @@ class H(BaseHTTPRequestHandler):
             auth.delete_session(tok); return self._json(200, {"ok": True})
 
         if not auth.check_permission(tok, "pve", "readonly"):
-            return self._json(401, {"error": "No autorizado"})
+            return self._json(401, {"error": "Unauthorized"})
 
         if path == "/api/clusters":
             if not auth.check_permission(tok, "pve", "admin"):
@@ -419,7 +419,7 @@ class H(BaseHTTPRequestHandler):
         if not auth.check_permission(tok, "pve", "admin"):
             return self._json(403, {"error": "Requiere admin"})
         m = re.match(r'^/api/clusters/([a-zA-Z0-9\-]+)$', path)
-        if not m: return self._json(400, {"error": "ID inválido"})
+        if not m: return self._json(400, {"error": "Invalid ID"})
         clusters = load_clusters()
         new = [c for c in clusters if c["id"] != m.group(1)]
         if len(new) == len(clusters): return self._json(404, {"error": "No encontrado"})
