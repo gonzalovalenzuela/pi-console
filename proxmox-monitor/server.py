@@ -172,6 +172,10 @@ class ClusterCache:
             return {"id": self.id, "data": dict(self._data),
                     "error": self._err, "ts": self._ts}
 
+def _natural(s: str):
+    """Natural sort key (pve2 < pve10) so the default node order never changes between polls."""
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", s or "")]
+
 def _fetch_legacy(client, name):
     """Fallback when /cluster/resources is unavailable (standalone node, limited token): per-node calls."""
     nodes_data = []
@@ -185,7 +189,7 @@ def _fetch_legacy(client, name):
             except Exception as e:
                 log.warning(f"[{name}] {n} detail error: {e}")
         nodes_data.append(info)
-    return nodes_data
+    return sorted(nodes_data, key=lambda x: _natural(x["name"]))
 
 def _build_from_resources(res: list) -> list:
     """Group /cluster/resources by node, mapped to the shape the UI already uses."""
@@ -220,7 +224,7 @@ def _build_from_resources(res: list) -> list:
     for nd in nodes.values():
         if nd["status"] != "online":                # same as the per-node path: nothing listed for offline nodes
             nd["vms"], nd["cts"], nd["storage"] = [], [], []
-    return [nodes[n] for n in order]
+    return [nodes[n] for n in sorted(order, key=_natural)]
 
 def _poll_cluster(cluster):
     cid = cluster["id"]
@@ -377,7 +381,9 @@ class H(BaseHTTPRequestHandler):
                             alerts.append({"node": nd["name"], "type": "cpu", "value": round(cpu_pct, 1)})
                         if mem_pct > 90:
                             alerts.append({"node": nd["name"], "type": "mem", "value": round(mem_pct, 1)})
-                out.append({**c, "snap": snap, "alerts": alerts})
+                pub = {k: v for k, v in c.items() if k != "token_value"}     # never send the API token to the browser
+                pub.setdefault("layout", {"order": [], "pinned": []})
+                out.append({**pub, "snap": snap, "alerts": alerts})
             self._json(200, {"clusters": out})
 
         elif path == "/api/debug":
@@ -445,12 +451,30 @@ class H(BaseHTTPRequestHandler):
         if path == "/api/logout":
             auth.delete_session(tok); return self._json(200, {"ok": True})
 
+        m = re.match(r"^/api/clusters/([a-zA-Z0-9\-]+)/layout$", path)
+        if m:
+            # Manual node order and pins, stored with the cluster (shared by every browser, survives restarts/upgrades)
+            if not auth.check_permission(tok, "pve", "admin"):
+                return self._json(403, {"error": "Admin permission required"})
+            name_ok = lambda x: isinstance(x, str) and re.fullmatch(r"[\w.\-]{1,64}", x)
+            order, pinned = body.get("order", []), body.get("pinned", [])
+            if not (isinstance(order, list) and isinstance(pinned, list) and len(order) <= 200 and len(pinned) <= 200
+                    and all(name_ok(x) for x in order) and all(name_ok(x) for x in pinned)):
+                return self._json(400, {"error": "Invalid layout"})
+            clusters = load_clusters()
+            for c in clusters:
+                if c["id"] == m.group(1):
+                    c["layout"] = {"order": list(dict.fromkeys(order)), "pinned": list(dict.fromkeys(pinned))}
+                    save_clusters(clusters)
+                    return self._json(200, {"ok": True})
+            return self._json(404, {"error": "Not found"})
+
         if not auth.check_permission(tok, "pve", "readonly"):
             return self._json(401, {"error": "Unauthorized"})
 
         if path == "/api/clusters":
             if not auth.check_permission(tok, "pve", "admin"):
-                return self._json(403, {"error": "Requiere admin"})
+                return self._json(403, {"error": "Admin permission required"})
             host  = (body.get("host","")).strip()
             name  = (body.get("name","")).strip()
             user  = (body.get("user","")).strip()
@@ -493,12 +517,12 @@ class H(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         tok  = self._tok()
         if not auth.check_permission(tok, "pve", "admin"):
-            return self._json(403, {"error": "Requiere admin"})
+            return self._json(403, {"error": "Admin permission required"})
         m = re.match(r'^/api/clusters/([a-zA-Z0-9\-]+)$', path)
         if not m: return self._json(400, {"error": "Invalid ID"})
         clusters = load_clusters()
         new = [c for c in clusters if c["id"] != m.group(1)]
-        if len(new) == len(clusters): return self._json(404, {"error": "No encontrado"})
+        if len(new) == len(clusters): return self._json(404, {"error": "Not found"})
         save_clusters(new)
         remove_poller(m.group(1))
         self._json(200, {"ok": True})

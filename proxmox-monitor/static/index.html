@@ -102,6 +102,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .nodes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
 .node-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;transition:box-shadow .15s}
 .node-card:hover{box-shadow:var(--shadow-md)}
+.node-tools{display:flex;align-items:center;gap:1px;margin-left:auto}
+.node-tool{background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:13px;line-height:1;padding:4px 5px;border-radius:4px;opacity:.7}
+.node-tool:hover:not(:disabled){color:var(--blue);background:var(--surface2);opacity:1}
+.node-tool:disabled{cursor:default;opacity:.25}
+.node-tool.pin.on{color:var(--blue);opacity:1}
+.node-tool.grab{cursor:grab}
+.node-card.dragging{opacity:.45}
+.node-card.drop-target{outline:2px dashed var(--blue);outline-offset:-2px}
+.layout-bar{display:flex;justify-content:flex-end;margin-bottom:8px}
+.layout-bar button{background:none;border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text-dim);font-family:var(--sans);font-size:11px;padding:4px 10px;cursor:pointer}
+.layout-bar button:hover{color:var(--blue);border-color:var(--blue)}
 .node-hd{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
 .node-name{font-size:14px;font-weight:600;color:var(--text)}
 .node-sub{font-size:11px;color:var(--text-dim);margin-top:1px}
@@ -327,6 +338,7 @@ const LANG={
     running:'running',
     nodeOfflineMsg:'Node offline — no data available',connError:'Connection error',connErrorHint:'Check host, port and API token',
     nodeCountNav:(n)=>`${n} node${n!==1?'s':''}`,
+    pinNode:'Pin node in place',unpinNode:'Unpin node',moveEarlier:'Move earlier',moveLater:'Move later',dragReorder:'Drag to reorder',resetOrder:'Reset node order',layoutSaved:'Node order saved',
     testConnected:(v,n)=>`✓ PVE ${v} — ${n} node${n!==1?'s':''}`,
     testFillAll:'Fill in all fields',
     clusterAdded:(name)=>`${name} added`,
@@ -354,6 +366,7 @@ const LANG={
     running:'corriendo',
     nodeOfflineMsg:'Nodo offline — sin datos disponibles',connError:'Error de conexión',connErrorHint:'Verifica host, puerto y token API',
     nodeCountNav:(n)=>`${n} nodo${n!==1?'s':''}`,
+    pinNode:'Fijar nodo en su lugar',unpinNode:'Desfijar nodo',moveEarlier:'Mover antes',moveLater:'Mover después',dragReorder:'Arrastra para reordenar',resetOrder:'Restablecer orden de nodos',layoutSaved:'Orden de nodos guardado',
     testConnected:(v,n)=>`✓ PVE ${v} — ${n} nodo${n!==1?'s':''}`,
     testFillAll:'Completa todos los campos',
     clusterAdded:(name)=>`${name} agregado`,
@@ -548,6 +561,7 @@ function updateGlobalStats(){
 
 // ── Dashboard cluster activo ──────────────────────────────────────────────────
 function renderDashboard(){
+  if(_dragging) return;                       // do not rebuild the DOM under a drag in progress
   const cluster=clusters.find(c=>c.id===activeId);
   if(!cluster) return;
   const snap=cluster.snap;
@@ -562,14 +576,20 @@ function renderDashboard(){
     main.innerHTML=`<div class="state-msg err"><strong>${t('connError')||'Connection error'}</strong>${esc(snap.error)}<br><br><span style="font-size:12px;font-family:var(--mono)">${t('connErrorHint')||'Check host, port and API token'}</span></div>`;return;
   }
 
-  const nodes=snap.data?.nodes||[];
+  const nodes=orderedNodes(cluster,snap.data?.nodes||[]);
   if(!nodes.length){
     main.innerHTML='<div class="state-msg"><strong>Sin nodos</strong>No se encontraron nodos en este cluster.</div>';return;
   }
 
   main.innerHTML='';
   const grid=document.createElement('div');grid.className='nodes-grid';
-  nodes.forEach(node=>{grid.appendChild(buildNodeCard(node));});
+  const names=nodes.map(n=>n.name), pinnedSet=new Set(cluster.layout?.pinned||[]);
+  if(isPveAdmin()&&(cluster.layout?.order?.length||cluster.layout?.pinned?.length)){
+    const bar=document.createElement('div');bar.className='layout-bar';
+    bar.innerHTML=`<button onclick="resetLayout('${esc(cluster.id)}')">${esc(t('resetOrder'))}</button>`;
+    main.appendChild(bar);
+  }
+  nodes.forEach(node=>{const card=buildNodeCard(node);decorateCard(card,cluster,node.name,names,pinnedSet);grid.appendChild(card);});
   main.appendChild(grid);
 
   // Agregar sección Ceph si está disponible
@@ -598,6 +618,89 @@ function renderDashboard(){
 
   // Dibujar sparklines después de que el DOM esté pintado
   renderSparklines(nodes);
+}
+
+// ── Manual node order + pins (saved on the server, shared by all browsers) ────────
+let _dragging=false;
+const isPveAdmin=()=>ME?.permissions?.pve==='admin';
+function orderedNodes(cluster,nodes){
+  const idx=new Map((cluster.layout?.order||[]).map((n,i)=>[n,i]));
+  const pos=n=>idx.has(n.name)?idx.get(n.name):1e6;        // unknown/new nodes go last, in the server's stable order
+  const nat=(a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'});
+  return [...nodes].sort((a,b)=>pos(a)-pos(b)||nat(a,b));      // never depends on the order the API returns
+}
+// Pinned nodes keep their slot; the others are redistributed among the remaining slots.
+function reorderNames(names,pinned,drag,target){
+  if(drag===target||pinned.has(drag))return names;
+  const unp=names.filter(n=>!pinned.has(n)&&n!==drag);
+  const forward=names.indexOf(drag)<names.indexOf(target);
+  let ins;
+  if(pinned.has(target)) ins=names.slice(0,names.indexOf(target)).filter(n=>!pinned.has(n)&&n!==drag).length;
+  else ins=unp.indexOf(target)+(forward?1:0);
+  unp.splice(ins,0,drag);
+  let k=0;
+  return names.map(n=>pinned.has(n)?n:unp[k++]);
+}
+async function saveLayout(cluster,order,pinned){
+  cluster.layout={order,pinned};
+  renderDashboard();
+  try{
+    const r=await fetch('api/clusters/'+cluster.id+'/layout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({order,pinned})});
+    if(!r.ok)throw new Error((await r.json()).error||'Error');
+  }catch(e){toast(e.message,true);}
+}
+function curLayout(cid){
+  const c=clusters.find(x=>x.id===cid);
+  const names=orderedNodes(c,c.snap?.data?.nodes||[]).map(n=>n.name);
+  return {c,names,pinned:new Set(c.layout?.pinned||[])};
+}
+function togglePin(cid,name){
+  const {c,names,pinned}=curLayout(cid);
+  pinned.has(name)?pinned.delete(name):pinned.add(name);
+  saveLayout(c,names,[...pinned]);
+}
+function moveNode(cid,name,dir){
+  const {c,names,pinned}=curLayout(cid);
+  let i=names.indexOf(name)+dir;
+  while(i>=0&&i<names.length&&pinned.has(names[i]))i+=dir;      // skip over pinned nodes
+  if(i<0||i>=names.length)return;
+  saveLayout(c,reorderNames(names,pinned,name,names[i]),[...pinned]);
+}
+function resetLayout(cid){const c=clusters.find(x=>x.id===cid);saveLayout(c,[],[]);}
+function decorateCard(card,cluster,name,names,pinned){
+  const hd=card.querySelector('.node-hd');if(!hd)return;
+  const isPinned=pinned.has(name), admin=isPveAdmin(), cid=esc(cluster.id), nm=esc(name);
+  const i=names.indexOf(name);
+  const canL=names.slice(0,i).some(n=>!pinned.has(n)), canR=names.slice(i+1).some(n=>!pinned.has(n));
+  const tools=document.createElement('div');tools.className='node-tools';
+  tools.innerHTML=admin
+    ?`<button class="node-tool" ${isPinned||!canL?'disabled':''} title="${esc(t('moveEarlier'))}" onclick="moveNode('${cid}','${nm}',-1)">‹</button>
+      <button class="node-tool" ${isPinned||!canR?'disabled':''} title="${esc(t('moveLater'))}" onclick="moveNode('${cid}','${nm}',1)">›</button>
+      ${isPinned?'':`<span class="node-tool grab" title="${esc(t('dragReorder'))}" data-grab>⠿</span>`}
+      <button class="node-tool pin${isPinned?' on':''}" title="${esc(t(isPinned?'unpinNode':'pinNode'))}" onclick="togglePin('${cid}','${nm}')">${isPinned?'📌':'📍'}</button>`
+    :(isPinned?`<span class="node-tool pin on" title="${esc(t('unpinNode'))}">📌</span>`:'');
+  const badge=hd.querySelector('.node-badge');
+  hd.insertBefore(tools,badge);
+  if(!admin)return;
+  const grab=tools.querySelector('[data-grab]');
+  if(grab){
+    grab.addEventListener('mousedown',()=>{card.draggable=true;});
+    grab.addEventListener('mouseup',()=>{card.draggable=false;});
+  }
+  card.addEventListener('dragstart',e=>{
+    if(!card.draggable){e.preventDefault();return;}
+    _dragging=true;card.classList.add('dragging');e.dataTransfer.setData('text/plain',name);e.dataTransfer.effectAllowed='move';
+  });
+  card.addEventListener('dragend',()=>{_dragging=false;card.draggable=false;card.classList.remove('dragging');
+    document.querySelectorAll('.drop-target').forEach(x=>x.classList.remove('drop-target'));renderDashboard();});
+  card.addEventListener('dragover',e=>{if(!_dragging)return;e.preventDefault();card.classList.add('drop-target');});
+  card.addEventListener('dragleave',()=>card.classList.remove('drop-target'));
+  card.addEventListener('drop',e=>{
+    e.preventDefault();card.classList.remove('drop-target');
+    const drag=e.dataTransfer.getData('text/plain');
+    _dragging=false;
+    if(drag&&drag!==name)saveLayout(cluster,reorderNames(names,pinned,drag,name),[...pinned]);
+  });
 }
 
 function buildNodeCard(node){
