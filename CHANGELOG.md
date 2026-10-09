@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.7d — 2026-10-09
+
+### Correcciones
+- **Inicio de sesión directo en un módulo** (WOL, UPS Monitor, Net Monitor, Proxmox): fallaba con `undefined is not an object (evaluating 'ME.username[0]')` y la página no entraba. La respuesta de `/api/login` no incluía el nombre de usuario; ahora lo incluye y la interfaz tolera que falte. Ocurría al entrar sin una sesión previa, por ejemplo tras restaurar un respaldo (las sesiones se reemplazan) o en una instalación nueva.
+
 ## 1.1.7c — 2026-10-09
 
 ### Teleporter integrado en el Admin Panel

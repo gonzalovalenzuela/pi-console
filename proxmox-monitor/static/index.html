@@ -478,8 +478,9 @@ async function tryAutoLogin(){
   return false;
 }
 function applyPermissions(){
-  document.getElementById('me-name').textContent=ME.username;
-  document.getElementById('avatar').textContent=ME.username[0].toUpperCase();
+  const _un=String(ME.username||'?');
+  document.getElementById('me-name').textContent=_un;
+  document.getElementById('avatar').textContent=_un[0].toUpperCase();
   const _permKey={readonly:'permReadonly',execute:'permExecute',admin:'permAdmin'}[ME.permissions?.pve];
   document.getElementById('me-role').textContent=_permKey?t(_permKey):'—';
   renderNav();
