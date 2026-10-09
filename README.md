@@ -14,8 +14,8 @@
 | **WOL Console** | 8080 | `/wol/` | Wake-on-LAN — enciende equipos remotamente |
 | **UPS Monitor** | 8081 | `/nut/` | Monitor de UPS vía NUT — batería, carga, autonomía |
 | **Admin Panel** | 8082 | `/admin/` | Gestión de usuarios y permisos SSO |
-| **Net Monitor** | 8083 | `/net/` | Escáner de red — hosts, OS y puertos abiertos |
-| **Proxmox Monitor** | 8084 | `/pve/` | Dashboard de clusters Proxmox VE — nodos, VMs, CTs |
+| **Net Monitor** | 8083 | `/net/` | Escáner de red — hosts, tipo de dispositivo, OS, MAC/vendor (ARP, Pi-hole, SNMP) |
+| **Proxmox Monitor** | 8084 | `/pve/` | Dashboard de clusters Proxmox VE — nodos, VMs, CTs; orden manual y pin de nodos |
 
 La página de inicio (`/`) sirve desde `/opt/pi-console-home/` vía nginx.
 
@@ -56,6 +56,11 @@ Cada módulo es un servidor HTTP Python 3 independiente. La autenticación se co
 - nginx
 - NUT (`nut`, `nut-client`) — para el módulo UPS Monitor
 - `nmap` — para el módulo Net Monitor
+- Opcionales (`Suggests` en el `.deb`):
+  - `ieee-data` — base local de vendors por MAC (respaldo si no hay descarga de Wireshark `manuf`)
+  - `snmp` — comando `snmpwalk`, necesario solo para la fuente SNMP de Net Monitor
+
+Ver [CHANGELOG.md](CHANGELOG.md) para el detalle de cambios por versión.
 
 ---
 
@@ -99,6 +104,18 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ---
 
+## Net Monitor — fuentes de MAC y vendor
+
+1. **Pi-hole** (si está configurado), 2. **ARP local** (`/proc/net/arp`), 3. **SNMP** (ARP de un router/switch; panel junto al botón *Scan*).
+
+El vendor se resuelve con la base `manuf` de Wireshark (`/var/lib/pi-console/manuf`, descarga semanal automática o manual desde el panel) y, si no existe, con `ieee-data`. Si no hay vendor se muestra la MAC. Las credenciales SNMP se guardan en `config.json` (permisos 600) y nunca se devuelven por la API.
+
+## Proxmox Monitor — refresco y orden
+
+El servidor consulta cada cluster con sondeo adaptivo (5 s con la vista abierta, 60 s en reposo). El orden de nodos y los nodos pineados se guardan por cluster (solo admin) y se mantienen entre refrescos y reinicios.
+
+---
+
 ## Internacionalización
 
 La interfaz soporta **inglés** (por defecto) y **español**. El idioma se persiste en `localStorage` con la clave `pi-lang` y se comparte entre todos los módulos.
@@ -139,6 +156,7 @@ pi-console/
 │   ├── preinst
 │   ├── prerm
 │   └── postrm
+├── CHANGELOG.md
 └── README.md
 ```
 
