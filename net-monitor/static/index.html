@@ -665,8 +665,9 @@ async function fetchData(){
 function quickHash(hosts, scan){
   // Hash liviano: IPs online + conteo de puertos + estado del scan
   const onlineKey = hosts.filter(h=>h.online).map(h=>h.ip+h.ports?.length+h.os+h.device_type).sort().join('|');
+  const metaKey   = hosts.map(h=>h.ip+h.online+h.os+h.device_type+h.type_manual+h.alias).join('|');
   const scanKey   = scan?.running+':'+scan?.progress+':'+scan?.finished;
-  return onlineKey + '||' + scanKey;
+  return onlineKey + '||' + metaKey + '||' + scanKey;
 }
 
 // ── Scan ─────────────────────────────────────────────────────────────────────

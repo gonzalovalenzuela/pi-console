@@ -450,10 +450,14 @@ def load_hosts() -> dict:
     except Exception: pass
     return {}
 
+_hosts_lock = threading.RLock()
+_live_hosts = None   # the scan's in-memory table while a scan runs, so manual edits are not overwritten
+
 def save_hosts(hosts: dict):
-    tmp = DATA_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(hosts, indent=2))
-    tmp.replace(DATA_FILE)
+    with _hosts_lock:
+        tmp = DATA_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(hosts, indent=2))
+        tmp.replace(DATA_FILE)
 
 # ─── Scanner ──────────────────────────────────────────────────────────────────
 _scan_lock        = threading.Lock()
@@ -469,12 +473,13 @@ if _saved.get("pihole_hosts"):
     PIHOLE_HOSTS = _saved["pihole_hosts"]
 
 def run_scan(network: str = None, single_ip: str = None):
-    global _scan_timer
+    global _scan_timer, _live_hosts
     with _scan_lock:
         if _scan_status["running"]:
             return
 
     hosts = load_hosts()
+    _live_hosts = hosts
 
     if single_ip:
         ips = [ipaddress.ip_address(single_ip)]
@@ -544,11 +549,13 @@ def run_scan(network: str = None, single_ip: str = None):
                     save_hosts(hosts)
 
         save_hosts(hosts)
+        _live_hosts = None
         online = sum(1 for h in hosts.values() if h.get("online"))
         _scan_status.update({"running": False, "finished": int(time.time())})
         log.info(f"Escaneo completado: {online} hosts online de {len(ips)} escaneados")
 
     except Exception as e:
+        _live_hosts = None
         _scan_status.update({"running": False, "error": str(e), "finished": int(time.time())})
         log.error(f"Error en escaneo: {e}")
 
@@ -706,26 +713,29 @@ class H(BaseHTTPRequestHandler):
                 return self._json(403, {"error": "Admin permission required"})
             ip = (body.get("ip") or "").strip()
             if not ip: return self._json(400, {"error": "IP required"})
-            hosts = load_hosts()
-            if ip not in hosts: return self._json(404, {"error": "Host not found"})
-            if "alias" in body:
-                hosts[ip]["alias"] = str(body["alias"])[:40]
-            if "os" in body:
-                hosts[ip]["os"]        = str(body["os"])[:30]
-                hosts[ip]["os_manual"] = True   # marcar como editado manualmente
+            dt = None
             if "device_type" in body:
                 dt = str(body["device_type"])
-                if dt == "auto":
-                    hosts[ip].pop("type_manual", None)   # back to auto-detection on next scan
-                    dt = hosts[ip].get("device_type", "other")
-                if dt not in DEVICE_TYPES:
+                if dt != "auto" and dt not in DEVICE_TYPES:
                     return self._json(400, {"error": "Invalid device type"})
-                hosts[ip]["device_type"] = dt
-                if body["device_type"] != "auto":
-                    hosts[ip]["type_manual"] = True
-            if "group" in body:
-                hosts[ip]["group"] = str(body["group"])[:20]
-            save_hosts(hosts)
+            with _hosts_lock:
+                hosts = _live_hosts if _live_hosts is not None else load_hosts()
+                if ip not in hosts: return self._json(404, {"error": "Host not found"})
+                h = hosts[ip]
+                if "alias" in body:
+                    h["alias"] = str(body["alias"])[:40]
+                if "os" in body:
+                    h["os"]        = str(body["os"])[:30]
+                    h["os_manual"] = True   # marked as manually edited
+                if dt is not None:
+                    if dt == "auto":
+                        h.pop("type_manual", None)   # back to auto-detection on next scan
+                    else:
+                        h["device_type"] = dt
+                        h["type_manual"] = True
+                if "group" in body:
+                    h["group"] = str(body["group"])[:20]
+                save_hosts(hosts)
             self._json(200, {"ok": True})
 
         elif path == "/api/scan/interval":
