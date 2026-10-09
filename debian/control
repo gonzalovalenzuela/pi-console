@@ -4,6 +4,7 @@ Section: admin
 Priority: optional
 Architecture: all
 Depends: python3 (>= 3.9), nginx, nut, nut-client
+Suggests: ieee-data
 Maintainer: Gonzalo Valenzuela <gonzalo@rave.cl>
 Description: Pi Console — Homelab dashboard
  Self-hosted homelab dashboard for Raspberry Pi with modules:

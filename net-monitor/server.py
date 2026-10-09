@@ -35,7 +35,7 @@ def save_config(cfg: dict):
     tmp.write_text(json.dumps(cfg, indent=2))
     tmp.replace(CONF_FILE)
 NETWORK       = os.environ.get("SCAN_NETWORK",   "192.168.0.0/24")
-SCAN_PORTS    = os.environ.get("SCAN_PORTS",     "21,22,23,25,53,80,139,443,445,554,1883,3306,3389,5432,5900,6379,8080,8443,27017,62078")
+SCAN_PORTS    = os.environ.get("SCAN_PORTS",     "21,22,23,25,53,80,111,135,139,443,445,548,554,873,1883,2049,3260,3306,3389,5000,5001,5357,5432,5555,5900,6379,7547,8009,8080,8291,8443,9100,27017,62078")
 SCAN_INTERVAL = int(os.environ.get("SCAN_INTERVAL", 3600))
 PORT_TIMEOUT  = float(os.environ.get("PORT_TIMEOUT", 0.5))
 MAX_WORKERS   = int(os.environ.get("MAX_WORKERS", 30))
@@ -56,7 +56,10 @@ PORT_NAMES = {
     80:"HTTP", 139:"NetBIOS", 443:"HTTPS", 445:"SMB",
     554:"RTSP", 1883:"MQTT", 3306:"MySQL", 3389:"RDP",
     5432:"PostgreSQL", 5900:"VNC", 6379:"Redis",
-    8080:"HTTP-Alt", 8443:"HTTPS-Alt", 27017:"MongoDB", 62078:"iTunes"
+    8080:"HTTP-Alt", 8443:"HTTPS-Alt", 27017:"MongoDB", 62078:"iTunes",
+    111:"RPC", 135:"MSRPC", 548:"AFP", 873:"rsync", 2049:"NFS", 3260:"iSCSI",
+    5000:"DSM/HTTP", 5001:"DSM/HTTPS", 5357:"WSDD", 5555:"ADB", 7547:"TR-069",
+    8009:"Cast", 8291:"Winbox", 9100:"Print"
 }
 
 OS_GROUPS = ["Windows", "Linux", "macOS", "iOS", "IoT", "Android", "BSD", "Desconocido"]
@@ -215,62 +218,178 @@ def mdns_hint(hostname: str) -> str:
         return "apple"
     return ""
 
-# ─── OS detection (sin nmap) ─────────────────────────────────────────────────
-def detect_os(open_ports: list[int], ttl: int, hostname: str, banner: str) -> str:
+# ─── Device identification (OS + device type, no nmap) ───────────────────────
+DEVICE_TYPES = ["computer", "router", "switch", "ap", "storage", "other"]
+
+_OUI_PATHS = ["/usr/share/ieee-data/oui.txt", "/var/lib/ieee-data/oui.txt",
+              "/usr/share/misc/oui.txt"]
+_oui_db: dict | None = None
+_oui_lock = threading.Lock()
+
+def _load_oui() -> dict:
+    """Lazy-load the IEEE OUI table (package ieee-data, optional)."""
+    global _oui_db
+    with _oui_lock:
+        if _oui_db is not None:
+            return _oui_db
+        db = {}
+        for p in _OUI_PATHS:
+            try:
+                with open(p, encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        if "(hex)" in line:
+                            pre, _, name = line.partition("(hex)")
+                            db[pre.strip().replace("-", "").upper()] = name.strip()
+                if db: break
+            except Exception:
+                continue
+        _oui_db = db
+        return db
+
+def oui_vendor(mac: str) -> str:
+    m = re.sub(r"[^0-9A-Fa-f]", "", mac or "").upper()
+    return _load_oui().get(m[:6], "") if len(m) >= 6 else ""
+
+def mac_is_private(mac: str) -> bool:
+    """Locally-administered bit set → randomized / private address (phones)."""
+    m = re.sub(r"[^0-9A-Fa-f]", "", mac or "")
+    try:    return bool(int(m[:2], 16) & 0x02)
+    except Exception: return False
+
+def arp_mac(ip: str) -> str:
+    try:
+        with open("/proc/net/arp") as f:
+            for line in list(f)[1:]:
+                c = line.split()
+                if len(c) >= 4 and c[0] == ip and c[3] != "00:00:00:00:00:00":
+                    return c[3].lower()
+    except Exception:
+        pass
+    return ""
+
+_gw_cache = {"ts": 0, "ip": ""}
+def default_gateway() -> str:
+    if time.time() - _gw_cache["ts"] < 300:
+        return _gw_cache["ip"]
+    gw = ""
+    try:
+        with open("/proc/net/route") as f:
+            for line in list(f)[1:]:
+                c = line.split()
+                if len(c) > 2 and c[1] == "00000000":
+                    gw = socket.inet_ntoa(struct.pack("<L", int(c[2], 16)))
+                    break
+    except Exception:
+        pass
+    _gw_cache.update(ts=time.time(), ip=gw)
+    return gw
+
+def _has(text: str, words) -> bool:
+    return any(w in text for w in words)
+
+V_STORAGE = ("synology", "qnap", "western digital", "buffalo", "asustor", "terramaster",
+             "drobo", "seagate", "lacie", "ixsystems", "readynas", "thecus", "iomega", "ugreen")
+V_ROUTER  = ("mikrotik", "routerboard", "sagemcom", "technicolor", "arris", "zyxel", "tenda",
+             "fortinet", "juniper", "draytek", "peplink", "sierra wireless", "teltonika", "netcomm")
+V_AP      = ("ruckus", "aruba", "engenius", "cambium", "meraki", "aerohive", "grandstream networks")
+V_NETGEAR = ("ubiquiti", "tp-link", "tp link", "d-link", "netgear", "cisco", "linksys", "huawei technologies", "hewlett packard enterprise")
+V_ANDROID = ("samsung", "xiaomi", "oppo", "oneplus", "vivo", "motorola", "realme", "honor",
+             "tecno", "infinix", "hmd global", "nokia", "zte", "lenovo mobile", "google, inc", "google llc")
+H_WIN     = re.compile(r"^(desktop|laptop|win|pc|workstation|surface)[-_]", re.I)
+H_ANDROID = re.compile(r"android|galaxy|pixel|redmi|xiaomi|poco|oneplus|oppo|realme|huawei|honor|moto[-_ ]|^sm-|^sm[a-z]\d", re.I)
+H_STORAGE = re.compile(r"nas|diskstation|synology|qnap|truenas|freenas|openmediavault|\bomv\b|unraid|storage|backup", re.I)
+H_ROUTER  = re.compile(r"router|gateway|gw\d*\b|firewall|opnsense|pfsense|mikrotik|openwrt|fritz|^rt[-_]", re.I)
+H_AP      = re.compile(r"(^|[-_.])(ap|uap|wap|wifi|wlan|unifi)([-_.\d]|$)|access.?point|eap\d", re.I)
+H_SWITCH  = re.compile(r"switch|(^|[-_.])(sw|usw)([-_.\d]|$)|poe", re.I)
+
+def identify(ip: str, open_ports: list, ttl: int, hostname: str, banner: str,
+             vendor: str, mac: str) -> tuple[str, str]:
+    """Return (os, device_type) from scored heuristics."""
     ports = set(open_ports)
-    ttl_hint = ttl_os_hint(ttl)
-    banner_l = banner.lower()
-    host_l   = hostname.lower()
+    host  = (hostname or "").lower().split(".")[0]
+    ban   = (banner or "").lower()
+    ven   = (vendor or "").lower()
+    gw    = (ip == default_gateway())
+    web   = bool(ports & {80, 443, 8080, 8443})
+    smb   = bool(ports & {445, 139})
+    private_mac = mac_is_private(mac)
 
-    # Banner HTTP delata OS/firmware
-    if "windows" in banner_l:                       return "Windows"
-    if "mikrotik" in banner_l:                      return "IoT"
-    if "synology" in banner_l or "dsm" in banner_l: return "Linux"
-    if "nginx" in banner_l or "apache" in banner_l:
-        if ttl_hint == "windows":                   return "Windows"
-        return "Linux"
-    if "ilo" in banner_l or "idrac" in banner_l:    return "Linux"
+    # ── Device type scoring ──
+    s = {t: 0 for t in DEVICE_TYPES}
+    # storage
+    if _has(ven, V_STORAGE):                          s["storage"] += 4
+    if _has(ban, ("synology", "qnap", "dsm", "openmediavault", "truenas", "nas")): s["storage"] += 4
+    if H_STORAGE.search(host):                        s["storage"] += 4
+    if ports & {5000, 5001}:                          s["storage"] += 2
+    if ports & {2049, 548, 3260, 873}:                s["storage"] += 3
+    if smb and ttl and ttl <= 64 and 3389 not in ports and 135 not in ports:
+        s["storage"] += 2
+    # router
+    if gw:                                            s["router"] += 6
+    if _has(ven, V_ROUTER):                           s["router"] += 4
+    if _has(ban, ("mikrotik", "routeros", "openwrt", "dd-wrt", "pfsense", "opnsense", "fortigate")): s["router"] += 4
+    if H_ROUTER.search(host):                         s["router"] += 4
+    if ports & {8291, 8728, 7547}:                    s["router"] += 4
+    if 53 in ports and web and not smb:               s["router"] += 1
+    # access point
+    if _has(ven, V_AP):                               s["ap"] += 4
+    if _has(ban, ("unifi", "ruckus", "aruba", "cambium", "ubnt")): s["ap"] += 3
+    if H_AP.search(host):                             s["ap"] += 5
+    # switch
+    if H_SWITCH.search(host):                         s["switch"] += 5
+    if _has(ban, ("procurve", "switch", "cisco", "netgear gs", "crs")): s["switch"] += 3
+    # generic network-gear vendors: need web UI and no general-purpose ports
+    if _has(ven, V_NETGEAR) and web and not (ports & {445, 3389, 5900}):
+        for t in ("switch",): s[t] += 2
+        s["router"] += 1
+        s["ap"] += 1
+        if "ubiquiti" in ven: s["ap"] += 3
+    if ttl > 128 and len(ports) <= 4 and not gw:      s["switch"] += 2
+    # computers
+    if ports & {3389, 5900} or (22 in ports and not web): s["computer"] += 1
+    if H_WIN.search(host) or "iphone" in host or "macbook" in host: s["computer"] += 3
+    if "windows" in ban or "microsoft" in ban:        s["computer"] += 3
 
-    # mDNS hostname hints
-    if mdns_hint(hostname) == "apple":
-        if 62078 in ports: return "iOS"
-        return "macOS"
+    best = max(DEVICE_TYPES[:-1], key=lambda t: s[t])
+    dtype = best if s[best] >= 4 else ("computer" if s["computer"] >= 1 else "other")
 
-    # Puerto 62078 = iPhone/iPad (iTunes sync)
-    if 62078 in ports:                              return "iOS"
+    # ── OS ──
+    win_strong = ("windows" in ban or "microsoft" in ban or "iis" in ban or H_WIN.search(host)
+                  or "microsoft" in ven)
+    if dtype in ("router", "switch", "ap"):
+        os_name = "IoT"
+    elif dtype == "storage":
+        os_name = "Linux"
+    elif 62078 in ports or "iphone" in host or "ipad" in host:
+        os_name = "iOS"
+    elif "apple" in ven or _has(host, ("macbook", "imac", "mac-mini", "macmini", "mac-pro")):
+        os_name = "macOS" if not (62078 in ports) else "iOS"
+    elif win_strong and (not ttl or ttl > 64 or "windows" in ban):
+        os_name = "Windows"
+    elif ttl > 64 and ttl <= 128 and (3389 in ports or (135 in ports and smb) or 5357 in ports):
+        os_name = "Windows"
+    elif ttl > 64 and ttl <= 128 and smb and 22 not in ports:
+        os_name = "Windows"
+    elif (H_ANDROID.search(host) or _has(ven, V_ANDROID) or 5555 in ports) and 22 not in ports and not smb:
+        os_name = "Android"
+    elif private_mac and not ports and ttl and ttl <= 64 and (not host or H_ANDROID.search(host)):
+        os_name = "Android"
+    elif (554 in ports or 1883 in ports or 9100 in ports or 8009 in ports) and 22 not in ports:
+        os_name = "IoT"
+    elif "freebsd" in ban or "openbsd" in ban:
+        os_name = "BSD"
+    elif 22 in ports or (ttl and ttl <= 64 and ports):
+        os_name = "Linux"
+    elif ttl > 128:
+        os_name = "IoT"
+    elif ttl > 64:
+        os_name = "Windows" if ports else "Desconocido"
+    else:
+        os_name = "Desconocido"
 
-    # Windows: SMB o RDP
-    if 445 in ports or 3389 in ports:              return "Windows"
-    if 139 in ports and 22 not in ports:            return "Windows"
-
-    # macOS: VNC + SSH sin SMB, o bonjour
-    if 5900 in ports and 22 in ports and 445 not in ports:
-        if ttl_hint != "windows":                   return "macOS"
-
-    # IoT: RTSP, MQTT, sin SSH
-    if (554 in ports or 1883 in ports) and 22 not in ports:
-        return "IoT"
-
-    # Router/switch: TTL alto, pocos puertos
-    if ttl > 200 and len(ports) <= 3:              return "IoT"
-
-    # Linux: SSH sin SMB
-    if 22 in ports and 445 not in ports:
-        if ttl_hint == "linux_or_apple":            return "Linux"
-        if ttl_hint == "windows":                   return "Windows"
-        return "Linux"
-
-    # Solo HTTP/HTTPS sin SSH
-    if (80 in ports or 443 in ports or 8080 in ports) and 22 not in ports:
-        if ttl_hint == "windows":                   return "Windows"
-        if ttl > 200:                               return "IoT"
-        return "Linux"
-
-    # TTL como último recurso
-    if ttl_hint == "windows":                       return "Windows"
-    if ttl_hint == "linux_or_apple" and ports:      return "Linux"
-
-    return "Desconocido"
+    if dtype == "other" and os_name in ("Windows", "Linux", "macOS", "Android", "iOS"):
+        dtype = "computer"
+    return os_name, dtype
 
 # ─── Scan host completo ───────────────────────────────────────────────────────
 def scan_host(ip: str) -> dict | None:
@@ -295,21 +414,13 @@ def scan_host(ip: str) -> dict | None:
             banner = http_banner(ip_str, p)
             if banner: break
 
-    # Mejorar detección de OS con vendor de MAC (Apple, Intel, etc.)
-    if not hostname and vendor:
-        vendor_l = vendor.lower()
-        if "apple" in vendor_l:
-            hostname = ""  # Apple sin nombre = probablemente iOS/macOS
+    # MAC from the ARP table (the ping just populated it) and vendor from OUI
+    if not mac:
+        mac = arp_mac(ip_str)
+    if not vendor and mac:
+        vendor = oui_vendor(mac)
 
-    os_guess = detect_os(open_ports, ttl, hostname, banner)
-
-    # Refinar OS con vendor de MAC
-    if os_guess == "Desconocido" and vendor:
-        vendor_l = vendor.lower()
-        if "apple" in vendor_l:
-            os_guess = "iOS" if 62078 in open_ports else "macOS"
-        elif "microsoft" in vendor_l:
-            os_guess = "Windows"
+    os_guess, dev_type = identify(ip_str, open_ports, ttl, hostname, banner, vendor, mac)
 
     ports_info = [{"port": p, "service": PORT_NAMES.get(p, "unknown")} for p in open_ports]
 
@@ -320,6 +431,7 @@ def scan_host(ip: str) -> dict | None:
         "vendor":     vendor,
         "mac":        mac,
         "os":         os_guess,
+        "device_type": dev_type,
         "os_raw":     f"TTL={ttl}" + (f" | {banner[:40]}" if banner else ""),
         "ttl":        ttl,
         "latency":    latency,
@@ -400,6 +512,10 @@ def run_scan(network: str = None, single_ip: str = None):
                         # Respetar latencia anterior si ahora no hay datos
                         if result.get("latency", 0) == 0 and existing.get("latency", 0) > 0:
                             result["latency"] = existing["latency"]
+                        # Keep manually chosen device type
+                        if existing.get("type_manual"):
+                            result["device_type"] = existing.get("device_type", result["device_type"])
+                            result["type_manual"] = True
                         # Respetar OS editado manualmente
                         if existing.get("os_manual"):
                             result["os"]        = existing["os"]
@@ -563,14 +679,14 @@ class H(BaseHTTPRequestHandler):
 
         if path == "/api/scan/start":
             if _scan_status["running"]:
-                return self._json(409, {"error": "Escaneo en progreso"})
+                return self._json(409, {"error": "Scan already running"})
             single = (body.get("ip") or "").strip() or None
             threading.Thread(target=run_scan, kwargs={"single_ip": single}, daemon=True).start()
             self._json(200, {"ok": True, "message": single or NETWORK})
 
         elif path == "/api/pihole/config":
             if not auth.check_permission(tok, "net", "admin"):
-                return self._json(403, {"error": "Requiere permiso admin"})
+                return self._json(403, {"error": "Admin permission required"})
             global PIHOLE_PASS, PIHOLE_HOSTS
             cfg = load_config()
             if "password" in body:
@@ -587,16 +703,26 @@ class H(BaseHTTPRequestHandler):
 
         elif path == "/api/hosts/update":
             if not auth.check_permission(tok, "net", "admin"):
-                return self._json(403, {"error": "Requiere permiso admin"})
+                return self._json(403, {"error": "Admin permission required"})
             ip = (body.get("ip") or "").strip()
-            if not ip: return self._json(400, {"error": "IP requerida"})
+            if not ip: return self._json(400, {"error": "IP required"})
             hosts = load_hosts()
-            if ip not in hosts: return self._json(404, {"error": "Host no encontrado"})
+            if ip not in hosts: return self._json(404, {"error": "Host not found"})
             if "alias" in body:
                 hosts[ip]["alias"] = str(body["alias"])[:40]
             if "os" in body:
                 hosts[ip]["os"]        = str(body["os"])[:30]
                 hosts[ip]["os_manual"] = True   # marcar como editado manualmente
+            if "device_type" in body:
+                dt = str(body["device_type"])
+                if dt == "auto":
+                    hosts[ip].pop("type_manual", None)   # back to auto-detection on next scan
+                    dt = hosts[ip].get("device_type", "other")
+                if dt not in DEVICE_TYPES:
+                    return self._json(400, {"error": "Invalid device type"})
+                hosts[ip]["device_type"] = dt
+                if body["device_type"] != "auto":
+                    hosts[ip]["type_manual"] = True
             if "group" in body:
                 hosts[ip]["group"] = str(body["group"])[:20]
             save_hosts(hosts)
@@ -604,7 +730,7 @@ class H(BaseHTTPRequestHandler):
 
         elif path == "/api/scan/interval":
             if not auth.check_permission(tok, "net", "admin"):
-                return self._json(403, {"error": "Requiere permiso admin"})
+                return self._json(403, {"error": "Admin permission required"})
             global _current_interval, _scan_timer
             interval = int(body.get("interval", 3600))
             if interval < 0 or (interval > 0 and interval < 60):
@@ -630,7 +756,7 @@ class H(BaseHTTPRequestHandler):
 
         elif path == "/api/hosts/delete":
             if not auth.check_permission(tok, "net", "admin"):
-                return self._json(403, {"error": "Requiere permiso admin"})
+                return self._json(403, {"error": "Admin permission required"})
             ip = (body.get("ip") or "").strip()
             hosts = load_hosts()
             if ip in hosts: del hosts[ip]; save_hosts(hosts)

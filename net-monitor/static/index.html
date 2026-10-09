@@ -224,6 +224,10 @@ td{padding:10px 14px;vertical-align:middle}
     <div id="nav-items"></div>
   </div>
   <div class="sb-sec">
+    <div class="sb-lbl" data-i18n="deviceTypes">Device type</div>
+    <div class="os-filters" id="type-filters"></div>
+  </div>
+  <div class="sb-sec">
     <div class="sb-lbl" data-i18n="osDetected">Detected OS</div>
     <div class="os-filters" id="os-filters">
       <div class="os-filter active" data-os="ALL" onclick="setOsFilter(this)">
@@ -365,6 +369,7 @@ td{padding:10px 14px;vertical-align:middle}
           <thead><tr>
             <th class="sortable" data-sort="status" style="width:40px;padding:9px 6px;text-align:center" tabindex="0" onclick="setSort('status')" onkeydown="sortKey(event,'status')"><span data-i18n="colStatus" style="font-size:0;letter-spacing:0">Status</span><span class="sort-ind"></span></th>
             <th class="sortable" data-sort="ip" tabindex="0" onclick="setSort('ip')" onkeydown="sortKey(event,'ip')"><span>IP / Hostname</span><span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="type" tabindex="0" onclick="setSort('type')" onkeydown="sortKey(event,'type')"><span data-i18n="colType">Type</span><span class="sort-ind"></span></th>
             <th class="sortable" data-sort="os" tabindex="0" onclick="setSort('os')" onkeydown="sortKey(event,'os')"><span>OS</span><span class="sort-ind"></span></th>
             <th class="sortable" data-sort="vendor" tabindex="0" onclick="setSort('vendor')" onkeydown="sortKey(event,'vendor')"><span>Vendor / MAC</span><span class="sort-ind"></span></th>
             <th class="sortable" data-sort="ports" tabindex="0" onclick="setSort('ports')" onkeydown="sortKey(event,'ports')"><span data-i18n="colOpenPorts">Open ports</span><span class="sort-ind"></span></th>
@@ -393,7 +398,7 @@ const LANG={
     filterAll:'All',filterOnline:'Online',filterOffline:'Offline',
     hostsTitle:'Hosts on network',
     colOpenPorts:'Open ports',colLastSeen:'Last seen',colLatency:'Latency',colStatus:'Status',
-    cancel:'Cancel',saveConnect:'Save & connect',
+    cancel:'Cancel',save:'Save',saveConnect:'Save & connect',
     scanningNet:'Scanning network...',
     permReadonly:'Read-only',permExecute:'Execute',permAdmin:'Administrator',
     sessionExpired:'Session expired',
@@ -410,7 +415,7 @@ const LANG={
     uptimeEmpty:'No events recorded yet',uptimeStats:(h,d)=>`${h}h monitored · ${d} outage${d!==1?'s':''}`,
     availHistory:'Availability history',
     chartMonitoring:'Monitoring — data will appear after several scans',
-    osUnknown:'Unknown',newDevice:'NEW',
+    osUnknown:'Unknown',colType:'Type',deviceTypes:'Device type',editDevice:'Edit device',fieldType:'Device type',fieldOs:'Operating system',autoDetect:'Auto-detect',saved:'Device updated',tComputer:'Computer',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tOther:'Other',newDevice:'NEW',
     newDeviceMsg:(n,names,more)=>`${n} new device${n>1?'s':''} detected: ${names}${more?' and more':''}`,
     osEditTitle:'Edit OS'},
   es:{loginTitle:'Iniciar sesión',loginSub:'Ingresa tus credenciales para continuar.',
@@ -423,7 +428,7 @@ const LANG={
     filterAll:'Todos',filterOnline:'Online',filterOffline:'Offline',
     hostsTitle:'Hosts en la red',
     colOpenPorts:'Puertos abiertos',colLastSeen:'Último contacto',colLatency:'Latencia',colStatus:'Estado',
-    cancel:'Cancelar',saveConnect:'Guardar y conectar',
+    cancel:'Cancelar',save:'Guardar',saveConnect:'Guardar y conectar',
     scanningNet:'Escaneando red...',
     permReadonly:'Solo lectura',permExecute:'Ejecución',permAdmin:'Administrador',
     sessionExpired:'Sesión expirada',
@@ -440,13 +445,19 @@ const LANG={
     uptimeEmpty:'Sin eventos registrados aún',uptimeStats:(h,d)=>`${h}h monitoreado · ${d} caída${d!==1?'s':''}`,
     availHistory:'Historial de disponibilidad',
     chartMonitoring:'Monitoreando — los datos aparecerán tras varios escaneos',
-    osUnknown:'Desconocido',newDevice:'NUEVO',
+    osUnknown:'Desconocido',colType:'Tipo',deviceTypes:'Tipo de dispositivo',editDevice:'Editar dispositivo',fieldType:'Tipo de dispositivo',fieldOs:'Sistema operativo',autoDetect:'Detección automática',saved:'Dispositivo actualizado',tComputer:'Equipo',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tOther:'Otro',newDevice:'NUEVO',
     newDeviceMsg:(n,names,more)=>`${n} nuevo${n>1?'s dispositivos':'dispositivo'} detectado${n>1?'s':''}: ${names}${more?' y más':''}`,
     osEditTitle:'Editar OS'}
 };
 let _lang=localStorage.getItem('pi-lang')||'en';
 var _i18nReady=false;
 function t(k,...args){const v=(LANG[_lang]||LANG.en)[k]||(LANG.en)[k]||k;return typeof v==='function'?v(...args):v;}
+const DEVICE_TYPES=['computer','router','switch','ap','storage','other'];
+const TYPE_META={computer:{icon:'💻',key:'tComputer',color:'#4361ee'},router:{icon:'🌐',key:'tRouter',color:'#f4a261'},
+  switch:{icon:'🔀',key:'tSwitch',color:'#2a9d8f'},ap:{icon:'📡',key:'tAp',color:'#9b5de5'},
+  storage:{icon:'🗄️',key:'tStorage',color:'#e76f51'},other:{icon:'❔',key:'tOther',color:'#8d99ae'}};
+const devType=h=>TYPE_META[h.device_type]?h.device_type:'other';
+const tType=ty=>t(TYPE_META[ty].key);
 function tOs(os){return os==='Desconocido'||os==='Unknown'?t('osUnknown'):os;}
 function setLang(l){
   _lang=l;localStorage.setItem('pi-lang',l);document.documentElement.lang=l;
@@ -454,11 +465,11 @@ function setLang(l){
   const si=document.getElementById('search-input');
   if(si)si.placeholder=t('searchPlaceholder');
   ['en','es'].forEach(x=>document.getElementById('lang-'+x)?.classList.toggle('active',x===l));
-  if(_i18nReady && typeof renderHosts==='function')renderHosts();
+  if(_i18nReady && typeof renderTable==='function' && hosts.length){renderOsFilters();renderTable();}
 }
 (()=>setLang(_lang))();
 
-let ME=null, hosts=[], filterOs='ALL', filterStatus='ALL', searchQ='', expanded=null, pollTimer=null;
+let ME=null, hosts=[], filterOs='ALL', filterType='ALL', filterStatus='ALL', searchQ='', expanded=null, pollTimer=null;
 let sortKeyName=null, sortDir=1;   // null = orden por defecto (online primero, luego IP)
 try{const sv=JSON.parse(localStorage.getItem('pi-net-sort')||'null');if(sv&&['status','ip','os','vendor','ports','latency','seen'].includes(sv.k)){sortKeyName=sv.k;sortDir=sv.d===-1?-1:1;}}catch(e){}
 const POLL=30000;
@@ -653,7 +664,7 @@ async function fetchData(){
 
 function quickHash(hosts, scan){
   // Hash liviano: IPs online + conteo de puertos + estado del scan
-  const onlineKey = hosts.filter(h=>h.online).map(h=>h.ip+h.ports?.length+h.os).sort().join('|');
+  const onlineKey = hosts.filter(h=>h.online).map(h=>h.ip+h.ports?.length+h.os+h.device_type).sort().join('|');
   const scanKey   = scan?.running+':'+scan?.progress+':'+scan?.finished;
   return onlineKey + '||' + scanKey;
 }
@@ -698,8 +709,14 @@ function updateScanBar(scan){
 }
 
 // ── Filters ───────────────────────────────────────────────────────────────────
+function setTypeFilter(el){
+  document.querySelectorAll('.os-filter[data-type]').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  filterType=el.dataset.type;
+  renderTable();
+}
 function setOsFilter(el){
-  document.querySelectorAll('.os-filter').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.os-filter[data-os]').forEach(e=>e.classList.remove('active'));
   el.classList.add('active');
   filterOs=el.dataset.os;
   renderTable();
@@ -714,10 +731,11 @@ function setStatusFilter(el){
 function filtered(){
   return hosts.filter(h=>{
     if(filterOs!=='ALL'&&h.os!==filterOs)return false;
+    if(filterType!=='ALL'&&devType(h)!==filterType)return false;
     if(filterStatus==='online'&&!h.online)return false;
     if(filterStatus==='offline'&&h.online)return false;
     if(searchQ){
-      const hay=(h.ip+' '+(h.hostname||'')+' '+(h.alias||'')+' '+h.os+' '+(h.vendor||'')+' '+(h.ports||[]).map(p=>p.port+' '+p.service).join(' ')).toLowerCase();
+      const hay=(h.ip+' '+(h.hostname||'')+' '+(h.alias||'')+' '+h.os+' '+tType(devType(h))+' '+(h.vendor||'')+' '+(h.ports||[]).map(p=>p.port+' '+p.service).join(' ')).toLowerCase();
       if(!hay.includes(searchQ))return false;
     }
     return true;
@@ -729,6 +747,7 @@ const ipKey=ip=>String(ip).split('.').map(n=>n.padStart(3,'0')).join('');
 const SORT_VALUE={
   status: h=>h.online?0:1,
   ip:     h=>ipKey(h.ip),
+  type:   h=>tType(devType(h)).toLowerCase(),
   os:     h=>tOs(h.os||'Desconocido').toLowerCase(),
   vendor: h=>(h.vendor||'').toLowerCase(),
   ports:  h=>(h.ports||[]).length,
@@ -766,7 +785,23 @@ function setSort(k){
 function sortKey(e,k){if(e.key==='Enter'||e.key===' '){e.preventDefault();setSort(k);}}
 
 // ── Render ────────────────────────────────────────────────────────────────────
+function renderTypeFilters(){
+  const c=document.getElementById('type-filters');if(!c)return;
+  const counts={ALL:hosts.length};
+  hosts.forEach(h=>{const k=devType(h);counts[k]=(counts[k]||0)+1;});
+  let html=`<div class="os-filter${filterType==='ALL'?' active':''}" data-type="ALL" onclick="setTypeFilter(this)">
+    <span class="os-dot" style="background:var(--teal)"></span><span class="os-filter-name">${esc(t('filterAll'))}</span>
+    <span class="os-count">${counts.ALL}</span></div>`;
+  DEVICE_TYPES.forEach(k=>{
+    if(!counts[k])return;
+    html+=`<div class="os-filter${filterType===k?' active':''}" data-type="${k}" onclick="setTypeFilter(this)">
+      <span class="os-dot" style="background:${TYPE_META[k].color}"></span><span class="os-filter-name">${esc(tType(k))}</span>
+      <span class="os-count">${counts[k]}</span></div>`;
+  });
+  c.innerHTML=html;
+}
 function renderOsFilters(){
+  renderTypeFilters();
   const counts={ALL:0};
   hosts.forEach(h=>{
     const os=h.os||'Desconocido';
@@ -818,7 +853,7 @@ function renderTable(){
   document.getElementById('host-count').textContent=list.length===hosts.length?hosts.length+' hosts':list.length+' / '+hosts.length+' hosts';
 
   if(!list.length){
-    tbody.innerHTML=`<tr><td colspan="8"><div class="empty-state">
+    tbody.innerHTML=`<tr><td colspan="9"><div class="empty-state">
       <strong>${hosts.length?t('noResults'):t('noHosts2')}</strong>
       ${hosts.length?t('filterHint'):t('startScanHint')}
     </div></td></tr>`;
@@ -858,13 +893,19 @@ function renderTable(){
         ${h.new_device?`<span style="margin-left:5px;font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;background:rgba(67,97,238,.15);color:var(--blue);vertical-align:middle">${t('newDevice')}</span>`:''}
       </td>
       <td onclick="event.stopPropagation()">
+        <span class="os-badge" style="cursor:pointer" onclick="editOs('${esc(h.ip)}')" title="${esc(t('editDevice'))}">
+          <span style="font-size:12px">${TYPE_META[devType(h)].icon}</span>
+          <span style="font-size:11px;font-weight:600;color:${TYPE_META[devType(h)].color}">${esc(tType(devType(h)))}</span>
+        </span>${h.type_manual?'<span class="os-manual-badge">manual</span>':''}
+      </td>
+      <td onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:4px">
           <span class="os-badge">
             <span style="font-size:12px">${OS_ICONS[os]||'❓'}</span>
             <span class="os-${os.replace(/\s/g,'')}" style="font-size:11px;font-weight:600">${esc(tOs(os))}</span>
           </span>
           ${h.os_manual?'<span class="os-manual-badge">manual</span>':''}
-          <button onclick="editOs('${esc(h.ip)}')" title="Editar OS"
+          <button onclick="editOs('${esc(h.ip)}')" title="${esc(t('editDevice'))}"
             style="background:none;border:none;cursor:pointer;color:var(--text-dim);font-size:11px;padding:2px 4px;border-radius:4px;transition:color .15s"
             onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text-dim)'">✎</button>
         </div>
@@ -886,7 +927,7 @@ function renderTable(){
     const dtr=document.createElement('tr');
     dtr.className='detail-row'+(isExp?' show':'');
     const allPorts=h.ports||[];
-    dtr.innerHTML=`<td colspan="8" class="detail-cell">
+    dtr.innerHTML=`<td colspan="9" class="detail-cell">
       <div class="detail-inner">
         <div class="detail-section">
           <div class="detail-label">Información</div>
@@ -1124,39 +1165,45 @@ const OS_LIST = ["Windows","Linux","macOS","iOS","IoT","Android","BSD","Desconoc
 async function editOs(ip){
   const host = hosts.find(h=>h.ip===ip);
   if(!host) return;
-
-  // Build a small inline select dialog
-  const current = host.os || 'Desconocido';
-  const opts = OS_LIST.map(o=>`<option value="${o}"${o===current?' selected':''}>${o}</option>`).join('');
-
-  // Use a custom modal-like prompt with select
+  const curOs = host.os || 'Desconocido', curType = devType(host);
+  const osOpts = OS_LIST.map(o=>`<option value="${o}"${o===curOs?' selected':''}>${esc(tOs(o))}</option>`).join('');
+  const typeOpts = DEVICE_TYPES.map(k=>`<option value="${k}"${k===curType?' selected':''}>${TYPE_META[k].icon} ${esc(tType(k))}</option>`).join('')
+    + (host.type_manual?`<option value="auto">↺ ${esc(t('autoDetect'))}</option>`:'');
+  const selCss='background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:8px 10px;outline:none;width:100%;margin-bottom:14px';
+  const lblCss='display:block;font-size:11px;color:var(--text-dim);margin-bottom:4px';
   const overlay = document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(15,20,30,.45);backdrop-filter:blur(2px);z-index:9999;display:flex;align-items:center;justify-content:center';
   overlay.innerHTML=`
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;max-width:320px;width:92%;box-shadow:var(--shadow-md)">
-      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">Editar OS</div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:24px;max-width:340px;width:92%;box-shadow:var(--shadow-md)">
+      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">${esc(t('editDevice'))}</div>
       <div style="font-size:12px;color:var(--text-dim);margin-bottom:16px;font-family:var(--mono)">${esc(ip)} — ${esc(host.hostname||host.ip)}</div>
-      <select id="os-edit-sel" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:8px 10px;outline:none;width:100%;margin-bottom:16px">${opts}</select>
+      <label style="${lblCss}">${esc(t('fieldType'))}</label>
+      <select id="dev-type-sel" style="${selCss}">${typeOpts}</select>
+      <label style="${lblCss}">${esc(t('fieldOs'))}</label>
+      <select id="os-edit-sel" style="${selCss}">${osOpts}</select>
       <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button id="os-edit-cancel" style="padding:8px 16px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-mid);font-family:var(--sans);font-size:13px;cursor:pointer">Cancelar</button>
-        <button id="os-edit-ok" style="padding:8px 16px;border-radius:var(--r-sm);border:none;background:var(--teal);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer">Guardar</button>
+        <button id="os-edit-cancel" style="padding:8px 16px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-mid);font-family:var(--sans);font-size:13px;cursor:pointer">${esc(t('cancel'))}</button>
+        <button id="os-edit-ok" style="padding:8px 16px;border-radius:var(--r-sm);border:none;background:var(--teal);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer">${esc(t('save'))}</button>
       </div>
     </div>`;
-
   document.body.appendChild(overlay);
-  document.getElementById('os-edit-sel').focus();
-
+  document.getElementById('dev-type-sel').focus();
   const cleanup = () => overlay.remove();
   overlay.addEventListener('click', e=>{ if(e.target===overlay) cleanup(); });
   document.getElementById('os-edit-cancel').onclick = cleanup;
   document.getElementById('os-edit-ok').onclick = async () => {
     const newOs = document.getElementById('os-edit-sel').value;
+    const newType = document.getElementById('dev-type-sel').value;
     cleanup();
+    const body = {ip};
+    if(newOs!==curOs) body.os = newOs;                       // only send what changed (a change marks it manual)
+    if(newType!==curType || newType==='auto') body.device_type = newType;
+    if(Object.keys(body).length===1) return;
     try{
-      const r = await fetch('api/hosts/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip, os:newOs})});
+      const r = await fetch('api/hosts/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       const d = await r.json();
       if(!r.ok) throw new Error(d.error);
-      toast('OS actualizado a '+newOs);
+      toast(t('saved'));
       await fetchData();
     }catch(e){ toast(e.message, true); }
   };
