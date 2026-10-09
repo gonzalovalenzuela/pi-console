@@ -20,7 +20,7 @@ DB_FILE     = Path(__file__).parent / "history.db"
 
 # Cuántos puntos devolver en la API según rango
 RANGE_LIMIT = {
-    "1h":  360,    # 1h a 10s = 360 pts
+    "1h":  720,    # 1h a 10s = 360 pts (margen x2 para no truncar los puntos recientes)
     "1d":  2880,   # 1d a 30s = 2880 pts
     "1w":  2016,   # 1w a 5min = 2016 pts
     "1mo": 2880,   # 1mes a 15min = 2880 pts
@@ -386,6 +386,16 @@ class H(BaseHTTPRequestHandler):
         elif path == "/api/ups":
             range_ = self._range_param()
             self._json(200, {sid: c.snap(range_) for sid, c in _caches.items()})
+        elif path == "/api/history":
+            # Historial de un UPS concreto para un rango (resolucion propia del rango)
+            qs     = parse_qs(urlparse(self.path).query)
+            sid    = qs.get("srv", ["local"])[0]
+            ups    = qs.get("ups", ["ups"])[0]
+            range_ = qs.get("range", ["all"])[0]
+            range_secs = {"1h":3600,"1d":86400,"1w":604800,"1mo":2592000}
+            since = int(time.time()) - range_secs[range_] if range_ in range_secs else 0
+            rows  = db_query(sid, ups, since_ts=since, limit=RANGE_LIMIT.get(range_, 4320))
+            self._json(200, {"history": rows})
         elif path == "/api/export/csv":
             # Export CSV del historial de un UPS específico
             from urllib.parse import parse_qs

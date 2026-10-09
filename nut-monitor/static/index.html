@@ -1035,7 +1035,42 @@ function toggleExpand(key,row){
 const vchartRanges = {};  // { key: 'all'|'1h'|'1d'|'1mo' }
 const wchartRanges = {};  // idem para watts
 
-function setVChartRange(btn, key, type){
+// Historial por rango: el servidor devuelve cada rango con su propia resolución.
+// (El historial "all" está diezmado, así que 1h/1d/1mo no pueden filtrarse desde él.)
+const rangeCache = {};   // 'srv/ups|range' -> {ts, rows}
+const RANGE_TTL = 10000; // ms
+async function fetchRangeHistory(key, range){
+  const ck = key+'|'+range, c = rangeCache[ck];
+  if(c && Date.now()-c.ts < RANGE_TTL) return c.rows;
+  const srv = key.split('/')[0], ups = key.split('/').slice(1).join('/');
+  try{
+    const r = await fetch('api/history?srv='+encodeURIComponent(srv)+'&ups='+encodeURIComponent(ups)+'&range='+range);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const rows = (await r.json()).history||[];
+    rangeCache[ck] = {ts:Date.now(), rows};
+    return rows;
+  }catch(e){ return c ? c.rows : null; }
+}
+function rangeRows(key, range, allHistory){
+  if(range==='all') return allHistory;
+  const c = rangeCache[key+'|'+range];
+  return c ? c.rows : allHistory;   // mientras llega la respuesta, se muestra lo que haya
+}
+function drawChartsFor(key, allHistory){
+  const id = key.replace(/[^a-z0-9]/gi,'-');
+  const vr = vchartRanges[key]||'all', wr = wchartRanges[key]||'all';
+  drawVoltageChart('vchart-'+id, rangeRows(key,vr,allHistory), vr);
+  drawWattsChart('wchart-'+id, rangeRows(key,wr,allHistory), wr);
+}
+async function refreshRangeCharts(key, allHistory){
+  const ranges = new Set([vchartRanges[key]||'all', wchartRanges[key]||'all']);
+  ranges.delete('all');
+  if(!ranges.size) return;
+  await Promise.all([...ranges].map(r=>fetchRangeHistory(key, r)));
+  drawChartsFor(key, allHistory);
+}
+
+async function setVChartRange(btn, key, type){
   type = type||'v';
   const pfx = type==='w' ? 'wchart' : 'vchart';
   const cid = pfx+'-filters-'+key.replace(/[^a-z0-9]/gi,'-');
@@ -1043,246 +1078,19 @@ function setVChartRange(btn, key, type){
   btn.classList.add('active');
   const store = type==='w' ? wchartRanges : vchartRanges;
   store[key] = btn.dataset.range;
-  // Redibujar solo con los datos ya en memoria — sin re-fetch
   const snap = allData[key.split('/')[0]];
   if(!snap) return;
   const upsName = key.split('/').slice(1).join('/');
-  const history = (snap.history||{})[upsName]||[];
-  if(type==='w') drawWattsChart('wchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, store[key]||'all');
-  else           drawVoltageChart('vchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, store[key]||'all');
-}
-
-function filterHistory(history, range){
-  if(!history||!history.length) return history;
-  if(range==='all') return history;
-  const now = Date.now()/1000;
-  const cutoffs = {'1h':3600,'1d':86400,'1mo':2592000};
-  const cutoff = cutoffs[range]||0;
-  return history.filter(p=>p.ts>=(now-cutoff));
-}
-
-function drawVoltageChart(canvasId, history, range, hoverIdx=-1){
-  const canvas=document.getElementById(canvasId); if(!canvas) return;
-  const filtered = filterHistory(history, range||'all');
-  const dpr=window.devicePixelRatio||1;
-  const W=canvas.offsetWidth||600, H=140;
-  if(canvas.width!==W*dpr){canvas.width=W*dpr;canvas.height=H*dpr;}
-  const ctx=canvas.getContext('2d');
-  ctx.scale(dpr,dpr); ctx.clearRect(0,0,W,H);
-  const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
-  const cBg=css('--bg')||'#f0f2f5';
-  const cBorder=css('--border')||'#e3e8ef';
-  const cDim=css('--text-dim')||'#94a3b8';
-  const cSurface=css('--surface')||'#fff';
-  ctx.fillStyle=cBg; ctx.fillRect(0,0,W,H);
-
-  if(!filtered||filtered.length<2){
-    ctx.fillStyle=cDim; ctx.font='11px DM Mono,monospace'; ctx.textAlign='center';
-    ctx.fillText(filtered&&filtered.length===1?t('accumulating'):t('noDataChart'),W/2,H/2);
-    ctx.scale(1/dpr,1/dpr); return;
-  }
-
-  const N=filtered.length;
-  const PL=34, PR=8, PT=8, PB=18;
-  const W2=W-PL-PR, H2=H-PT-PB;
-
-  // Calcular rango de voltaje con margen
-  const allV = filtered.flatMap(p=>[p.vin||0,p.vout||0]).filter(v=>v>0);
-  if(!allV.length){ctx.scale(1/dpr,1/dpr);return;}
-  const vMin = Math.max(0, Math.floor(Math.min(...allV)-5));
-  const vMax = Math.ceil(Math.max(...allV)+5);
-  const vRange = vMax-vMin||1;
-
-  const xOf = i=>PL+(i/(N-1))*W2;
-  const yOf = v=>PT+H2-((v-vMin)/vRange)*H2;
-
-  // Grid horizontal
-  const gridSteps = 4;
-  ctx.strokeStyle=cBorder; ctx.lineWidth=0.5;
-  ctx.fillStyle=cDim; ctx.font='9px DM Mono,monospace'; ctx.textAlign='right';
-  for(let i=0;i<=gridSteps;i++){
-    const v=vMin+(vRange/gridSteps)*i;
-    const y=yOf(v);
-    ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(W-PR,y); ctx.stroke();
-    ctx.fillText(Math.round(v)+'V', PL-3, y+3);
-  }
-
-  // Área bajo la línea de entrada
-  ctx.beginPath();
-  filtered.forEach((pt,i)=>{
-    const x=xOf(i), y=yOf(pt.vin||vMin);
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  });
-  ctx.lineTo(xOf(N-1),PT+H2); ctx.lineTo(PL,PT+H2); ctx.closePath();
-  const g1=ctx.createLinearGradient(0,PT,0,PT+H2);
-  g1.addColorStop(0,'rgba(67,97,238,.2)'); g1.addColorStop(1,'rgba(67,97,238,0)');
-  ctx.fillStyle=g1; ctx.fill();
-
-  // Línea entrada (azul)
-  ctx.beginPath();
-  filtered.forEach((pt,i)=>{
-    const x=xOf(i), y=yOf(pt.vin||vMin);
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  });
-  ctx.strokeStyle='#4361ee'; ctx.lineWidth=1.8; ctx.globalAlpha=1; ctx.stroke();
-
-  // Línea salida (verde)
-  ctx.beginPath();
-  filtered.forEach((pt,i)=>{
-    const x=xOf(i), y=yOf(pt.vout||vMin);
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  });
-  ctx.strokeStyle='#22c55e'; ctx.lineWidth=1.8; ctx.stroke();
-
-  // Etiquetas X (tiempo)
-  ctx.fillStyle=cDim; ctx.font='9px DM Mono,monospace'; ctx.textAlign='center';
-  const step=Math.max(1,Math.floor(N/5));
-  for(let i=0;i<N;i+=step){
-    const d=new Date(filtered[i].ts*1000);
-    const label = range==='1mo'?
-      d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}):
-      d.toTimeString().slice(0,5);
-    ctx.fillText(label, xOf(i), H-3);
-  }
-
-  // Valores actuales en el extremo derecho
-  const last=filtered[N-1];
-  if(last.vin){
-    ctx.fillStyle='#4361ee'; ctx.font='bold 9px DM Mono,monospace'; ctx.textAlign='left';
-    ctx.fillText(Math.round(last.vin)+'V', W-PR+2, yOf(last.vin)+3);
-  }
-  if(last.vout){
-    ctx.fillStyle='#22c55e'; ctx.font='bold 9px DM Mono,monospace'; ctx.textAlign='left';
-    ctx.fillText(Math.round(last.vout)+'V', W-PR+2, yOf(last.vout)+12);
-  }
-
-  // Crosshair
-  if(hoverIdx>=0 && hoverIdx<N){
-    const cx = xOf(hoverIdx);
-    const pt = filtered[hoverIdx];
-    // Vertical line
-    ctx.beginPath(); ctx.moveTo(cx,PT); ctx.lineTo(cx,PT+H2);
-    ctx.strokeStyle='rgba(100,116,139,.4)'; ctx.lineWidth=1; ctx.setLineDash([3,3]); ctx.stroke();
-    ctx.setLineDash([]);
-    // Dots on lines
-    if(pt.vin){
-      ctx.beginPath(); ctx.arc(cx,yOf(pt.vin),4,0,2*Math.PI);
-      ctx.fillStyle='#4361ee'; ctx.fill();
-      ctx.strokeStyle=cSurface; ctx.lineWidth=1.5; ctx.stroke();
-    }
-    if(pt.vout){
-      ctx.beginPath(); ctx.arc(cx,yOf(pt.vout),4,0,2*Math.PI);
-      ctx.fillStyle='#22c55e'; ctx.fill();
-      ctx.strokeStyle=cSurface; ctx.lineWidth=1.5; ctx.stroke();
-    }
-  }
-
-  ctx.scale(1/dpr,1/dpr);
-}
-
-// Dibujar gráfico de watts (área naranja)
-function drawWattsChart(canvasId, history, range, hoverIdx=-1){
-  const canvas=document.getElementById(canvasId); if(!canvas) return;
-  const filtered = filterHistory(history, range||'all');
-  const dpr=window.devicePixelRatio||1;
-  const W=canvas.offsetWidth||600, H=120;
-  if(canvas.width!==W*dpr){canvas.width=W*dpr;canvas.height=H*dpr;}
-  const ctx=canvas.getContext('2d');
-  ctx.scale(dpr,dpr); ctx.clearRect(0,0,W,H);
-  const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
-  const cBg=css('--bg')||'#f0f2f5';
-  const cBorder=css('--border')||'#e3e8ef';
-  const cDim=css('--text-dim')||'#94a3b8';
-  const cSurface=css('--surface')||'#fff';
-  ctx.fillStyle=cBg; ctx.fillRect(0,0,W,H);
-
-  const withWatts = filtered ? filtered.filter(p=>p.watts>0) : [];
-  if(!filtered||filtered.length<2||!withWatts.length){
-    ctx.fillStyle=cDim; ctx.font='11px DM Mono,monospace'; ctx.textAlign='center';
-    ctx.fillText(t('noDataChart'),W/2,H/2);
-    ctx.scale(1/dpr,1/dpr); return;
-  }
-
-  const N=filtered.length;
-  const PL=40, PR=8, PT=8, PB=18;
-  const W2=W-PL-PR, H2=H-PT-PB;
-
-  const allW = filtered.map(p=>p.watts||0);
-  const wMax = Math.ceil(Math.max(...allW)*1.15)||10;
-  const wMin = 0;
-  const wRange = wMax-wMin||1;
-
-  const xOf = i=>PL+(i/(N-1))*W2;
-  const yOf = v=>PT+H2-((v-wMin)/wRange)*H2;
-
-  // Grid
-  const gridSteps=4;
-  ctx.strokeStyle=cBorder; ctx.lineWidth=0.5;
-  ctx.fillStyle=cDim; ctx.font='9px DM Mono,monospace'; ctx.textAlign='right';
-  for(let i=0;i<=gridSteps;i++){
-    const v=wMin+(wRange/gridSteps)*i;
-    const y=yOf(v);
-    ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(W-PR,y); ctx.stroke();
-    ctx.fillText(Math.round(v)+'W', PL-3, y+3);
-  }
-
-  // Área rellena naranja
-  ctx.beginPath();
-  filtered.forEach((pt,i)=>{
-    const x=xOf(i), y=yOf(pt.watts||0);
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  });
-  ctx.lineTo(xOf(N-1),PT+H2); ctx.lineTo(PL,PT+H2); ctx.closePath();
-  const g=ctx.createLinearGradient(0,PT,0,PT+H2);
-  g.addColorStop(0,'rgba(249,115,22,.35)'); g.addColorStop(1,'rgba(249,115,22,0)');
-  ctx.fillStyle=g; ctx.fill();
-
-  // Línea naranja
-  ctx.beginPath();
-  filtered.forEach((pt,i)=>{
-    const x=xOf(i), y=yOf(pt.watts||0);
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  });
-  ctx.strokeStyle='#f97316'; ctx.lineWidth=2; ctx.stroke();
-
-  // Etiquetas X
-  ctx.fillStyle=cDim; ctx.font='9px DM Mono,monospace'; ctx.textAlign='center';
-  const step=Math.max(1,Math.floor(N/5));
-  for(let i=0;i<N;i+=step){
-    const d=new Date(filtered[i].ts*1000);
-    const label=range==='1mo'?
-      d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}):
-      d.toTimeString().slice(0,5);
-    ctx.fillText(label, xOf(i), H-3);
-  }
-
-  // Último valor
-  const last=filtered[N-1];
-  if(last.watts){
-    ctx.fillStyle='#f97316'; ctx.font='bold 9px DM Mono,monospace'; ctx.textAlign='left';
-    ctx.fillText(Math.round(last.watts)+'W', W-PR+2, yOf(last.watts)+3);
-  }
-
-  // Crosshair
-  if(hoverIdx>=0 && hoverIdx<N){
-    const cx=xOf(hoverIdx), pt=filtered[hoverIdx];
-    ctx.beginPath(); ctx.moveTo(cx,PT); ctx.lineTo(cx,PT+H2);
-    ctx.strokeStyle='rgba(100,116,139,.4)'; ctx.lineWidth=1; ctx.setLineDash([3,3]); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.beginPath(); ctx.arc(cx,yOf(pt.watts||0),4,0,2*Math.PI);
-    ctx.fillStyle='#f97316'; ctx.fill();
-    ctx.strokeStyle=cSurface; ctx.lineWidth=1.5; ctx.stroke();
-  }
-  ctx.scale(1/dpr,1/dpr);
+  const allHistory = (snap.history||{})[upsName]||[];
+  if(store[key]!=='all') await fetchRangeHistory(key, store[key]);
+  drawChartsFor(key, allHistory);
 }
 
 // Dibujar ambos gráficos al expandir detalle
 function drawVoltageChartForKey(key, history){
-  const vrange = vchartRanges[key]||'all';
-  const wrange = wchartRanges[key]||'all';
   requestAnimationFrame(()=>{
-    drawVoltageChart('vchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, vrange);
-    drawWattsChart('wchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, wrange);
+    drawChartsFor(key, history);
+    refreshRangeCharts(key, history);
   });
 }
 
