@@ -80,19 +80,19 @@ ln -sf /etc/nginx/sites-available/pi-console.conf \
 # contraseñas y configuraciones creadas por el usuario.
 BACKUP_DIR="/var/backups/pi-console"
 if [ -d "$BACKUP_DIR" ]; then
-    # Pares: ruta-relativa-destino:nombre-base-backup
-    declare -A DATA_FILES=(
-        ["auth/users.json"]="users.json"
-        ["auth/sessions.json"]="sessions.json"
-        ["wol-console/devices.json"]="devices.json"
-        ["nut-monitor/servers.json"]="servers.json"
-        ["nut-monitor/history.db"]="history.db"
-        ["net-monitor/hosts.json"]="hosts.json"
-        ["net-monitor/config.json"]="config.json"
-        ["proxmox-monitor/clusters.json"]="clusters.json"
-    )
-    for rel_path in "${!DATA_FILES[@]}"; do
-        base="${DATA_FILES[$rel_path]}"
+    # Formato: "ruta/relativa/dest:nombre_base_backup"
+    # Sintaxis POSIX — compatible con dash/sh/bash
+    DATA_FILES="
+auth/users.json:users.json
+auth/sessions.json:sessions.json
+wol-console/devices.json:devices.json
+nut-monitor/servers.json:servers.json
+nut-monitor/history.db:history.db
+net-monitor/hosts.json:hosts.json
+net-monitor/config.json:config.json
+proxmox-monitor/clusters.json:clusters.json
+"
+    printf '%s\n' "$DATA_FILES" | grep -v '^$' | while IFS=: read -r rel_path base; do
         latest=$(ls -t "$BACKUP_DIR/${base}".*.bak 2>/dev/null | head -1)
         dest="$PI_HOME/$rel_path"
         if [ -n "$latest" ]; then
@@ -109,7 +109,7 @@ fi
 # Si existe un backup, ya fue restaurado arriba. Solo crear el default
 # cuando es la primera instalación y no hay datos previos.
 FRESH_INSTALL=true
-if [ -d "$BACKUP_DIR" ] && ls "$BACKUP_DIR/users.json".*.bak &>/dev/null 2>&1; then
+if [ -d "$BACKUP_DIR" ] && ls "$BACKUP_DIR/users.json".*.bak >/dev/null 2>&1; then
     FRESH_INSTALL=false
 fi
 if [ "$FRESH_INSTALL" = true ] && [ ! -f "$PI_HOME/auth/users.json" ]; then
