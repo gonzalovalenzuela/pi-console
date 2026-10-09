@@ -518,7 +518,7 @@ if __name__ == "__main__":
     except Exception as e:
         log.warning(f"Permisos: {e}")
 
-    log.info(f"Proxmox Monitor en http://{HOST}:{PORT} — poll cada {POLL_SEC}s")
+    log.info(f"Proxmox Monitor en http://{HOST}:{PORT} — poll {POLL_ACTIVE:g}s active / {POLL_IDLE:g}s idle")
     start_all()
     try:
         HTTPServer((HOST, PORT), H).serve_forever()
