@@ -3,9 +3,9 @@
 Proxmox Monitor — Dashboard de nodos, VMs y CTs
 API REST de Proxmox VE — sin dependencias externas
 """
-import json, os, re, ssl, sys, time, logging, threading
+import json, os, re, ssl, sys, time, logging, threading, http.client
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 from urllib.request import urlopen, Request
 from urllib.error import URLError
 from pathlib import Path
@@ -17,30 +17,67 @@ HOST       = "127.0.0.1"
 PORT       = 8084
 STATIC_DIR = Path(__file__).parent / "static"
 DATA_FILE  = Path(__file__).parent / "clusters.json"
-POLL_SEC   = int(os.environ.get("PVE_POLL", 30))
+POLL_ACTIVE = float(os.environ.get("PVE_POLL_ACTIVE", 5))    # seconds, while someone is watching
+POLL_IDLE   = float(os.environ.get("PVE_POLL_IDLE", 60))     # seconds, when nobody has the page open
+VIEW_GRACE  = 30                                              # a viewer counts as active for this long
+SLOW_EVERY  = 60                                              # version / ceph refresh period
+HIST_EVERY  = 30                                              # node history sampling period
+_last_view  = 0.0                                             # last time a browser asked for data
 
 logging.basicConfig(level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger("pve")
 
 # ─── Proxmox API client ────────────────────────────────────────────────────────
+class PVEHTTPError(RuntimeError):
+    def __init__(self, status, reason=""):
+        super().__init__(f"HTTP {status}: {reason}")
+        self.status = status
+
 class PVEClient:
+    """PVE API client with a persistent HTTPS connection (avoids a TLS handshake on every poll)."""
     def __init__(self, host, port, user, token_name, token_value, verify_ssl=False):
-        self.base    = f"https://{host}:{port}/api2/json"
+        self.host, self.port = host, int(port)
         self.headers = {
             "Authorization": f"PVEAPIToken={user}!{token_name}={token_value}",
-            "Content-Type":  "application/json",
+            "Accept":        "application/json",
         }
         self.ctx = ssl.create_default_context()
         if not verify_ssl:
             self.ctx.check_hostname = False
             self.ctx.verify_mode    = ssl.CERT_NONE
+        self._conn = None
+        self._lock = threading.Lock()
+
+    def close(self):
+        try:
+            if self._conn: self._conn.close()
+        except Exception:
+            pass
+        self._conn = None
 
     def get(self, path: str) -> dict:
-        url = self.base + path
-        req = Request(url, headers=self.headers)
-        with urlopen(req, context=self.ctx, timeout=10) as r:
-            return json.loads(r.read().decode())
+        with self._lock:
+            for attempt in (1, 2):
+                try:
+                    if self._conn is None:
+                        self._conn = http.client.HTTPSConnection(self.host, self.port, timeout=8, context=self.ctx)
+                    self._conn.request("GET", "/api2/json" + path, headers=self.headers)
+                    r = self._conn.getresponse()
+                    body = r.read()
+                    if r.status >= 400:
+                        raise PVEHTTPError(r.status, r.reason)
+                    return json.loads(body.decode())
+                except PVEHTTPError:
+                    raise
+                except (http.client.HTTPException, OSError, ValueError):
+                    self.close()                      # stale keep-alive connection: reconnect once
+                    if attempt == 2:
+                        raise
+
+    def resources(self) -> list:
+        """One call for nodes, VMs, CTs and storages of the whole cluster."""
+        return self.get("/cluster/resources").get("data", [])
 
     def nodes(self) -> list:
         return self.get("/nodes").get("data", [])
@@ -101,6 +138,8 @@ def push_node_history(cid: str, node_name: str, cpu: float, mem: int, maxmem: in
     with _hist_lock:
         if key not in _NODE_HISTORY:
             _NODE_HISTORY[key] = _deque(maxlen=_HIST_MAX)
+        if _NODE_HISTORY[key] and time.time() - _NODE_HISTORY[key][-1]["ts"] < HIST_EVERY - 1:
+            return                         # fixed 30 s sampling even when polling faster
         _NODE_HISTORY[key].append({"ts": int(time.time()), "cpu": round(cpu*100, 1), "mem": mem_pct})
 
 def get_node_history(cid: str, node_name: str) -> list:
@@ -116,6 +155,7 @@ class ClusterCache:
         self._data = {}
         self._err  = None
         self._ts   = None
+        self.wake  = threading.Event()     # set to make the poller refresh right now
 
     def update(self, data: dict):
         with self._lock:
@@ -132,6 +172,56 @@ class ClusterCache:
             return {"id": self.id, "data": dict(self._data),
                     "error": self._err, "ts": self._ts}
 
+def _fetch_legacy(client, name):
+    """Fallback when /cluster/resources is unavailable (standalone node, limited token): per-node calls."""
+    nodes_data = []
+    for node in client.nodes():
+        n = node["node"]
+        info = {k: node.get(k, 0) for k in ("uptime", "cpu", "maxcpu", "mem", "maxmem", "disk", "maxdisk")}
+        info.update(name=n, status=node.get("status"), vms=[], cts=[], storage=[])
+        if node.get("status") == "online":
+            try:
+                info["vms"], info["cts"], info["storage"] = client.vms(n), client.containers(n), client.storage(n)
+            except Exception as e:
+                log.warning(f"[{name}] {n} detail error: {e}")
+        nodes_data.append(info)
+    return nodes_data
+
+def _build_from_resources(res: list) -> list:
+    """Group /cluster/resources by node, mapped to the shape the UI already uses."""
+    nodes, order = {}, []
+    for r in res:
+        t = r.get("type")
+        if t == "node":
+            n = r.get("node")
+            nodes[n] = {"name": n, "status": r.get("status"), "uptime": r.get("uptime", 0),
+                        "cpu": r.get("cpu", 0), "maxcpu": r.get("maxcpu", 0),
+                        "mem": r.get("mem", 0), "maxmem": r.get("maxmem", 0),
+                        "disk": r.get("disk", 0), "maxdisk": r.get("maxdisk", 0),
+                        "vms": [], "cts": [], "storage": []}
+            order.append(n)
+    for r in res:
+        t, n = r.get("type"), r.get("node")
+        if n not in nodes: continue
+        if t in ("qemu", "lxc"):
+            item = {"vmid": r.get("vmid"), "name": r.get("name", ""), "status": r.get("status", ""),
+                    "cpu": r.get("cpu", 0), "cpus": r.get("maxcpu", 0), "mem": r.get("mem", 0),
+                    "maxmem": r.get("maxmem", 0), "disk": r.get("disk", 0), "maxdisk": r.get("maxdisk", 0),
+                    "uptime": r.get("uptime", 0), "netin": r.get("netin", 0), "netout": r.get("netout", 0),
+                    "tags": r.get("tags", ""), "lock": r.get("lock", ""), "template": r.get("template", 0)}
+            nodes[n]["vms" if t == "qemu" else "cts"].append(item)
+        elif t == "storage":
+            tot, used = r.get("maxdisk", 0), r.get("disk", 0)
+            nodes[n]["storage"].append({"storage": r.get("storage"), "type": r.get("plugintype", ""),
+                                        "content": r.get("content", ""), "shared": r.get("shared", 0),
+                                        "active": 1 if r.get("status") == "available" else 0,
+                                        "total": tot, "used": used, "avail": max(tot - used, 0),
+                                        "used_fraction": (used / tot) if tot else 0})
+    for nd in nodes.values():
+        if nd["status"] != "online":                # same as the per-node path: nothing listed for offline nodes
+            nd["vms"], nd["cts"], nd["storage"] = [], [], []
+    return [nodes[n] for n in order]
+
 def _poll_cluster(cluster):
     cid = cluster["id"]
     cache = _cache.get(cid)
@@ -143,74 +233,52 @@ def _poll_cluster(cluster):
         token_value=cluster["token_value"],
         verify_ssl=cluster.get("verify_ssl", False)
     )
+    version, ceph, slow_ts = "", None, 0.0
+    use_resources = True
 
     while True:
         if not any(c["id"] == cid for c in load_clusters()):
+            client.close()
             return
+        t0 = time.time()
         try:
-            nodes_raw = client.nodes()
-            version   = client.version()
-            nodes_data = []
+            nodes_data = None
+            if use_resources:
+                try:
+                    nodes_data = _build_from_resources(client.resources())
+                    if not nodes_data: raise RuntimeError("empty /cluster/resources")
+                except PVEHTTPError as e:
+                    if e.status not in (403, 404, 501): raise      # transient server error: keep using /cluster/resources
+                    log.warning(f"[{cluster['name']}] /cluster/resources unavailable ({e}); using per-node calls")
+                    use_resources = False
+            if nodes_data is None:
+                nodes_data = _fetch_legacy(client, cluster["name"])
 
-            for node in nodes_raw:
-                n = node["node"]
-                node_info = {"name": n, "status": node.get("status"),
-                             "uptime": node.get("uptime", 0),
-                             "cpu": node.get("cpu", 0),
-                             "maxcpu": node.get("maxcpu", 0),
-                             "mem": node.get("mem", 0),
-                             "maxmem": node.get("maxmem", 0),
-                             "disk": node.get("disk", 0),
-                             "maxdisk": node.get("maxdisk", 0)}
+            # version and ceph change rarely: refresh them once a minute
+            if t0 - slow_ts >= SLOW_EVERY:
+                v = client.version()
+                if v: version = v
+                try:    ceph = client.get("/cluster/ceph/status").get("data")
+                except Exception: ceph = None
+                slow_ts = t0
 
-                if node.get("status") == "online":
-                    try:
-                        vms  = client.vms(n)
-                        cts  = client.containers(n)
-                        stor = client.storage(n)
-                        node_info["vms"]      = vms
-                        node_info["cts"]      = cts
-                        node_info["storage"]  = stor
-                        log.info(f"[{cluster['name']}] {n}: {len(vms)} VMs, {len(cts)} CTs, cpu={node.get('cpu',0):.2%}, mem={node.get('mem',0)}/{node.get('maxmem',0)}")
-                    except Exception as e:
-                        log.warning(f"[{cluster['name']}] {n} detail error: {e}")
-                        import traceback; log.warning(traceback.format_exc())
-                        node_info["vms"] = []
-                        node_info["cts"] = []
-                        node_info["storage"] = []
-                else:
-                    log.info(f"[{cluster['name']}] {n}: offline")
-                    node_info["vms"] = []
-                    node_info["cts"] = []
-                    node_info["storage"] = []
-
-                nodes_data.append(node_info)
-
-            # Guardar historial CPU/RAM por nodo
             for nd in nodes_data:
                 if nd.get("status") == "online":
-                    push_node_history(cid, nd["name"],
-                                      nd.get("cpu", 0),
-                                      nd.get("mem", 0),
-                                      nd.get("maxmem", 0))
-
-            # Ceph status
-            ceph = None
-            try:
-                ceph_raw = client.get("/cluster/ceph/status")
-                ceph = ceph_raw.get("data")
-            except Exception:
-                pass
+                    push_node_history(cid, nd["name"], nd.get("cpu", 0), nd.get("mem", 0), nd.get("maxmem", 0))
 
             cache.update({"nodes": nodes_data, "version": version,
                           "name": cluster["name"], "ceph": ceph})
-            log.debug(f"[{cluster['name']}] {len(nodes_data)} nodos actualizados")
+            log.debug(f"[{cluster['name']}] {len(nodes_data)} nodes in {time.time()-t0:.2f}s")
 
         except Exception as e:
             cache.set_error(str(e))
+            client.close()
             log.error(f"[{cluster['name']}] poll error: {e}")
 
-        time.sleep(POLL_SEC)
+        # fast while a browser is watching, slow otherwise; a new viewer wakes the poller at once
+        active = (time.time() - _last_view) < VIEW_GRACE
+        cache.wake.wait(POLL_ACTIVE if active else POLL_IDLE)
+        cache.wake.clear()
 
 def ensure_poller(cluster):
     cid = cluster["id"]
@@ -276,6 +344,13 @@ class H(BaseHTTPRequestHandler):
             return self._json(401, {"error": "Unauthorized"})
 
         if path == "/api/clusters":
+            global _last_view
+            was_idle = (time.time() - _last_view) >= VIEW_GRACE
+            _last_view = time.time()
+            if was_idle:
+                for cc in list(_cache.values()):
+                    cc.wake.set()               # data may be up to a minute old: refresh now
+            with_hist = parse_qs(urlparse(self.path).query).get("hist", ["1"])[0] != "0"
             clusters = load_clusters()
             out = []
             for c in clusters:
@@ -284,7 +359,8 @@ class H(BaseHTTPRequestHandler):
                 nodes_with_hist = []
                 for nd in snap.get("data", {}).get("nodes", []):
                     nd = dict(nd)
-                    nd["history"] = get_node_history(c["id"], nd["name"])
+                    if with_hist:
+                        nd["history"] = get_node_history(c["id"], nd["name"])
                     nodes_with_hist.append(nd)
                 if "data" in snap:
                     snap = dict(snap)
