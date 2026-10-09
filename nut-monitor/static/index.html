@@ -103,34 +103,34 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
 .topbar-title{font-size:14px;font-weight:600;color:var(--text)}
 #clock{font-family:var(--mono);font-size:12px;color:var(--text-dim)}
-.content{padding:22px 24px;display:flex;flex-direction:column;gap:18px}
+.content{padding:14px 20px;display:flex;flex-direction:column;gap:12px;flex:1}
 /* Stats */
-.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px 18px;display:flex;align-items:center;gap:13px;box-shadow:var(--shadow)}
-.stat-ico{width:40px;height:40px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow)}
+.stat-ico{width:34px;height:34px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .stat-ico svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
 .stat-ico.yellow{background:var(--yellow-dim);color:var(--yellow)}
 .stat-ico.green{background:var(--green-dim);color:var(--green)}
 .stat-ico.blue{background:var(--blue-dim);color:var(--blue)}
 .stat-ico.orange{background:var(--orange-dim);color:var(--orange)}
-.stat-val{font-size:22px;font-weight:600;color:var(--text);line-height:1}
+.stat-val{font-size:20px;font-weight:600;color:var(--text);line-height:1}
 .stat-lbl{font-size:11px;color:var(--text-dim);margin-top:2px;font-weight:500}
 /* Main grid */
-.main-grid{display:grid;grid-template-columns:1fr 296px;gap:18px;align-items:start}
+.main-grid{display:flex;flex-direction:column;gap:12px}
 /* Card */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
-.card-hd{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.card-hd{padding:9px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
 .card-title{font-size:13px;font-weight:600;color:var(--text)}
 .card-meta{font-size:12px;color:var(--text-dim);font-family:var(--mono)}
 /* UPS table */
 .ups-table{width:100%;border-collapse:collapse}
-.ups-table thead th{padding:9px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap}
+.ups-table thead th{padding:7px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap}
 .ups-row{border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;animation:row-in .22s ease both}
 @keyframes row-in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 .ups-row:last-child{border-bottom:none}
 .ups-row:hover{background:var(--bg)}
 .ups-row.expanded{background:var(--blue-dim)}
-.ups-row td{padding:12px 16px;vertical-align:middle}
+.ups-row td{padding:8px 16px;vertical-align:middle}
 /* Status dot */
 .sdot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .sdot.online{background:var(--green);box-shadow:0 0 0 3px var(--green-dim)}
@@ -161,22 +161,23 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .detail-row{display:none;background:var(--surface2)}
 .detail-row.show{display:table-row}
 .detail-cell{padding:0 !important;border-bottom:1px solid var(--border)}
-.detail-inner{padding:16px 20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.detail-inner{padding:12px 16px;display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
 /* Gauges */
-.gauge-box{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm)}
+.gauge-box{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm)}
 .gauge-lbl{font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px}
-.circle-wrap{position:relative;width:72px;height:72px}
+.circle-wrap{position:relative;width:56px;height:56px}
 .circle-wrap svg{width:100%;height:100%;transform:rotate(-90deg)}
 .circle-bg{fill:none;stroke:var(--bg);stroke-width:5}
 .circle-fill{fill:none;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .8s ease,stroke .3s}
-.circle-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:15px;font-weight:600;color:var(--text)}
+.circle-val{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:600;color:var(--text)}
 .gauge-unit{font-size:10px;color:var(--text-dim)}
-.runtime-num{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--text);line-height:1}
+.runtime-num{font-family:var(--mono);font-size:20px;font-weight:600;color:var(--text);line-height:1}
 /* Vars */
-.vars-section{grid-column:1 / -1;display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden}
-.var-cell{padding:7px 14px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--surface)}
-.var-cell:nth-child(3n){border-right:none}
-.var-cell:nth-last-child(-n+3){border-bottom:none}
+.vars-section{grid-column:1 / -1;display:grid;grid-template-columns:repeat(6,1fr);gap:0;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden}
+.var-cell{padding:6px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--surface)}
+.var-cell:nth-child(6n){border-right:none}
+.var-cell:nth-last-child(-n+6){border-bottom:none}
+.power-box{grid-column:span 3}
 .var-key{font-size:11px;color:var(--text-mid);font-weight:500}
 .var-val{font-family:var(--mono);font-size:11px;color:var(--text);text-align:right}
 /* Clients */
@@ -217,12 +218,12 @@ input.err{border-color:var(--red)}
 .lt{color:var(--text-dim);flex-shrink:0}.lv{flex-shrink:0;width:36px;font-weight:500}
 .lv.OK{color:var(--green)}.lv.INFO{color:var(--blue)}.lv.WARN{color:var(--orange)}.lv.ERR{color:var(--red)}
 .lm{color:var(--text-mid)}
-#log-out{padding:10px 16px;min-height:80px;max-height:150px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+#log-out{padding:6px 16px;min-height:0;max-height:72px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
 .btn-link{background:none;border:none;color:var(--text-dim);font-family:var(--sans);font-size:11px;cursor:pointer;padding:0;font-weight:500;transition:color .15s}
 .btn-link:hover{color:var(--text-mid)}
 /* Voltage chart */
-.vchart-section{grid-column:1 / -1;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden}
-.vchart-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.vchart-section{grid-column:span 3;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden}
+.vchart-header{padding:7px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .vchart-title{font-size:12px;font-weight:600;color:var(--text)}
 .vchart-legend{display:flex;gap:14px}
 .vchart-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim);font-weight:500}
@@ -231,8 +232,8 @@ input.err{border-color:var(--red)}
 .vchart-filter{font-size:11px;font-weight:500;padding:3px 9px;border-radius:99px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;transition:all .15s}
 .vchart-filter:hover{border-color:var(--border-b);color:var(--text)}
 .vchart-filter.active{background:var(--blue);border-color:var(--blue);color:#fff}
-.vchart-body{padding:12px 14px}
-canvas.vchart{width:100%;height:140px;display:block}
+.vchart-body{padding:6px 12px 8px}
+canvas.vchart{width:100%;height:var(--chart-h,140px);display:block}
 /* Toast */
 #toast{position:fixed;bottom:22px;right:22px;background:var(--text);color:#fff;border-radius:var(--r-sm);padding:10px 15px;font-size:13px;font-weight:500;z-index:9000;opacity:0;transform:translateY(6px);transition:all .2s;max-width:280px;pointer-events:none;box-shadow:var(--shadow-md);display:flex;align-items:center;gap:8px}
 #toast::before{content:'✓';font-size:13px;color:#86efac}
@@ -251,6 +252,13 @@ canvas.vchart{width:100%;height:140px;display:block}
 .btn-mok{padding:8px 16px;border-radius:var(--r-sm);border:none;background:var(--red);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
 .spin{display:inline-block;animation:spin .5s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:1180px){
+  .detail-inner{grid-template-columns:repeat(3,1fr)}
+  .power-box,.vchart-section{grid-column:1 / -1}
+  .vars-section{grid-template-columns:repeat(3,1fr)}
+  .var-cell:nth-child(6n){border-right:1px solid var(--border)}.var-cell:nth-child(3n){border-right:none}
+  .var-cell:nth-last-child(-n+6){border-bottom:1px solid var(--border)}.var-cell:nth-last-child(-n+3){border-bottom:none}
+}
 @media(max-width:960px){
   .sidebar{display:none}.main{margin-left:0}
   .stats-row{grid-template-columns:1fr 1fr 1fr}
@@ -923,13 +931,13 @@ function renderDashboard(){
         </div>
         <div class="gauge-box">
           <span class="gauge-lbl">${t('gaugeLabel_runtime')}</span>
-          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:72px;gap:4px">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:56px;gap:4px">
             <span class="runtime-num">${runtime?Math.round(runtime/60):'—'}</span>
             <span class="gauge-unit">${t('gaugeUnit_minLeft')}</span>
           </div>
           <span class="gauge-unit">&nbsp;</span>
         </div>
-        <div class="gauge-box" style="grid-column:1/-1;flex-direction:row;justify-content:space-around;padding:12px 20px">
+        <div class="gauge-box power-box" style="flex-direction:row;justify-content:space-around;padding:8px 14px">
           ${(()=>{
             const realP=parseFloat(row.v['ups.realpower']||0);
             const volt=parseFloat(row.v['output.voltage']||0);
@@ -944,21 +952,21 @@ function renderDashboard(){
             return `
             <div style="text-align:center">
               <div class="gauge-lbl">${t('gaugeLabel_power')}</div>
-              <div style="font-family:var(--mono);font-size:28px;font-weight:700;color:var(--orange);line-height:1;margin:8px 0">
+              <div style="font-family:var(--mono);font-size:24px;font-weight:700;color:var(--orange);line-height:1;margin:4px 0">
                 ${watts>0?Math.round(watts):'—'}
               </div>
               <div class="gauge-unit">${watts>0?'W ('+source+')':''}</div>
             </div>
             <div style="text-align:center">
               <div class="gauge-lbl">${t('gaugeLabel_temp')}</div>
-              <div style="font-family:var(--mono);font-size:28px;font-weight:700;color:${temp>40?'var(--red)':temp>35?'var(--orange)':'var(--blue)'};line-height:1;margin:8px 0">
+              <div style="font-family:var(--mono);font-size:24px;font-weight:700;color:${temp>40?'var(--red)':temp>35?'var(--orange)':'var(--blue)'};line-height:1;margin:4px 0">
                 ${temp?temp.toFixed(1):'—'}
               </div>
               <div class="gauge-unit">${temp?'°C':''}</div>
             </div>
             <div style="text-align:center">
               <div class="gauge-lbl">${t('gaugeLabel_current')}</div>
-              <div style="font-family:var(--mono);font-size:28px;font-weight:700;color:var(--text);line-height:1;margin:8px 0">
+              <div style="font-family:var(--mono);font-size:24px;font-weight:700;color:var(--text);line-height:1;margin:4px 0">
                 ${amp?amp:'—'}
               </div>
               <div class="gauge-unit">${amp?'A':''}</div>
@@ -1013,6 +1021,7 @@ function renderDashboard(){
   });
 
   tbody.parentNode.replaceChild(newTbody,tbody);
+  fitCharts();
 }
 
 function statusClass(v){
@@ -1060,6 +1069,21 @@ function rangeRows(key, range){
   const c = rangeCache[key+'|'+range];
   return c ? c.rows : null;
 }
+// Make the whole dashboard fit one screen: the charts take whatever vertical space is left (90-300 px).
+let _fitBusy=false;
+function fitCharts(){
+  const root=document.documentElement, content=document.querySelector('.content'), top=document.querySelector('.topbar');
+  if(!content||!top||!document.querySelector('canvas.vchart'))return;
+  const cur=parseInt(root.style.getPropertyValue('--chart-h'))||140;
+  root.style.setProperty('--chart-h','140px');                         // measure from a known baseline
+  const cs=getComputedStyle(content), gap=parseFloat(cs.rowGap)||0;
+  const used=[...content.children].filter(e=>e.offsetParent!==null).reduce((a,e)=>a+e.offsetHeight+gap,0)-gap
+    +parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom)+top.offsetHeight;
+  const h=Math.max(90,Math.min(300,Math.floor(140+(window.innerHeight-used)-2)));
+  root.style.setProperty('--chart-h',h+'px');
+  if(h!==cur&&expanded&&!_fitBusy){_fitBusy=true;requestAnimationFrame(()=>{drawChartsFor(expanded);_fitBusy=false;});}
+}
+window.addEventListener('resize',()=>{clearTimeout(window._fitT);window._fitT=setTimeout(fitCharts,120);});
 function drawChartsFor(key){
   const id = key.replace(/[^a-z0-9]/gi,'-');
   const vr = vchartRanges[key]||DEFAULT_RANGE, wr = wchartRanges[key]||DEFAULT_RANGE;
@@ -1099,10 +1123,10 @@ function drawVoltageChart(canvasId, history, range, hoverIdx=-1){
   const canvas=document.getElementById(canvasId); if(!canvas) return;
   const filtered = filterHistory(history, range||'all');
   const dpr=window.devicePixelRatio||1;
-  const W=canvas.offsetWidth||600, H=140;
-  if(canvas.width!==W*dpr){canvas.width=W*dpr;canvas.height=H*dpr;}
+  const W=canvas.offsetWidth||600, H=Math.round(canvas.getBoundingClientRect().height)||140;
+  if(canvas.width!==W*dpr||canvas.height!==H*dpr){canvas.width=W*dpr;canvas.height=H*dpr;}
   const ctx=canvas.getContext('2d');
-  ctx.scale(dpr,dpr); ctx.clearRect(0,0,W,H);
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
   const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
   const cBg=css('--bg')||'#f0f2f5';
   const cBorder=css('--border')||'#e3e8ef';
@@ -1219,10 +1243,10 @@ function drawWattsChart(canvasId, history, range, hoverIdx=-1){
   const canvas=document.getElementById(canvasId); if(!canvas) return;
   const filtered = filterHistory(history, range||'all');
   const dpr=window.devicePixelRatio||1;
-  const W=canvas.offsetWidth||600, H=120;
-  if(canvas.width!==W*dpr){canvas.width=W*dpr;canvas.height=H*dpr;}
+  const W=canvas.offsetWidth||600, H=Math.round(canvas.getBoundingClientRect().height)||120;
+  if(canvas.width!==W*dpr||canvas.height!==H*dpr){canvas.width=W*dpr;canvas.height=H*dpr;}
   const ctx=canvas.getContext('2d');
-  ctx.scale(dpr,dpr); ctx.clearRect(0,0,W,H);
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
   const css=k=>getComputedStyle(document.documentElement).getPropertyValue(k).trim();
   const cBg=css('--bg')||'#f0f2f5';
   const cBorder=css('--border')||'#e3e8ef';
