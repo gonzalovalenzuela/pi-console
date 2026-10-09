@@ -5,7 +5,7 @@
 <title>Pi Console — Login</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f0f2f5;--surface:#fff;--border:#e3e8ef;--blue:#4361ee;--blue-dim:rgba(67,97,238,.1);--red:#ef4444;--red-dim:rgba(239,68,68,.1);--text:#1a2033;--text-mid:#5a6a85;--text-dim:#94a3b8;--r:10px;--r-sm:6px;--shadow-md:0 4px 16px rgba(0,0,0,.1);--sans:'DM Sans',sans-serif;--mono:'DM Mono',monospace}
+:root{--input-bg:#e7ebf2;--input-border:#c3cbda;--bg:#f0f2f5;--surface:#fff;--border:#e3e8ef;--blue:#4361ee;--blue-dim:rgba(67,97,238,.1);--red:#ef4444;--red-dim:rgba(239,68,68,.1);--text:#1a2033;--text-mid:#5a6a85;--text-dim:#94a3b8;--r:10px;--r-sm:6px;--shadow-md:0 4px 16px rgba(0,0,0,.1);--sans:'DM Sans',sans-serif;--mono:'DM Mono',monospace}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
 .box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:32px;width:100%;max-width:360px;box-shadow:var(--shadow-md)}
@@ -18,7 +18,7 @@ h2{font-size:18px;font-weight:600;color:var(--text);margin-bottom:4px}
 .sub{font-size:13px;color:var(--text-dim);margin-bottom:24px}
 .field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
 label{font-size:11px;font-weight:600;color:var(--text-mid)}
-input{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:9px 12px;outline:none;transition:all .15s;width:100%}
+input{background:var(--input-bg);border:1px solid var(--input-border);border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:13px;padding:9px 12px;outline:none;transition:all .15s;width:100%}
 input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-dim);background:var(--surface)}
 input.err{border-color:var(--red);box-shadow:0 0 0 3px var(--red-dim)}
 .btn{background:var(--blue);color:#fff;border:none;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:600;padding:11px;cursor:pointer;transition:all .15s;width:100%;margin-top:4px}
