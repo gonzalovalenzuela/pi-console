@@ -63,16 +63,47 @@ def db_init():
         conn.commit(); conn.close()
     log.info(f"DB: {DB_FILE}")
 
-def db_insert(srv_id, ups, entry):
+# Las filas se acumulan en memoria y se escriben juntas cada DB_FLUSH_SEC segundos
+# (un commit por lote en vez de uno cada POLL_SEC por UPS: menos desgaste de la SD).
+# Si el UPS no está en línea (ups.status distinto de OL: batería, carga baja, etc.)
+# se escribe de inmediato, porque ahí es cuando más importa no perder datos.
+DB_FLUSH_SEC = int(os.environ.get("NUT_DB_FLUSH", 60))
+_INSERT_SQL = """
+    INSERT INTO history (srv_id,ups,ts,charge,runtime,load,vin,vout,watts,temp)
+    VALUES (?,?,?,?,?,?,?,?,?,?)
+"""
+_ins_buf = []
+_ins_last = time.time()
+
+def _flush_locked():
+    global _ins_last
+    if not _ins_buf: return
+    conn = db_connect()
+    try:
+        conn.executemany(_INSERT_SQL, _ins_buf)
+        conn.commit()
+        _ins_buf.clear()
+        _ins_last = time.time()
+    finally:
+        conn.close()
+
+def db_flush(timeout=3):
+    # timeout: desde el handler de SIGTERM (hilo principal) el lock podría estar tomado
+    if not _db_lock.acquire(timeout=timeout): return
+    try: _flush_locked()
+    except Exception as e: log.error(f"db_flush: {e}")
+    finally: _db_lock.release()
+
+def db_insert(srv_id, ups, entry, urgent=False):
     with _db_lock:
-        conn = db_connect()
-        conn.execute("""
-            INSERT INTO history (srv_id,ups,ts,charge,runtime,load,vin,vout,watts,temp)
-            VALUES (?,?,?,?,?,?,?,?,?,?)
-        """, (srv_id, ups,
-              entry["ts"], entry["charge"], entry["runtime"], entry["load"],
-              entry["vin"], entry["vout"], entry["watts"], entry["temp"]))
-        conn.commit(); conn.close()
+        _ins_buf.append((srv_id, ups,
+                         entry["ts"], entry["charge"], entry["runtime"], entry["load"],
+                         entry["vin"], entry["vout"], entry["watts"], entry["temp"]))
+        if len(_ins_buf) > 5000:          # si el disco falla, no crecer sin límite
+            del _ins_buf[:len(_ins_buf)-5000]
+        if urgent or time.time() - _ins_last >= DB_FLUSH_SEC:
+            try: _flush_locked()
+            except Exception as e: log.error(f"db flush: {e}")
 
 def db_query(srv_id, ups, since_ts=0, limit=4320):
     """Devuelve puntos del historial, decimando si hay demasiados."""
@@ -247,7 +278,8 @@ class SCache:
                 "temp":    float(vars_.get("ups.temperature") or
                                  vars_.get("battery.temperature") or 0),
             }
-            db_insert(self.id, name, entry)
+            status = (vars_.get("ups.status") or "OL").strip()
+            db_insert(self.id, name, entry, urgent=not status.startswith("OL"))
         except Exception as e:
             log.debug(f"db_insert error: {e}")
 
@@ -504,8 +536,12 @@ class H(BaseHTTPRequestHandler):
         save_servers(new); remove_poller(sid); self._json(200, {"ok": True})
 
 if __name__ == "__main__":
+    import signal, atexit
     STATIC_DIR.mkdir(parents=True, exist_ok=True)
     start_all()
+    atexit.register(db_flush)
+    # systemd detiene el servicio con SIGTERM: vaciar el buffer antes de salir
+    signal.signal(signal.SIGTERM, lambda *_: (db_flush(), sys.exit(0)))
     log.info(f"NUT Monitor en http://{HOST}:{PORT} — poll cada {POLL_SEC}s")
     try:
         HTTPServer((HOST, PORT), H).serve_forever()

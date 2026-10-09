@@ -412,7 +412,7 @@ def run_scan(network: str = None, single_ip: str = None):
                         history = history[-200:]  # max 200 eventos
                         result["uptime_history"] = history
                         hosts[ip_str] = result
-                        log.info(f"[{completed}/{len(ips)}] {ip_str} → {result['os']} | TTL={result['ttl']} | {len(result['ports'])} puertos")
+                        log.debug(f"[{completed}/{len(ips)}] {ip_str} → {result['os']} | TTL={result['ttl']} | {len(result['ports'])} puertos")
                     else:
                         if ip_str in hosts:
                             if hosts[ip_str].get("online"):  # was online, now offline

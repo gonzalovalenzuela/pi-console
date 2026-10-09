@@ -10,6 +10,9 @@ log = logging.getLogger("auth")
 
 USERS_FILE    = Path(os.environ.get("PICONSOLE_USERS",    "/var/lib/pi-console/users.json"))
 SESSION_TTL = 24 * 3600   # 24 horas
+# La ventana deslizante se renueva como máximo cada RENEW_EVERY segundos: renovar en
+# cada request reescribiría sessions.json (y la SD) varias veces por segundo.
+RENEW_EVERY = 600
 SESSIONS_FILE = Path(os.environ.get("PICONSOLE_SESSIONS", "/var/lib/pi-console/sessions.json"))
 _slock = None
 def _get_lock():
@@ -48,12 +51,28 @@ def save_users(users: dict):
     tmp.replace(USERS_FILE)
 
 # ─── Sesiones compartidas (persistidas a disco) ────────────────────────────────
-def _load_sessions() -> dict:
+_scache = {"sig": None, "data": {}}
+
+def _sig():
     try:
-        if SESSIONS_FILE.exists():
-            return json.loads(SESSIONS_FILE.read_text())
+        st = SESSIONS_FILE.stat()
+        return (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
+
+def _load_sessions() -> dict:
+    """Lee sessions.json solo si cambió en disco (otro servicio pudo escribirlo)."""
+    sig = _sig()
+    if sig is not None and sig == _scache["sig"]:
+        return _scache["data"]
+    try:
+        if sig is not None:
+            data = json.loads(SESSIONS_FILE.read_text())
+            _scache["sig"], _scache["data"] = sig, data
+            return data
     except Exception:
         pass
+    _scache["sig"], _scache["data"] = None, {}
     return {}
 
 def _save_sessions(sessions: dict):
@@ -61,6 +80,7 @@ def _save_sessions(sessions: dict):
     tmp = SESSIONS_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(sessions))
     tmp.replace(SESSIONS_FILE)
+    _scache["sig"], _scache["data"] = _sig(), sessions
 
 def create_session(username: str, permissions: dict) -> str:
     token = secrets.token_hex(32)
@@ -81,12 +101,15 @@ def get_session(token: str) -> dict | None:
         sessions = _load_sessions()
         s = sessions.get(token)
         if not s: return None
-        if time.time() > s["expires"]:
+        now = time.time()
+        if now > s["expires"]:
             sessions.pop(token, None); _save_sessions(sessions); return None
-        # Renovar TTL en cada uso (sliding window de 24h)
-        s["expires"] = time.time() + SESSION_TTL
-        sessions[token] = s
-        _save_sessions(sessions)
+        # Ventana deslizante de 24h, pero persistida solo si pasaron > RENEW_EVERY s
+        # desde la última renovación (evita una escritura a disco por request).
+        if s["expires"] - now < SESSION_TTL - RENEW_EVERY:
+            s["expires"] = now + SESSION_TTL
+            sessions[token] = s
+            _save_sessions(sessions)
         return s
 
 def delete_session(token: str):
