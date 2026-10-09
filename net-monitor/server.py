@@ -354,32 +354,137 @@ DEVICE_TYPES = ["computer", "phone", "router", "switch", "ap", "storage", "tv", 
 
 _OUI_PATHS = ["/usr/share/ieee-data/oui.txt", "/var/lib/ieee-data/oui.txt",
               "/usr/share/misc/oui.txt"]
-_oui_db: dict | None = None
+OUI_URL   = os.environ.get("OUI_URL", "https://www.wireshark.org/download/automated/data/manuf.gz")
+OUI_FILE  = Path(os.environ.get("PICONSOLE_OUI", "/var/lib/pi-console/manuf"))
+OUI_MAX_AGE = 7 * 24 * 3600
+_oui_db: dict | None = None            # { 24-bit prefix hex: vendor }
+_oui_ext: dict = {28: {}, 36: {}}      # longer prefixes (MA-M / MA-S blocks)
 _oui_lock = threading.Lock()
+_oui_status = {"ts": 0, "count": 0, "error": "", "source": ""}
+
+def _hex_only(mac: str) -> str:
+    return re.sub(r"[^0-9A-Fa-f]", "", mac or "").upper()
+
+def _parse_manuf(path: str, db: dict, ext: dict) -> int:
+    """Wireshark 'manuf': `00:00:0C<TAB>Cisco<TAB>Cisco Systems, Inc` (and `AA:BB:CC:D0:00:00/28` blocks)."""
+    n = 0
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            if not line.strip() or line.startswith("#"): continue
+            c = line.rstrip("\n").split("\t")
+            if len(c) < 2: continue
+            pre, _, mask = c[0].partition("/")
+            h = _hex_only(pre)
+            name = (c[2] if len(c) > 2 and c[2].strip() else c[1]).strip()
+            if not h or not name: continue
+            bits = int(mask) if mask.isdigit() else 24
+            if bits == 24 and len(h) >= 6:
+                db[h[:6]] = name; n += 1
+            elif bits in (28, 36) and len(h) >= bits // 4:
+                ext[bits][h[:bits // 4]] = name; n += 1
+    return n
+
+def _parse_ieee(path: str, db: dict) -> int:
+    n = 0
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            if "(hex)" in line:
+                pre, _, name = line.partition("(hex)")
+                k = _hex_only(pre)[:6]
+                if k and k not in db:
+                    db[k] = name.strip(); n += 1
+    return n
 
 def _load_oui() -> dict:
-    """Lazy-load the IEEE OUI table (package ieee-data, optional)."""
-    global _oui_db
+    """Lazy-load: Wireshark manuf (downloaded) first, ieee-data (optional package) fills the gaps."""
+    global _oui_db, _oui_ext
     with _oui_lock:
         if _oui_db is not None:
             return _oui_db
-        db = {}
+        db, ext, src = {}, {28: {}, 36: {}}, []
+        if OUI_FILE.exists():
+            try:
+                if _parse_manuf(str(OUI_FILE), db, ext): src.append("wireshark")
+            except Exception as e:
+                log.warning(f"OUI manuf read error: {e}")
         for p in _OUI_PATHS:
             try:
-                with open(p, encoding="utf-8", errors="replace") as f:
-                    for line in f:
-                        if "(hex)" in line:
-                            pre, _, name = line.partition("(hex)")
-                            db[pre.strip().replace("-", "").upper()] = name.strip()
-                if db: break
+                if os.path.exists(p) and _parse_ieee(p, db): src.append("ieee-data"); break
             except Exception:
                 continue
-        _oui_db = db
+        _oui_db, _oui_ext = db, ext
+        _oui_status["source"] = "+".join(src)
+        _oui_status["count"] = len(db) + len(ext[28]) + len(ext[36])
+        try:    _oui_status["ts"] = int(OUI_FILE.stat().st_mtime)
+        except Exception: pass
         return db
 
 def oui_vendor(mac: str) -> str:
-    m = re.sub(r"[^0-9A-Fa-f]", "", mac or "").upper()
-    return _load_oui().get(m[:6], "") if len(m) >= 6 else ""
+    m = _hex_only(mac)
+    if len(m) < 6: return ""
+    db = _load_oui()
+    return (_oui_ext[36].get(m[:9]) or _oui_ext[28].get(m[:7]) or db.get(m[:6], ""))
+
+def oui_update() -> dict:
+    """Download the Wireshark manuf file, validate it, replace the cache atomically, backfill hosts."""
+    global _oui_db
+    req = Request(OUI_URL, headers={"User-Agent": "pi-console-net-monitor"})
+    with urlopen(req, timeout=60) as r:
+        data = r.read(10 * 1024 * 1024 + 1)
+    if len(data) > 10 * 1024 * 1024:
+        raise RuntimeError("Downloaded file too large")
+    if data[:2] == b"\x1f\x8b":                       # manuf.gz
+        import zlib
+        d = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        try:    data = d.decompress(data, 40 * 1024 * 1024)
+        except zlib.error: raise RuntimeError("Corrupt gzip download")
+        if d.unconsumed_tail: raise RuntimeError("Downloaded file too large")
+    OUI_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = OUI_FILE.with_suffix(".tmp")
+    tmp.write_bytes(data)
+    try:
+        n = _parse_manuf(str(tmp), {}, {28: {}, 36: {}})
+        if n < 1000:
+            raise RuntimeError("Downloaded file does not look like a manuf database")
+        tmp.replace(OUI_FILE)
+    finally:
+        tmp.unlink(missing_ok=True)
+    with _oui_lock:
+        _oui_db = None                       # force reload
+    _load_oui()
+    filled = oui_backfill()
+    log.info(f"OUI database updated: {_oui_status['count']} prefixes, {filled} hosts got a vendor")
+    return {"count": _oui_status["count"], "filled": filled}
+
+def oui_backfill() -> int:
+    """Fill the vendor of known hosts that have a MAC but no vendor."""
+    n = 0
+    with _hosts_lock:
+        hosts = _live_hosts if _live_hosts is not None else load_hosts()
+        for h in hosts.values():
+            if h.get("mac") and not h.get("vendor"):
+                v = oui_vendor(h["mac"])
+                if v: h["vendor"] = v; n += 1
+        if n: save_hosts(hosts)
+    return n
+
+def oui_maybe_update():
+    """Weekly auto-update (called at scan start); never blocks the scan."""
+    cfg = load_config().get("oui", {})
+    if cfg.get("auto", True) is False: return
+    try:    age = time.time() - OUI_FILE.stat().st_mtime
+    except Exception: age = 1e12
+    if age < OUI_MAX_AGE or _oui_status.get("_busy"): return
+    def job():
+        _oui_status["_busy"] = True
+        try:    oui_update(); _oui_status["error"] = ""
+        except Exception as e:
+            _oui_status["error"] = str(e)[:200]
+            try: OUI_FILE.touch() if OUI_FILE.exists() else None   # retry next week, not every scan
+            except Exception: pass
+            log.warning(f"OUI update failed: {e}")
+        finally: _oui_status["_busy"] = False
+    threading.Thread(target=job, daemon=True).start()
 
 def mac_is_private(mac: str) -> bool:
     """Locally-administered bit set → randomized / private address (phones)."""
@@ -641,6 +746,7 @@ def run_scan(network: str = None, single_ip: str = None):
     hosts = load_hosts()
     _live_hosts = hosts
     refresh_snmp()
+    oui_maybe_update()
 
     if single_ip:
         ips = [ipaddress.ip_address(single_ip)]
@@ -798,6 +904,12 @@ class H(BaseHTTPRequestHandler):
                 st = dict(_snmp_status)
             self._json(200, {"config": snmp_config(), "available": bool(shutil.which("snmpwalk")), "status": st})
 
+        elif path == "/api/oui":
+            _load_oui()
+            self._json(200, {"count": _oui_status["count"], "source": _oui_status["source"],
+                             "updated": _oui_status["ts"], "error": _oui_status["error"],
+                             "auto": load_config().get("oui", {}).get("auto", True)})
+
         elif path == "/api/scan/status":
             self._json(200, _scan_status)
 
@@ -860,6 +972,20 @@ class H(BaseHTTPRequestHandler):
             single = (body.get("ip") or "").strip() or None
             threading.Thread(target=run_scan, kwargs={"single_ip": single}, daemon=True).start()
             self._json(200, {"ok": True, "message": single or NETWORK})
+
+        elif path in ("/api/oui", "/api/oui/update"):
+            if not auth.check_permission(tok, "net", "admin"):
+                return self._json(403, {"error": "Admin permission required"})
+            if path == "/api/oui":
+                cfg = load_config(); cfg.setdefault("oui", {})["auto"] = bool(body.get("auto", True))
+                save_config(cfg)
+                return self._json(200, {"ok": True})
+            try:
+                res = oui_update(); _oui_status["error"] = ""
+                return self._json(200, {"ok": True, **res})
+            except Exception as e:
+                _oui_status["error"] = str(e)[:200]
+                return self._json(502, {"error": str(e)[:200]})
 
         elif path in ("/api/snmp", "/api/snmp/test"):
             if not auth.check_permission(tok, "net", "admin"):

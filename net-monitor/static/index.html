@@ -309,6 +309,15 @@ td{padding:10px 14px;vertical-align:middle}
             <button onclick="toggleSnmpPanel()" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--sans);font-size:12px;cursor:pointer" data-i18n="cancel">Cancel</button>
             <button onclick="saveSnmp()" id="btn-sn-save" style="padding:6px 12px;border-radius:var(--r-sm);border:none;background:var(--teal);color:#fff;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer" data-i18n="save">Save</button>
           </div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px" data-i18n="ouiTitle">MAC vendor database</div>
+            <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px;line-height:1.5" data-i18n="ouiDesc">Wireshark manuf list, downloaded weekly (ieee-data is used as fallback).</div>
+            <div id="oui-status" style="font-size:11px;font-family:var(--mono);color:var(--text-mid);margin-bottom:8px;word-break:break-word"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text);cursor:pointer"><input type="checkbox" id="oui-auto" onchange="saveOuiAuto()"> <span data-i18n="ouiAuto">Update weekly</span></label>
+              <button onclick="updateOui()" id="btn-oui" style="padding:5px 10px;border-radius:var(--r-sm);border:1px solid var(--teal);background:transparent;color:var(--teal);font-family:var(--sans);font-size:11px;cursor:pointer" data-i18n="ouiUpdate">Update now</button>
+            </div>
+          </div>
         </div>
       </div>
       <div style="position:relative" id="pihole-wrap">
@@ -461,7 +470,7 @@ const LANG={
     uptimeEmpty:'No events recorded yet',uptimeStats:(h,d)=>`${h}h monitored · ${d} outage${d!==1?'s':''}`,
     availHistory:'Availability history',
     chartMonitoring:'Monitoring — data will appear after several scans',
-    snmpTitle:'SNMP source',snmpDesc:'Reads the ARP table of a switch or router to get MAC addresses (and vendor) for hosts the Pi cannot see directly. Requires the snmp package on the Pi.',snmpMissing:'snmpwalk is not installed — run: apt install snmp',snmpEnable:'Use SNMP during scans',snmpHost:'Switch / router IP',snmpPort:'Port',snmpVersion:'Version',snmpTimeout:'Timeout (s)',snmpCommunity:'Community',snmpUser:'Username',snmpLevel:'Security level',snmpAuthProto:'Auth',snmpAuthPass:'Auth password',snmpPrivProto:'Privacy',snmpPrivPass:'Privacy password',snmpTest:'Test',snmpTesting:'Testing…',snmpSaved:'SNMP settings saved',snmpEntries:'ARP entries found',snmpKeep:'unchanged',snmpLast:'Last scan',osUnknown:'Unknown',colType:'Type',deviceTypes:'Device type',editDevice:'Edit device',fieldType:'Device type',fieldOs:'Operating system',autoDetect:'Auto-detect',saved:'Device updated',tComputer:'Computer',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tPhone:'Phone',tTv:'TV',tCamera:'Camera',tAppliance:'Appliance',tOther:'Other',newDevice:'NEW',
+    snmpTitle:'SNMP source',snmpDesc:'Reads the ARP table of a switch or router to get MAC addresses (and vendor) for hosts the Pi cannot see directly. Requires the snmp package on the Pi.',snmpMissing:'snmpwalk is not installed — run: apt install snmp',snmpEnable:'Use SNMP during scans',snmpHost:'Switch / router IP',snmpPort:'Port',snmpVersion:'Version',snmpTimeout:'Timeout (s)',snmpCommunity:'Community',snmpUser:'Username',snmpLevel:'Security level',snmpAuthProto:'Auth',snmpAuthPass:'Auth password',snmpPrivProto:'Privacy',snmpPrivPass:'Privacy password',snmpTest:'Test',snmpTesting:'Testing…',snmpSaved:'SNMP settings saved',snmpEntries:'ARP entries found',snmpKeep:'unchanged',snmpLast:'Last scan',ouiTitle:'MAC vendor database',ouiDesc:'Wireshark manuf list, downloaded weekly (ieee-data is used as fallback).',ouiAuto:'Update weekly',ouiUpdate:'Update now',ouiUpdating:'Downloading…',ouiPrefixes:'prefixes',ouiNever:'not downloaded yet',ouiDone:'Vendor database updated',osUnknown:'Unknown',colType:'Type',deviceTypes:'Device type',editDevice:'Edit device',fieldType:'Device type',fieldOs:'Operating system',autoDetect:'Auto-detect',saved:'Device updated',tComputer:'Computer',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tPhone:'Phone',tTv:'TV',tCamera:'Camera',tAppliance:'Appliance',tOther:'Other',newDevice:'NEW',
     newDeviceMsg:(n,names,more)=>`${n} new device${n>1?'s':''} detected: ${names}${more?' and more':''}`,
     osEditTitle:'Edit OS'},
   es:{loginTitle:'Iniciar sesión',loginSub:'Ingresa tus credenciales para continuar.',
@@ -491,7 +500,7 @@ const LANG={
     uptimeEmpty:'Sin eventos registrados aún',uptimeStats:(h,d)=>`${h}h monitoreado · ${d} caída${d!==1?'s':''}`,
     availHistory:'Historial de disponibilidad',
     chartMonitoring:'Monitoreando — los datos aparecerán tras varios escaneos',
-    snmpTitle:'Fuente SNMP',snmpDesc:'Lee la tabla ARP de un switch o router para obtener MAC (y vendor) de equipos que el Pi no ve directamente. Requiere el paquete snmp en el Pi.',snmpMissing:'snmpwalk no está instalado — ejecuta: apt install snmp',snmpEnable:'Usar SNMP en los escaneos',snmpHost:'IP del switch / router',snmpPort:'Puerto',snmpVersion:'Versión',snmpTimeout:'Timeout (s)',snmpCommunity:'Community',snmpUser:'Usuario',snmpLevel:'Nivel de seguridad',snmpAuthProto:'Auth',snmpAuthPass:'Password auth',snmpPrivProto:'Privacidad',snmpPrivPass:'Password privacidad',snmpTest:'Probar',snmpTesting:'Probando…',snmpSaved:'Configuración SNMP guardada',snmpEntries:'entradas ARP encontradas',snmpKeep:'sin cambios',snmpLast:'Último escaneo',osUnknown:'Desconocido',colType:'Tipo',deviceTypes:'Tipo de dispositivo',editDevice:'Editar dispositivo',fieldType:'Tipo de dispositivo',fieldOs:'Sistema operativo',autoDetect:'Detección automática',saved:'Dispositivo actualizado',tComputer:'Equipo',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tPhone:'Teléfono',tTv:'TV',tCamera:'Cámara',tAppliance:'Electrodoméstico',tOther:'Otro',newDevice:'NUEVO',
+    snmpTitle:'Fuente SNMP',snmpDesc:'Lee la tabla ARP de un switch o router para obtener MAC (y vendor) de equipos que el Pi no ve directamente. Requiere el paquete snmp en el Pi.',snmpMissing:'snmpwalk no está instalado — ejecuta: apt install snmp',snmpEnable:'Usar SNMP en los escaneos',snmpHost:'IP del switch / router',snmpPort:'Puerto',snmpVersion:'Versión',snmpTimeout:'Timeout (s)',snmpCommunity:'Community',snmpUser:'Usuario',snmpLevel:'Nivel de seguridad',snmpAuthProto:'Auth',snmpAuthPass:'Password auth',snmpPrivProto:'Privacidad',snmpPrivPass:'Password privacidad',snmpTest:'Probar',snmpTesting:'Probando…',snmpSaved:'Configuración SNMP guardada',snmpEntries:'entradas ARP encontradas',snmpKeep:'sin cambios',snmpLast:'Último escaneo',ouiTitle:'Base de datos de vendors MAC',ouiDesc:'Lista manuf de Wireshark, descargada cada semana (ieee-data como respaldo).',ouiAuto:'Actualizar cada semana',ouiUpdate:'Actualizar ahora',ouiUpdating:'Descargando…',ouiPrefixes:'prefijos',ouiNever:'aún no descargada',ouiDone:'Base de vendors actualizada',osUnknown:'Desconocido',colType:'Tipo',deviceTypes:'Tipo de dispositivo',editDevice:'Editar dispositivo',fieldType:'Tipo de dispositivo',fieldOs:'Sistema operativo',autoDetect:'Detección automática',saved:'Dispositivo actualizado',tComputer:'Equipo',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tPhone:'Teléfono',tTv:'TV',tCamera:'Cámara',tAppliance:'Electrodoméstico',tOther:'Otro',newDevice:'NUEVO',
     newDeviceMsg:(n,names,more)=>`${n} nuevo${n>1?'s dispositivos':'dispositivo'} detectado${n>1?'s':''}: ${names}${more?' y más':''}`,
     osEditTitle:'Editar OS'}
 };
@@ -1082,7 +1091,28 @@ function snmpDot(on){
   const d=$sn('snmp-status-dot');if(!d)return;
   d.style.background=on?'var(--teal)':'var(--border-b)';d.style.boxShadow=on?'0 0 0 2px var(--teal-dim)':'none';
 }
+async function loadOui(){
+  try{
+    const r=await fetch('api/oui');const d=await r.json();if(!r.ok)return;
+    $sn('oui-auto').checked=d.auto!==false;
+    const when=d.updated?new Date(d.updated*1000).toLocaleDateString():t('ouiNever');
+    $sn('oui-status').textContent=`${d.count} ${t('ouiPrefixes')} · ${d.source||'—'} · ${when}`+(d.error?' ✕ '+d.error:'');
+  }catch(e){}
+}
+async function updateOui(){
+  const b=$sn('btn-oui');b.disabled=true;b.textContent=t('ouiUpdating');
+  try{
+    const r=await fetch('api/oui/update',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const d=await r.json();if(!r.ok)throw new Error(d.error);
+    toast(t('ouiDone'));fetchData();
+  }catch(e){toast(e.message,true);}
+  finally{b.disabled=false;b.textContent=t('ouiUpdate');loadOui();}
+}
+async function saveOuiAuto(){
+  try{await fetch('api/oui',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({auto:$sn('oui-auto').checked})});}catch(e){}
+}
 async function loadSnmp(){
+  loadOui();
   try{
     const r=await fetch('api/snmp');const d=await r.json();if(!r.ok)throw new Error(d.error);
     const c=d.config;
