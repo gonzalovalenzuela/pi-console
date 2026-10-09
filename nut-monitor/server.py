@@ -398,7 +398,6 @@ class H(BaseHTTPRequestHandler):
             self._json(200, {"history": rows})
         elif path == "/api/export/csv":
             # Export CSV del historial de un UPS específico
-            from urllib.parse import parse_qs
             qs    = parse_qs(urlparse(self.path).query)
             sid   = qs.get("srv", ["local"])[0]
             ups   = qs.get("ups", ["ups"])[0]
