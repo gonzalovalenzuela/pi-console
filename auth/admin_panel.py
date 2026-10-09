@@ -7,6 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 import auth
+import teleporter_api as tp
 
 HOST = "127.0.0.1"
 PORT = 8082
@@ -53,6 +54,40 @@ class H(BaseHTTPRequestHandler):
         except FileNotFoundError:
             self._json(404, {"error": "Not found"})
 
+    def _is_admin(self, tok):
+        return auth.check_permission(tok, "wol", "admin") or auth.check_permission(tok, "nut", "admin")
+
+    def _me(self, tok):
+        sess = auth.get_session(tok)
+        return sess["username"] if sess else ""
+
+    def _tp_download(self, name):
+        p = tp.path_of(name)
+        if not p: return self._json(404, {"error": "Backup not found"})
+        size = p.stat().st_size
+        self.send_response(200)
+        self.send_header("Content-Type", "application/gzip")
+        self.send_header("Content-Length", str(size))
+        self.send_header("Content-Disposition", f'attachment; filename="{name}"')
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        with open(p, "rb") as f:
+            while True:
+                chunk = f.read(1 << 20)
+                if not chunk: break
+                self.wfile.write(chunk)
+
+    def _tp_upload(self, tok):
+        if not self._is_admin(tok): return self._json(401, {"error": "Unauthorized"})
+        try: length = int(self.headers.get("Content-Length", 0))
+        except ValueError: length = 0
+        if length > tp.MAX_UPLOAD:
+            return self._json(413, {"error": f"File too large (limit {tp.MAX_UPLOAD // (1024*1024)} MB)"})
+        name, err = tp.save_upload(self.rfile, length)
+        if err: return self._json(400, {"error": err})
+        log.info(f"Backup uploaded: {name} by {self._me(tok)}")
+        self._json(201, {"ok": True, "name": name})
+
     def do_GET(self):
         path = urlparse(self.path).path.rstrip("/") or "/"
         tok  = self._tok()
@@ -63,6 +98,13 @@ class H(BaseHTTPRequestHandler):
         if not auth.check_permission(tok, "wol", "admin") and \
            not auth.check_permission(tok, "nut", "admin"):
             return self._json(401, {"error": "Unauthorized"})
+
+        if path == "/api/teleporter":
+            return self._json(200, {"available": tp.available(), "backups": tp.list_backups(),
+                                    "restore": tp.restore_status(),
+                                    "max_upload": tp.MAX_UPLOAD})
+        m = re.match(r"^/api/teleporter/download/([A-Za-z0-9._-]+)$", path)
+        if m: return self._tp_download(m.group(1))
 
         if path == "/api/users":
             users = auth.load_users()
@@ -81,6 +123,7 @@ class H(BaseHTTPRequestHandler):
     def do_POST(self):
         path = urlparse(self.path).path.rstrip("/")
         tok  = self._tok()
+        if path == "/api/teleporter/upload": return self._tp_upload(tok)
         body = self._body()
         if body is None: return self._json(400, {"error": "Invalid request body"})
 
@@ -113,6 +156,28 @@ class H(BaseHTTPRequestHandler):
 
         sess = auth.get_session(tok)
         me   = sess["username"] if sess else ""
+
+        if path.startswith("/api/teleporter/"):
+            if not tp.available(): return self._json(503, {"error": "teleporter.sh is not installed"})
+            action = path.rsplit("/", 1)[1]
+            if action == "backup":
+                ok, name, out = tp.create_backup()
+                log.info(f"Backup created by {me}: {name if ok else 'FAILED'}")
+                return self._json(200 if ok else 500, {"ok": ok, "name": name, "output": out,
+                                  **({} if ok else {"error": "Backup failed"})})
+            name = body.get("name")
+            if action == "check":
+                ok, out = tp.verify(name)
+                return self._json(200, {"ok": ok, "output": out})
+            if action == "restore":
+                if body.get("confirm") is not True:
+                    return self._json(400, {"error": "Confirmation required"})
+                ok, out = tp.start_restore(name, nut=body.get("nut", True) is not False,
+                                           nginx=body.get("nginx") is True)
+                log.warning(f"Restore started by {me}: {name} -> {'ok' if ok else 'FAILED'}")
+                return self._json(200 if ok else 500, {"ok": ok, "output": out,
+                                  **({} if ok else {"error": "Could not start the restore"})})
+            return self._json(404, {"error": "Not found"})
 
         if path == "/api/users":
             # Crear usuario
@@ -204,6 +269,12 @@ class H(BaseHTTPRequestHandler):
             return self._json(401, {"error": "Unauthorized"})
         sess = auth.get_session(tok)
         me   = sess["username"] if sess else ""
+        mt = re.match(r"^/api/teleporter/([A-Za-z0-9._-]+)$", path)
+        if mt:
+            if tp.delete(mt.group(1)):
+                log.info(f"Backup deleted: {mt.group(1)} by {me}")
+                return self._json(200, {"ok": True})
+            return self._json(404, {"error": "Backup not found"})
         m = re.match(r'^/api/users/([a-zA-Z0-9_\-]+)$', path)
         if not m: return self._json(400, {"error": "Invalid user"})
         uname = m.group(1)

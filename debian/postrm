@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+# La regla sudo se quita al desinstalar (el script que autoriza ya no existe)
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    rm -f /etc/sudoers.d/pi-console-teleporter
+fi
+
 if [ "$1" = "purge" ]; then
     echo "pi-console: purging..."
     rm -rf /opt/pi-console /opt/pi-console-auth

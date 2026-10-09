@@ -55,6 +55,7 @@ Cada módulo es un servidor HTTP Python 3 independiente. La autenticación se co
 - Python 3.9+
 - nginx
 - NUT (`nut`, `nut-client`) — para el módulo UPS Monitor
+- `sudo` — para respaldo/restauración desde el panel de administración
 - `nmap` — para el módulo Net Monitor
 - Opcionales (`Suggests` en el `.deb`):
   - `ieee-data` — base local de vendors por MAC (respaldo si no hay descarga de Wireshark `manuf`)
@@ -124,6 +125,10 @@ teleporter check ~/pi-console-20261009.tar.gz                # verificar (no mod
 sudo teleporter restore ~/pi-console-20261009.tar.gz         # restaurar (agregar -y para no preguntar)
 ```
 
+**Desde el panel de administración** (`/admin/` → *Backup & restore*) se hace lo mismo con botones: crear y descargar un respaldo, subir uno, verificarlo y restaurarlo. Para migrar: instala el `.deb` en la Pi nueva, entra con `admin / admin`, sube el respaldo y pulsa *Restore*; después inicia sesión con los usuarios del respaldo. Opciones de consola equivalentes: `--no-nut` (no tocar la configuración de NUT) y `--nginx` (sobrescribir también el sitio nginx; por defecto se conserva el del paquete).
+
+Seguridad: el panel ejecuta el respaldo/restauración como root mediante una regla `sudo` limitada a `teleporter.sh gui-backup` y `gui-restore`. Restaurar la configuración de NUT puede introducir comandos que el demonio del UPS ejecuta como root: restaura solo respaldos de confianza (o usa *sin NUT*).
+
 Incluye usuarios, WOL, UPS (servidores e historial), Net Monitor (hosts y SNMP), Proxmox, configuración de NUT y nginx. El archivo contiene contraseñas y tokens (permisos 600): guárdalo en un lugar privado. Para migrar a otra Pi: instalar el `.deb`, copiar el backup y ejecutar `restore`. Antes de restaurar se guarda un snapshot del estado actual en `/var/backups/pi-console/`.
 
 ---
@@ -141,6 +146,7 @@ pi-console/
 ├── auth/                    # Módulo de autenticación SSO
 │   ├── auth.py              # Librería de autenticación compartida
 │   ├── admin_panel.py       # Servidor del panel de administración
+│   ├── teleporter_api.py    # Respaldo/restauración desde el panel
 │   └── static/
 │       ├── index.html       # Admin panel UI
 │       └── login.html       # Página de login

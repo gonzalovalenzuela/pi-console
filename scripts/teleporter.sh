@@ -19,9 +19,14 @@
 #  * Files with secrets (tokens, SNMP/NUT passwords) are stored/restored 0600.
 set -uo pipefail
 
-TELEPORTER_VERSION="2.0.0"
+TELEPORTER_VERSION="2.1.0"
 
-# Paths (overridable through the environment, used by the tests)
+# Paths (overridable through the environment, used by the tests).
+# Under sudo (the admin panel) every override is dropped: only the defaults apply.
+if [ -n "${SUDO_USER:-}" ]; then
+  unset PICONSOLE_HOME PICONSOLE_DATA PICONSOLE_AUTH_LINK PICONSOLE_NUT_DIR PICONSOLE_NGINX_CONF \
+        PICONSOLE_NGINX_ENABLED PICONSOLE_SAFETY_DIR PICONSOLE_LOCK TELEPORTER_SKIP_SYSTEM
+fi
 PI_HOME="${PICONSOLE_HOME:-/opt/pi-console}"
 DATA_DIR="${PICONSOLE_DATA:-/var/lib/pi-console}"
 AUTH_DIR="${PICONSOLE_AUTH_LINK:-/opt/pi-console-auth}"
@@ -29,6 +34,8 @@ NUT_DIR="${PICONSOLE_NUT_DIR:-/etc/nut}"
 NGINX_CONF="${PICONSOLE_NGINX_CONF:-/etc/nginx/sites-available/pi-console.conf}"
 NGINX_ENABLED="${PICONSOLE_NGINX_ENABLED:-/etc/nginx/sites-enabled/pi-console.conf}"
 SAFETY_DIR="${PICONSOLE_SAFETY_DIR:-/var/backups/pi-console}"
+SPOOL_DIR="$DATA_DIR/teleporter"      # backups/uploads handled by the admin panel
+LOCK_FILE="${PICONSOLE_LOCK:-/run/lock/pi-console-teleporter.lock}"
 SERVICE_USER="pi-console"
 SERVICES="wol-console nut-monitor admin-panel net-monitor proxmox-monitor"
 SKIP_SYSTEM="${TELEPORTER_SKIP_SYSTEM:-0}"   # 1 = no systemctl/nginx/chown (tests)
@@ -152,7 +159,7 @@ extract_archive() {  # archive dest
 
 # ── BACKUP ────────────────────────────────────────────────────────────────────
 cmd_backup() {
-  need_root backup "$@"; need_tools
+  need_root backup "$@"; need_tools; take_lock
   local dest="${1:-}"
   if [ -z "$dest" ]; then
     mkdir -p "$SAFETY_DIR" 2>/dev/null || true
@@ -308,10 +315,17 @@ start_services() {
     else err "$s failed to start — journalctl -u $s -n 20"; fi
   done
 }
+RESTORE_FINISHED=0; RM_SOURCE=""
 on_exit_restore() {
+  local rc=$?
   # Always bring the services back, even after an abort.
   if [ "$SERVICES_STOPPED" -eq 1 ]; then SERVICES_STOPPED=0; echo; echo "Restarting services after abort…"; start_services; fi
+  [ "$RESTORE_FINISHED" -eq 1 ] || echo "RESULT: failed"
+  if [ -n "$RM_SOURCE" ]; then
+    case "$(dirname "$RM_SOURCE")" in /var/tmp/teleporter.*) rm -rf -- "$(dirname "$RM_SOURCE")";; *) rm -f -- "$RM_SOURCE";; esac
+  fi
   cleanup
+  return $rc
 }
 
 install_file() {  # src dst mode owner:group
@@ -325,9 +339,18 @@ install_file() {  # src dst mode owner:group
 
 cmd_restore() {
   need_root restore "$@"; need_tools
-  local archive="" assume_yes=0 a
-  for a in "$@"; do case "$a" in -y|--yes) assume_yes=1;; *) archive="$a";; esac; done
-  [ -n "$archive" ] || die "usage: sudo teleporter restore <file.tar.gz> [-y]"
+  local archive="" assume_yes=0 with_nut=1 with_nginx=0 rm_source=0 a
+  for a in "$@"; do case "$a" in
+    -y|--yes) assume_yes=1;;
+    --no-nut) with_nut=0;;
+    --nginx) with_nginx=1;;
+    --rm-source) rm_source=1;;
+    -*) die "unknown option: $a";;
+    *) archive="$a";;
+  esac; done
+  [ -n "$archive" ] || die "usage: sudo teleporter restore <file.tar.gz> [-y] [--no-nut] [--nginx]"
+  RM_SOURCE=""; [ "$rm_source" -eq 1 ] && RM_SOURCE="$archive"
+  take_lock
   [ -d "$PI_HOME" ] || die "$PI_HOME not found — install the package first: sudo dpkg -i pi-console_*.deb"
   if [ "$SKIP_SYSTEM" != "1" ]; then svc_user_exists || die "system user '$SERVICE_USER' not found — install the package first"; fi
 
@@ -386,10 +409,12 @@ cmd_restore() {
     [ -f "$src" ] || { warn "$dst — not in backup, kept"; continue; }
     case "$rel" in
       conf/nut/*)
+        if [ "$with_nut" -ne 1 ]; then warn "$dst — NUT restore disabled, kept"; continue; fi
         if [ ! -d "$NUT_DIR" ]; then warn "$NUT_DIR does not exist (is 'nut' installed?) — skipped"; continue; fi
         mode=640; grp=root; getent group nut >/dev/null 2>&1 && grp=nut
         install_file "$src" "$dst" "$mode" "root:$grp" && ok "$dst" || err "$dst — could not be restored";;
       conf/nginx/*)
+        if [ "$with_nginx" -ne 1 ]; then warn "$dst — kept (the package ships its own; use --nginx to overwrite)"; continue; fi
         [ -f "$dst" ] && { nginx_bak="$TMP/nginx.prev"; cp -- "$dst" "$nginx_bak"; }
         install_file "$src" "$dst" 644 "root:root" && ok "$dst" || err "$dst — could not be restored";;
     esac
@@ -419,7 +444,73 @@ cmd_restore() {
   if [ "$ERRORS" -eq 0 ]; then echo "${G}Restore completed.${N}"; else echo "${Y}Restore finished with $ERRORS error(s) — review the messages above.${N}"; fi
   echo "  URL: http://$(hostname -I 2>/dev/null | awk '{print $1}')"
   echo "  Previous state: $snap"
+  RESTORE_FINISHED=1
+  if [ "$ERRORS" -eq 0 ]; then echo "RESULT: ok"; else echo "RESULT: errors"; fi
   [ "$ERRORS" -eq 0 ]
+}
+
+# ── lock (one backup/restore at a time) ───────────────────────────────────────
+LOCK_HELD=0
+take_lock() {
+  [ "$LOCK_HELD" = 1 ] && return 0
+  command -v flock >/dev/null 2>&1 || return 0
+  mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null || return 0
+  { exec 9>"$LOCK_FILE"; } 2>/dev/null || return 0
+  flock -n 9 || die "another backup/restore is already running"
+  LOCK_HELD=1
+}
+release_lock() { exec 9>&-; LOCK_HELD=0; }
+
+# ── admin-panel entry points (run through sudo as root; strict argument checks) ─
+NAME_RE='^(pi-console-[A-Za-z0-9._-]{1,80}|upload-[0-9]{8}_[0-9]{6})\.tar\.gz$'
+spool_init() {
+  mkdir -p "$SPOOL_DIR" && chmod 700 "$SPOOL_DIR"
+  [ "$SKIP_SYSTEM" = "1" ] || chown "$SERVICE_USER:$SERVICE_USER" "$SPOOL_DIR" 2>/dev/null || true
+}
+spool_prune() {  # keep the newest 5 backups, drop uploads older than a day
+  local f i=0
+  while IFS= read -r f; do i=$((i+1)); [ $i -gt 5 ] && rm -f -- "$f"; done < <(ls -1t "$SPOOL_DIR"/pi-console-*.tar.gz 2>/dev/null)
+  find "$SPOOL_DIR" -maxdepth 1 -name 'upload-*.tar.gz' -mmin +1440 -delete 2>/dev/null || true
+}
+
+cmd_gui_backup() {
+  need_root gui-backup "$@"; need_tools; take_lock
+  spool_init
+  local name="pi-console-$(hostname -s | tr -c 'A-Za-z0-9.\n-' '_')-$(date +%Y%m%d_%H%M%S).tar.gz"
+  [[ "$name" =~ $NAME_RE ]] || die "could not build a valid backup name"
+  cmd_backup "$SPOOL_DIR/$name" || exit 1
+  [ "$SKIP_SYSTEM" = "1" ] || chown "$SERVICE_USER:$SERVICE_USER" "$SPOOL_DIR/$name" 2>/dev/null || true
+  spool_prune
+  echo "BACKUP_FILE=$name"
+}
+
+cmd_gui_restore() {  # <name> <nut:0|1> <nginx:0|1>
+  need_root gui-restore "$@"; need_tools; take_lock
+  local name="${1:-}" nut="${2:-1}" ngx="${3:-0}" src copy
+  [[ "$name" =~ $NAME_RE ]] || die "invalid backup name"
+  [[ "$nut" =~ ^[01]$ && "$ngx" =~ ^[01]$ ]] || die "invalid option"
+  src="$SPOOL_DIR/$name"
+  [ -f "$src" ] && [ ! -L "$src" ] || die "backup not found: $name"
+  # Work on a root-owned private copy so the unprivileged user cannot swap the
+  # file between verification and extraction.
+  copy=$(mktemp -d /var/tmp/teleporter.XXXXXX) || die "cannot create a temporary directory"
+  cp -- "$src" "$copy/restore.tar.gz" || { rm -rf "$copy"; die "could not copy the backup"; }
+  chmod 600 "$copy/restore.tar.gz"
+  local flags=(-y --rm-source); [ "$nut" = 0 ] && flags+=(--no-nut); [ "$ngx" = 1 ] && flags+=(--nginx)
+  local log="$SPOOL_DIR/restore.log"
+  release_lock   # the detached job takes it again
+  spool_init; rm -f -- "$log"
+  # Detached from the admin-panel cgroup: the restore stops and restarts that very service.
+  if [ "$SKIP_SYSTEM" != "1" ] && command -v systemd-run >/dev/null 2>&1; then
+    systemctl reset-failed pi-console-restore.service 2>/dev/null || true
+    systemd-run --quiet --collect --unit=pi-console-restore \
+      -p StandardOutput="file:$log" -p StandardError="file:$log" \
+      "$0" restore "$copy/restore.tar.gz" "${flags[@]}" \
+      || { rm -rf "$copy"; die "could not start the restore job"; }
+  else
+    ( setsid "$0" restore "$copy/restore.tar.gz" "${flags[@]}" >"$log" 2>&1 & )
+  fi
+  echo "RESTORE_STARTED=1"
 }
 
 # ── main ──────────────────────────────────────────────────────────────────────
@@ -429,8 +520,11 @@ Pi Console Teleporter v$TELEPORTER_VERSION
 
   teleporter backup  [file.tar.gz]        create a backup (default: $SAFETY_DIR/)
   teleporter check   <file.tar.gz>        verify a backup, changes nothing
-  teleporter restore <file.tar.gz> [-y]   restore on this Pi (verifies first,
-                                          takes a safety snapshot, restarts services)
+  teleporter restore <file.tar.gz> [-y] [--no-nut] [--nginx]
+                                          restore on this Pi (verifies first, takes a
+                                          safety snapshot, restarts services). nginx is
+                                          only overwritten with --nginx; --no-nut keeps
+                                          the current NUT configuration.
 
 Backup contents: users/sessions, WOL devices, UPS servers + history.db,
 Net Monitor hosts + config (SNMP), Proxmox clusters, NUT config, nginx site.
@@ -442,6 +536,8 @@ case "$CMD" in
   backup)  cmd_backup "$@";;
   check)   cmd_check "$@";;
   restore) cmd_restore "$@";;
+  gui-backup)  cmd_gui_backup "$@";;
+  gui-restore) cmd_gui_restore "$@";;
   -h|--help|help|"") usage; [ -n "$CMD" ] || exit 1;;
   *) echo "Unknown command: $CMD" >&2; usage; exit 1;;
 esac

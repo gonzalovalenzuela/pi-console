@@ -107,6 +107,24 @@ input.err{border-color:var(--red)}
 .btn-mc:hover{background:var(--bg)}
 .btn-mok{padding:8px 16px;border-radius:var(--r-sm);border:none;background:var(--red);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
 .btn-mok:hover{background:#dc2626}
+/* Teleporter */
+.tp-hint{padding:12px 18px;font-size:12px;color:var(--text-mid);line-height:1.6;border-bottom:1px solid var(--border)}
+.btn-sec{background:transparent;color:var(--text-mid);border:1px solid var(--border-b);border-radius:var(--r-sm);font-family:var(--sans);font-size:12px;font-weight:600;padding:7px 14px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-sec:hover{background:var(--bg);color:var(--text)}
+.btn-sec:disabled,.btn-primary:disabled{opacity:.55;cursor:not-allowed}
+.tp-kind{font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;text-transform:uppercase;letter-spacing:.3px;background:var(--blue-dim);color:var(--blue)}
+.tp-kind.upload{background:var(--orange-dim);color:var(--orange)}
+.tp-name{font-family:var(--mono);font-size:12px;color:var(--text)}
+.tp-empty{padding:22px 18px;text-align:center;font-size:12px;color:var(--text-dim)}
+.tp-out{margin:0;padding:12px 18px;border-top:1px solid var(--border);background:var(--bg);font-family:var(--mono);font-size:11.5px;line-height:1.55;color:var(--text-mid);white-space:pre-wrap;max-height:260px;overflow:auto;display:none}
+.tp-out.show{display:block}
+.tp-out.bad{color:var(--red)}
+.tp-opt{display:flex;align-items:flex-start;gap:9px;margin-bottom:10px;font-size:12.5px;color:var(--text-mid);line-height:1.5;font-weight:400}
+.tp-opt input{width:auto;padding:0;margin-top:3px}
+.modal.wide{max-width:520px}
+.tp-log{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--text-mid);white-space:pre-wrap;max-height:240px;overflow:auto;margin-bottom:16px}
+.btn-warn{padding:8px 16px;border-radius:var(--r-sm);border:none;background:var(--red);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer}
+.btn-warn:disabled{opacity:.5;cursor:not-allowed}
 /* Toast */
 #toast{position:fixed;bottom:22px;right:22px;background:var(--text);color:#fff;border-radius:var(--r-sm);padding:10px 15px;font-size:13px;font-weight:500;z-index:9999;opacity:0;transform:translateY(6px);transition:all .2s;max-width:280px;pointer-events:none;box-shadow:var(--shadow-md);display:flex;align-items:center;gap:8px}
 #toast::before{content:'✓';font-size:13px;color:#86efac}
@@ -250,6 +268,30 @@ input.err{border-color:var(--red)}
         <tbody id="users-tbody"></tbody>
       </table>
     </div>
+
+    <div class="card" id="tp-card" style="margin-top:16px">
+      <div class="card-hd">
+        <span class="card-title" data-i18n="tpTitle">Backup &amp; restore</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-sec" id="tp-upload-btn" onclick="document.getElementById('tp-file').click()" data-i18n="tpUpload">Upload backup</button>
+          <input type="file" id="tp-file" accept=".gz,.tgz,application/gzip,application/x-gzip" style="display:none">
+          <button class="btn-primary" id="tp-create" onclick="tpCreate()"><span data-i18n="tpCreate">Create backup</span></button>
+        </div>
+      </div>
+      <div class="tp-hint" data-i18n="tpHint">Back up users, WOL devices, UPS servers and history, Net Monitor, Proxmox and the NUT configuration. To move to a new installation: install the package, sign in with the default user, upload the backup here and press Restore.</div>
+      <table>
+        <thead><tr>
+          <th data-i18n="tpColName">Backup</th>
+          <th data-i18n="tpColType">Type</th>
+          <th data-i18n="tpColSize">Size</th>
+          <th data-i18n="tpColDate">Date</th>
+          <th style="text-align:right" data-i18n="colActions">Actions</th>
+        </tr></thead>
+        <tbody id="tp-tbody"></tbody>
+      </table>
+      <div class="tp-empty" id="tp-empty" style="display:none" data-i18n="tpEmpty">No backups yet.</div>
+      <pre class="tp-out" id="tp-out"></pre>
+    </div>
   </div>
 </div>
 
@@ -326,6 +368,31 @@ input.err{border-color:var(--red)}
   </div>
 </div>
 
+<!-- Restore confirmation -->
+<div class="overlay" id="tp-rs-overlay">
+  <div class="modal wide">
+    <h3 data-i18n="tpRestoreTitle">Restore backup</h3>
+    <p><b id="tp-rs-name" style="font-family:var(--mono);font-size:12px"></b><br><span data-i18n="tpRestoreWarn">This replaces the current users, devices, history and settings with the ones in the backup. A safety snapshot of the current state is saved first. The panel restarts and you will have to sign in again.</span></p>
+    <label class="tp-opt"><input type="checkbox" id="tp-opt-nut" checked><span data-i18n="tpOptNut">Restore the NUT (UPS) configuration. It can contain passwords and commands run by the UPS daemon as root: only restore backups you trust.</span></label>
+    <label class="tp-opt"><input type="checkbox" id="tp-opt-nginx"><span data-i18n="tpOptNginx">Also overwrite the nginx site (normally keep the one that comes with this version).</span></label>
+    <label class="tp-opt"><input type="checkbox" id="tp-opt-ok" onchange="document.getElementById('tp-rs-go').disabled=!this.checked"><span data-i18n="tpOptOk">I understand that the current data will be overwritten.</span></label>
+    <div class="modal-acts">
+      <button class="btn-mc" onclick="closeModals()" data-i18n="btnCancel">Cancel</button>
+      <button class="btn-warn" id="tp-rs-go" disabled onclick="tpRestoreGo()" data-i18n="tpRestoreBtn">Restore</button>
+    </div>
+  </div>
+</div>
+
+<!-- Restore progress -->
+<div class="overlay noclose" id="tp-pg-overlay">
+  <div class="modal wide">
+    <h3 id="tp-pg-title" data-i18n="tpProgTitle">Restoring…</h3>
+    <p id="tp-pg-msg" data-i18n="tpProgMsg">Do not close this page. The services restart during the restore.</p>
+    <div class="tp-log" id="tp-pg-log"></div>
+    <div class="modal-acts"><button class="btn-save" id="tp-pg-btn" style="display:none" onclick="location.reload()" data-i18n="tpProgDone">Continue</button></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -359,6 +426,27 @@ const LANG = {
     btnCancel:'Cancel', btnCreate:'Create user', btnSave:'Save changes',
     modalDeleteTitle:'Delete user', modalDeleteBtn:'Delete',
     mustChangeBadge:'Change pwd',
+    tpTitle:'Backup & restore', tpUpload:'Upload backup', tpCreate:'Create backup',
+    tpHint:'Back up users, WOL devices, UPS servers and history, Net Monitor, Proxmox and the NUT configuration. To move to a new installation: install the package, sign in with the default user, upload the backup here and press Restore.',
+    tpColName:'Backup', tpColType:'Type', tpColSize:'Size', tpColDate:'Date', tpEmpty:'No backups yet.',
+    tpKindBackup:'Created here', tpKindUpload:'Uploaded',
+    tpDownload:'Download', tpCheck:'Verify', tpRestore:'Restore', tpDelete:'Delete',
+    tpCreating:'Creating…', tpCreated:'Backup created', tpFailed:'Operation failed',
+    tpUploading:p=>`Uploading ${p}%`, tpUploaded:'Backup uploaded', tpTooBig:mb=>`File too large (limit ${mb} MB)`,
+    tpChecking:'Verifying…', tpCheckOk:'Backup is valid', tpCheckBad:'Backup is NOT valid',
+    tpNotAvailable:'teleporter.sh is not installed on this system.',
+    tpRestoreTitle:'Restore backup',
+    tpRestoreWarn:'This replaces the current users, devices, history and settings with the ones in the backup. A safety snapshot of the current state is saved first. The panel restarts and you will have to sign in again.',
+    tpOptNut:'Restore the NUT (UPS) configuration. It can contain passwords and commands run by the UPS daemon as root: only restore backups you trust.',
+    tpOptNginx:'Also overwrite the nginx site (normally keep the one that comes with this version).',
+    tpOptOk:'I understand that the current data will be overwritten.',
+    tpRestoreBtn:'Restore', tpConfirmDelete:n=>`Delete the backup "${n}"?`, tpDeleted:'Backup deleted',
+    tpProgTitle:'Restoring…', tpProgMsg:'Do not close this page. The services restart during the restore.',
+    tpProgOk:'Restore completed', tpProgOkMsg:'Sign in again with the users from the backup.',
+    tpProgErr:'Restore finished with errors', tpProgErrMsg:'Review the log below. A snapshot of the previous state is in /var/backups/pi-console/.',
+    tpProgFail:'Restore failed', tpProgFailMsg:'Nothing was lost: the services were restarted. Review the log below.',
+    tpProgRestarted:'Panel restarted', tpProgRestartedMsg:'The restore finished and the panel restarted. Sign in again with the users from the backup.',
+    tpProgDone:'Continue',
     toastCreated: u=>`User ${u} created`,
     toastUpdated: u=>`User ${u} updated`,
     toastDeleted:'User deleted',
@@ -392,6 +480,27 @@ const LANG = {
     btnCancel:'Cancelar', btnCreate:'Crear usuario', btnSave:'Guardar cambios',
     modalDeleteTitle:'Eliminar usuario', modalDeleteBtn:'Eliminar',
     mustChangeBadge:'Cambiar pwd',
+    tpTitle:'Respaldo y restauración', tpUpload:'Subir respaldo', tpCreate:'Crear respaldo',
+    tpHint:'Respalda usuarios, dispositivos WOL, servidores UPS e historial, Net Monitor, Proxmox y la configuración de NUT. Para migrar a una instalación nueva: instala el paquete, entra con el usuario por defecto, sube el respaldo aquí y pulsa Restaurar.',
+    tpColName:'Respaldo', tpColType:'Tipo', tpColSize:'Tamaño', tpColDate:'Fecha', tpEmpty:'Aún no hay respaldos.',
+    tpKindBackup:'Creado aquí', tpKindUpload:'Subido',
+    tpDownload:'Descargar', tpCheck:'Verificar', tpRestore:'Restaurar', tpDelete:'Eliminar',
+    tpCreating:'Creando…', tpCreated:'Respaldo creado', tpFailed:'La operación falló',
+    tpUploading:p=>`Subiendo ${p}%`, tpUploaded:'Respaldo subido', tpTooBig:mb=>`Archivo demasiado grande (límite ${mb} MB)`,
+    tpChecking:'Verificando…', tpCheckOk:'El respaldo es válido', tpCheckBad:'El respaldo NO es válido',
+    tpNotAvailable:'teleporter.sh no está instalado en este sistema.',
+    tpRestoreTitle:'Restaurar respaldo',
+    tpRestoreWarn:'Esto reemplaza los usuarios, dispositivos, historial y ajustes actuales por los del respaldo. Antes se guarda un snapshot de seguridad del estado actual. El panel se reinicia y tendrás que iniciar sesión de nuevo.',
+    tpOptNut:'Restaurar la configuración de NUT (UPS). Puede contener contraseñas y comandos que el demonio del UPS ejecuta como root: restaura solo respaldos de confianza.',
+    tpOptNginx:'Sobrescribir también el sitio nginx (normalmente conviene mantener el que trae esta versión).',
+    tpOptOk:'Entiendo que se sobrescribirán los datos actuales.',
+    tpRestoreBtn:'Restaurar', tpConfirmDelete:n=>`¿Eliminar el respaldo "${n}"?`, tpDeleted:'Respaldo eliminado',
+    tpProgTitle:'Restaurando…', tpProgMsg:'No cierres esta página. Los servicios se reinician durante la restauración.',
+    tpProgOk:'Restauración completada', tpProgOkMsg:'Inicia sesión de nuevo con los usuarios del respaldo.',
+    tpProgErr:'Restauración terminada con errores', tpProgErrMsg:'Revisa el registro. El snapshot del estado anterior está en /var/backups/pi-console/.',
+    tpProgFail:'La restauración falló', tpProgFailMsg:'No se perdió nada: los servicios se reiniciaron. Revisa el registro.',
+    tpProgRestarted:'Panel reiniciado', tpProgRestartedMsg:'La restauración terminó y el panel se reinició. Inicia sesión de nuevo con los usuarios del respaldo.',
+    tpProgDone:'Continuar',
     toastCreated: u=>`Usuario ${u} creado`,
     toastUpdated: u=>`Usuario ${u} actualizado`,
     toastDeleted:'Usuario eliminado',
@@ -408,6 +517,7 @@ function setLang(l){
   ['en','es'].forEach(x=>document.getElementById('lang-'+x)?.classList.toggle('active',x===l));
   // Update logout button title
   document.getElementById('btn-logout').title = t('logoutTitle');
+  try{tpRender();}catch(e){}
   // Update new-pw placeholder
   const npw = document.getElementById('d-new-pw');
   if(npw) npw.placeholder = t('fieldNewPwPlaceholder');
@@ -551,6 +661,7 @@ async function loadUsers() {
   const users = d.users || [];
   renderUsers(users);
   updateStats(users);
+  tpLoad();
 }
 
 function updateStats(users) {
@@ -684,7 +795,146 @@ function confirmDelete(username) {
   document.getElementById('del-overlay').classList.add('show');
 }
 
-function closeModals() { document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('show')); }
+function closeModals() { document.querySelectorAll('.overlay:not(.noclose)').forEach(o=>o.classList.remove('show')); }
+
+// ── Teleporter (backup & restore) ───────────────────────
+let _tp = {backups:[], max:0, available:true}, _tpPoll = null, _tpName = null;
+function tpFmtSize(b){ return b>=1048576 ? (b/1048576).toFixed(1)+' MB' : Math.max(1,Math.round(b/1024))+' KB'; }
+async function tpLoad() {
+  try {
+    const r = await fetch('api/teleporter');
+    if (!r.ok) return;
+    const d = await r.json();
+    _tp = {backups:d.backups||[], max:d.max_upload||0, available:d.available!==false};
+    tpRender();
+    if (d.restore && d.restore.state==='running' && !_tpPoll) tpShowProgress(d.restore);
+  } catch(e) {}
+}
+function tpRender() {
+  const tb = document.getElementById('tp-tbody'); tb.innerHTML = '';
+  const locale = _lang === 'es' ? 'es-CL' : 'en-US';
+  document.getElementById('tp-empty').style.display = _tp.backups.length ? 'none' : 'block';
+  document.getElementById('tp-empty').textContent = _tp.available ? t('tpEmpty') : t('tpNotAvailable');
+  ['tp-create','tp-upload-btn'].forEach(id=>document.getElementById(id).disabled = !_tp.available);
+  _tp.backups.forEach(b => {
+    const n = esc(b.name), tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="tp-name">${n}</span></td>
+      <td><span class="tp-kind ${b.kind==='upload'?'upload':''}">${t(b.kind==='upload'?'tpKindUpload':'tpKindBackup')}</span></td>
+      <td><span class="ucreated">${tpFmtSize(b.size)}</span></td>
+      <td><span class="ucreated">${new Date(b.mtime*1000).toLocaleString(locale)}</span></td>
+      <td class="col-actions">
+        <button class="btn-ri edit" onclick="tpDownload('${n}')" title="${t('tpDownload')}">⬇</button>
+        <button class="btn-ri edit" onclick="tpCheck('${n}')" title="${t('tpCheck')}">✔</button>
+        <button class="btn-ri edit" onclick="tpRestoreOpen('${n}')" title="${t('tpRestore')}">⟲</button>
+        <button class="btn-ri del" onclick="tpDelete('${n}')" title="${t('tpDelete')}">✕</button>
+      </td>`;
+    tb.appendChild(tr);
+  });
+}
+function tpShowOut(text, bad) {
+  const o = document.getElementById('tp-out');
+  o.textContent = text; o.className = 'tp-out show' + (bad?' bad':'');
+  o.scrollTop = 0;
+}
+function tpDownload(name) {
+  const a = document.createElement('a'); a.href = 'api/teleporter/download/'+encodeURIComponent(name); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+async function tpCreate() {
+  const btn = document.getElementById('tp-create'); btn.disabled = true;
+  btn.innerHTML = `<span class="spin">⟳</span> ${t('tpCreating')}`;
+  try {
+    const r = await fetch('api/teleporter/backup', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+    const d = await r.json();
+    if (!r.ok || !d.ok) { toast(d.error||t('tpFailed'), true); tpShowOut(d.output||'', true); }
+    else { toast(t('tpCreated')); tpShowOut(d.output||''); tpDownload(d.name); }
+  } catch(e) { toast(t('tpFailed'), true); }
+  finally { btn.disabled=false; btn.innerHTML=`<span>${t('tpCreate')}</span>`; tpLoad(); }
+}
+document.getElementById('tp-file').addEventListener('change', e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (f) tpUpload(f);
+});
+function tpUpload(file) {
+  if (_tp.max && file.size > _tp.max) { toast(t('tpTooBig', Math.round(_tp.max/1048576)), true); return; }
+  const btn = document.getElementById('tp-upload-btn'); btn.disabled = true;
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', 'api/teleporter/upload');
+  xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+  xhr.upload.onprogress = ev => { if (ev.lengthComputable) btn.textContent = t('tpUploading', Math.round(ev.loaded*100/ev.total)); };
+  xhr.onload = async () => {
+    btn.disabled = false; btn.textContent = t('tpUpload');
+    let d = {}; try { d = JSON.parse(xhr.responseText); } catch(e) {}
+    if (xhr.status === 201 && d.name) { toast(t('tpUploaded')); await tpLoad(); tpCheck(d.name); }
+    else toast(d.error || t('tpFailed'), true);
+  };
+  xhr.onerror = () => { btn.disabled = false; btn.textContent = t('tpUpload'); toast(t('tpFailed'), true); };
+  xhr.send(file);
+}
+async function tpCheck(name) {
+  tpShowOut(t('tpChecking'));
+  try {
+    const r = await fetch('api/teleporter/check', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
+    const d = await r.json();
+    tpShowOut((d.ok ? '✓ '+t('tpCheckOk') : '✕ '+t('tpCheckBad')) + '\n\n' + (d.output||d.error||''), !d.ok);
+    toast(d.ok ? t('tpCheckOk') : t('tpCheckBad'), !d.ok);
+  } catch(e) { toast(t('tpFailed'), true); }
+}
+async function tpDelete(name) {
+  if (!confirm(t('tpConfirmDelete', name))) return;
+  const r = await fetch('api/teleporter/'+encodeURIComponent(name), {method:'DELETE'});
+  if (r.ok) toast(t('tpDeleted')); else toast(t('tpFailed'), true);
+  tpLoad();
+}
+function tpRestoreOpen(name) {
+  _tpName = name;
+  document.getElementById('tp-rs-name').textContent = name;
+  document.getElementById('tp-opt-nut').checked = true;
+  document.getElementById('tp-opt-nginx').checked = false;
+  document.getElementById('tp-opt-ok').checked = false;
+  document.getElementById('tp-rs-go').disabled = true;
+  document.getElementById('tp-rs-overlay').classList.add('show');
+}
+async function tpRestoreGo() {
+  const body = {name:_tpName, confirm:true,
+    nut:document.getElementById('tp-opt-nut').checked, nginx:document.getElementById('tp-opt-nginx').checked};
+  closeModals();
+  try {
+    const r = await fetch('api/teleporter/restore', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const d = await r.json();
+    if (!r.ok || !d.ok) { toast(d.error||t('tpFailed'), true); tpShowOut(d.output||'', true); return; }
+    tpShowProgress({state:'running', log:''});
+  } catch(e) { toast(t('tpFailed'), true); }
+}
+function tpShowProgress(st) {
+  const ov = document.getElementById('tp-pg-overlay'); ov.classList.add('show');
+  tpProgUpdate(st);
+  if (_tpPoll) return;
+  let lost = 0;
+  _tpPoll = setInterval(async () => {
+    try {
+      const r = await fetch('api/teleporter', {cache:'no-store'});
+      if (r.status === 401) return tpProgEnd('restarted');   // our session no longer exists: the restore replaced it
+      if (!r.ok) { lost++; return; }
+      const d = await r.json(); lost = 0;
+      tpProgUpdate(d.restore || {state:'running', log:''});
+    } catch(e) { lost++; }                                      // panel restarting
+  }, 2000);
+}
+function tpProgUpdate(st) {
+  const log = document.getElementById('tp-pg-log');
+  if (st.log) { log.textContent = st.log; log.scrollTop = log.scrollHeight; }
+  if (st.state && st.state !== 'running' && st.state !== 'idle') tpProgEnd(st.state);
+}
+function tpProgEnd(state) {
+  clearInterval(_tpPoll); _tpPoll = null;
+  const map = {ok:['tpProgOk','tpProgOkMsg'], errors:['tpProgErr','tpProgErrMsg'], failed:['tpProgFail','tpProgFailMsg'], restarted:['tpProgRestarted','tpProgRestartedMsg']};
+  const [a,b] = map[state] || map.failed;
+  document.getElementById('tp-pg-title').textContent = t(a);
+  document.getElementById('tp-pg-msg').textContent = t(b);
+  document.getElementById('tp-pg-btn').style.display = '';
+}
 
 // ── Helpers ────────────────────────────────────────────
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -696,7 +946,7 @@ function toast(msg, isErr=false) {
   clearTimeout(_tt); _tt = setTimeout(()=>el.classList.remove('show'), 3400);
 }
 
-document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeModals();}));
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o&&!o.classList.contains('noclose'))closeModals();}));
 document.getElementById('drawer-overlay').addEventListener('click', e=>{ if(e.target===document.getElementById('drawer-overlay')) closeDrawer(); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape'){closeModals();closeDrawer();} });
 document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});

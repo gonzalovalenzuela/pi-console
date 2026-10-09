@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.7b — 2026-10-09
+
+### Teleporter integrado en el Admin Panel
+- Nueva tarjeta **Backup & restore** en `/admin/`: crear respaldo (se descarga solo), subir un respaldo, verificarlo, restaurarlo, descargarlo o eliminarlo.
+- **Migración a una instalación nueva**: instalar el `.deb`, entrar con el usuario por defecto, subir el respaldo y pulsar *Restore*. Una barra de progreso muestra el registro; al terminar hay que iniciar sesión con los usuarios del respaldo.
+- La restauración se ejecuta como root a través de una regla `sudo` mínima (`/etc/sudoers.d/pi-console-teleporter`, solo `teleporter.sh gui-backup` y `gui-restore`) y en una unidad systemd separada (`pi-console-restore`), para sobrevivir al reinicio del propio panel. Se trabaja sobre una copia privada del archivo para evitar sustituciones entre la verificación y la extracción.
+- Opciones al restaurar: configuración de NUT (activada por defecto) y sitio nginx (desactivada: se conserva el que trae el paquete). En consola: `--no-nut` y `--nginx`.
+- Los respaldos creados en el panel se guardan en `/var/lib/pi-console/teleporter/` (se conservan los 5 más recientes; las subidas se borran tras 24 h). Límite de subida: 200 MB.
+- `teleporter.sh` 2.1: bloqueo para evitar dos operaciones simultáneas, marcador `RESULT:` en el registro y todas las variables de entorno de pruebas se ignoran cuando corre bajo `sudo`.
+- Endpoints (solo admin): `GET /api/teleporter`, `POST /api/teleporter/{backup,upload,check,restore}`, `GET /api/teleporter/download/<archivo>`, `DELETE /api/teleporter/<archivo>`.
+- nginx: `/admin/` acepta cuerpos de hasta 200 MB, sin buffer de subida y con timeouts de 300 s.
+
+### Paquete
+- Nueva dependencia: `sudo`.
+- `postinst` crea el directorio de trabajo y la regla sudo (validada con `visudo -c`); `postrm` la elimina al desinstalar.
+
 ## 1.1.7a — 2026-10-09
 
 ### Net Monitor

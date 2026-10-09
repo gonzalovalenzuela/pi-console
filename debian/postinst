@@ -18,6 +18,26 @@ mkdir -p "$DATA_DIR"
 chown pi-console:pi-console "$DATA_DIR"
 chmod 750 "$DATA_DIR"
 
+# ── 2b. Teleporter: directorio de trabajo + regla sudo para el panel de admin ─
+# El panel (usuario pi-console) solo puede ejecutar estas dos acciones como root.
+install -d -m 700 -o pi-console -g pi-console "$DATA_DIR/teleporter"
+if [ -d /etc/sudoers.d ] && command -v visudo >/dev/null 2>&1; then
+    SUDOERS_TMP=$(mktemp)
+    cat > "$SUDOERS_TMP" <<'SUDOEOF'
+# Pi Console: el panel de admin ejecuta el respaldo/restauracion como root
+pi-console ALL=(root) NOPASSWD: /usr/local/bin/teleporter.sh gui-backup, /usr/local/bin/teleporter.sh gui-restore *
+SUDOEOF
+    if visudo -cf "$SUDOERS_TMP" >/dev/null 2>&1; then
+        install -m 0440 -o root -g root "$SUDOERS_TMP" /etc/sudoers.d/pi-console-teleporter
+        echo "  regla sudo para teleporter instalada"
+    else
+        echo "  AVISO: regla sudo invalida, respaldo desde el panel deshabilitado"
+    fi
+    rm -f "$SUDOERS_TMP"
+else
+    echo "  AVISO: sudo no esta instalado; el respaldo desde el panel queda deshabilitado (usa 'teleporter' en consola)"
+fi
+
 # ── 3. Symlink auth compartido → datos persistentes ───────────────────────────
 mkdir -p "$AUTH_LINK"
 ln -sf "$PI_HOME/auth/auth.py"        "$AUTH_LINK/auth.py"        2>/dev/null || true
