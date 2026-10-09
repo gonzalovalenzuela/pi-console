@@ -222,6 +222,133 @@ def mdns_hint(hostname: str) -> str:
         return "apple"
     return ""
 
+# ─── SNMP: ARP table from a switch/router (MAC for hosts the Pi cannot see) ───
+import shutil, tempfile
+SNMP_DEFAULT = {"enabled": False, "host": "", "port": 161, "version": "2c", "community": "",
+                "user": "", "level": "authPriv", "auth_proto": "SHA", "auth_pass": "",
+                "priv_proto": "AES", "priv_pass": "", "timeout": 5}
+SNMP_SECRETS = ("community", "auth_pass", "priv_pass")
+_snmp_macs: dict = {}                       # { ip: mac }
+_snmp_status = {"ts": 0, "count": 0, "error": ""}
+_snmp_lock = threading.Lock()
+OID_ARP_V4  = "1.3.6.1.2.1.4.22.1.2"        # ipNetToMediaPhysAddress
+OID_ARP_NEW = "1.3.6.1.2.1.4.35.1.4"        # ipNetToPhysicalPhysAddress
+RE_ARP_V4  = re.compile(r"\.?1\.3\.6\.1\.2\.1\.4\.22\.1\.2\.\d+\.(\d+\.\d+\.\d+\.\d+)\s*=\s*[A-Za-z-]+:\s*(.*)")
+RE_ARP_NEW = re.compile(r"\.?1\.3\.6\.1\.2\.1\.4\.35\.1\.4\.\d+\.1\.4\.(\d+\.\d+\.\d+\.\d+)\s*=\s*[A-Za-z-]+:\s*(.*)")
+
+def snmp_config(include_secrets: bool = False) -> dict:
+    cfg = dict(SNMP_DEFAULT)
+    cfg.update(load_config().get("snmp", {}) or {})
+    if not include_secrets:
+        for k in SNMP_SECRETS:
+            cfg["has_" + k] = bool(cfg.get(k))
+            cfg[k] = ""
+    return cfg
+
+def snmp_validate(body: dict, current: dict) -> dict:
+    """Merge a request over the stored config and validate every field (raises ValueError)."""
+    cfg = dict(current)
+    for k in SNMP_DEFAULT:
+        if k not in body: continue
+        v = body[k]
+        if k in SNMP_SECRETS and (v is None or v == ""):
+            continue                                  # empty secret = keep the stored one
+        cfg[k] = v
+    cfg["enabled"] = bool(cfg["enabled"])
+    cfg["host"] = str(cfg["host"]).strip()
+    if cfg["host"] and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,252}", cfg["host"]):
+        raise ValueError("Invalid host")
+    try:    cfg["port"] = int(cfg["port"])
+    except Exception: raise ValueError("Invalid port")
+    if not 1 <= cfg["port"] <= 65535: raise ValueError("Invalid port")
+    try:    cfg["timeout"] = int(cfg["timeout"])
+    except Exception: raise ValueError("Invalid timeout")
+    if not 1 <= cfg["timeout"] <= 30: raise ValueError("Timeout must be 1-30 seconds")
+    cfg["version"] = str(cfg["version"])
+    if cfg["version"] not in ("1", "2c", "3"): raise ValueError("Invalid SNMP version")
+    for k in ("community", "user", "auth_pass", "priv_pass"):
+        cfg[k] = str(cfg.get(k) or "")
+        if re.search(r"[\x00-\x1f\x7f]", cfg[k]) or len(cfg[k]) > 128:
+            raise ValueError(f"Invalid {k}")
+    if cfg["version"] in ("1", "2c"):
+        if cfg["enabled"] and not cfg["community"]: raise ValueError("Community required")
+    else:
+        if not re.fullmatch(r"[\w.@-]{1,32}", cfg["user"]): raise ValueError("Username required (v3)")
+        if cfg["level"] not in ("noAuthNoPriv", "authNoPriv", "authPriv"): raise ValueError("Invalid security level")
+        if cfg["auth_proto"] not in ("MD5", "SHA", "SHA-224", "SHA-256", "SHA-384", "SHA-512"): raise ValueError("Invalid auth protocol")
+        if cfg["priv_proto"] not in ("DES", "AES", "AES-192", "AES-256"): raise ValueError("Invalid privacy protocol")
+        if cfg["level"] != "noAuthNoPriv" and len(cfg["auth_pass"]) < 8: raise ValueError("Auth password must be at least 8 characters")
+        if cfg["level"] == "authPriv" and len(cfg["priv_pass"]) < 8: raise ValueError("Privacy password must be at least 8 characters")
+    if cfg["enabled"] and not cfg["host"]: raise ValueError("Host required")
+    return cfg
+
+def _snmp_walk(cfg: dict, oid: str, regex) -> dict:
+    """Run snmpwalk (net-snmp) with credentials in a private temp snmp.conf, not on the command line."""
+    exe = shutil.which("snmpwalk")
+    if not exe:
+        raise RuntimeError("snmpwalk not installed (apt install snmp)")
+    d = tempfile.mkdtemp(prefix="pc-snmp-")
+    try:
+        os.chmod(d, 0o700)
+        lines = []
+        if cfg["version"] == "3":
+            lines += [f"defSecurityName {cfg['user']}", f"defSecurityLevel {cfg['level']}"]
+            if cfg["level"] != "noAuthNoPriv":
+                lines += [f"defAuthType {cfg['auth_proto']}", f"defAuthPassphrase {cfg['auth_pass']}"]
+            if cfg["level"] == "authPriv":
+                lines += [f"defPrivType {cfg['priv_proto']}", f"defPrivPassphrase {cfg['priv_pass']}"]
+        else:
+            lines += [f"defCommunity {cfg['community']}"]
+        conf = Path(d) / "snmp.conf"
+        fd = os.open(conf, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write("\n".join(lines) + "\n")
+        env = dict(os.environ, SNMPCONFPATH=d, SNMP_PERSISTENT_DIR=d, MIBS="")
+        cmd = [exe, f"-v{cfg['version']}", "-t", str(cfg["timeout"]), "-r", "1",
+               "-On", "-Ox", "-m", "", f"udp:{cfg['host']}:{cfg['port']}", oid]
+        r = subprocess.run(cmd, capture_output=True, text=True, env=env,
+                           timeout=cfg["timeout"] * 2 + 30)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    if r.returncode != 0 and not r.stdout.strip():
+        msg = [l.strip() for l in (r.stderr or r.stdout).splitlines()
+               if l.strip() and not l.startswith(("Created directory", "Cannot adopt"))]
+        raise RuntimeError((msg[-1] if msg else "snmpwalk failed")[:200])
+    out = {}
+    for line in r.stdout.splitlines():
+        m = regex.match(line.strip())
+        if not m: continue
+        raw = re.findall(r"[0-9A-Fa-f]{2}", m.group(2).replace('"', ""))
+        if len(raw) != 6: continue
+        mac = ":".join(raw).lower()
+        if mac != "00:00:00:00:00:00" and mac != "ff:ff:ff:ff:ff:ff":
+            out[m.group(1)] = mac
+    return out
+
+def snmp_fetch_arp(cfg: dict) -> dict:
+    """ip → mac from the device's ARP table (tries the classic MIB, then the newer one)."""
+    res = _snmp_walk(cfg, OID_ARP_V4, RE_ARP_V4)
+    if not res:
+        try:    res = _snmp_walk(cfg, OID_ARP_NEW, RE_ARP_NEW)
+        except Exception: pass
+    return res
+
+def refresh_snmp():
+    """Refresh the SNMP MAC cache (called at the start of each scan, if enabled)."""
+    cfg = snmp_config(include_secrets=True)
+    if not cfg["enabled"] or not cfg["host"]:
+        return
+    try:
+        res = snmp_fetch_arp(cfg)
+        with _snmp_lock:
+            _snmp_macs.clear(); _snmp_macs.update(res)
+            _snmp_status.update(ts=int(time.time()), count=len(res), error="")
+        log.info(f"SNMP: {len(res)} ARP entries from {cfg['host']}")
+    except Exception as e:
+        with _snmp_lock:
+            _snmp_status.update(ts=int(time.time()), count=0, error=str(e)[:200])
+        log.warning(f"SNMP error: {e}")
+
 # ─── Device identification (OS + device type, no nmap) ───────────────────────
 DEVICE_TYPES = ["computer", "phone", "router", "switch", "ap", "storage", "tv", "camera", "appliance", "other"]
 
@@ -447,6 +574,9 @@ def scan_host(ip: str) -> dict | None:
     # MAC from the ARP table (the ping just populated it) and vendor from OUI
     if not mac:
         mac = arp_mac(ip_str)
+    if not mac:
+        with _snmp_lock:
+            mac = _snmp_macs.get(ip_str, "")
     if not vendor and mac:
         vendor = oui_vendor(mac)
 
@@ -510,6 +640,7 @@ def run_scan(network: str = None, single_ip: str = None):
 
     hosts = load_hosts()
     _live_hosts = hosts
+    refresh_snmp()
 
     if single_ip:
         ips = [ipaddress.ip_address(single_ip)]
@@ -662,6 +793,11 @@ class H(BaseHTTPRequestHandler):
                 "scan":    _scan_status,
                 "network": NETWORK,
             })
+        elif path == "/api/snmp":
+            with _snmp_lock:
+                st = dict(_snmp_status)
+            self._json(200, {"config": snmp_config(), "available": bool(shutil.which("snmpwalk")), "status": st})
+
         elif path == "/api/scan/status":
             self._json(200, _scan_status)
 
@@ -724,6 +860,34 @@ class H(BaseHTTPRequestHandler):
             single = (body.get("ip") or "").strip() or None
             threading.Thread(target=run_scan, kwargs={"single_ip": single}, daemon=True).start()
             self._json(200, {"ok": True, "message": single or NETWORK})
+
+        elif path in ("/api/snmp", "/api/snmp/test"):
+            if not auth.check_permission(tok, "net", "admin"):
+                return self._json(403, {"error": "Admin permission required"})
+            try:
+                cfg = snmp_validate(body, snmp_config(include_secrets=True))
+            except ValueError as e:
+                return self._json(400, {"error": str(e)})
+            if path == "/api/snmp/test":
+                if not cfg["host"]:
+                    return self._json(400, {"error": "Host required"})
+                try:
+                    res = snmp_fetch_arp(cfg)
+                except Exception as e:
+                    return self._json(502, {"error": str(e)})
+                sample = [{"ip": k, "mac": v} for k, v in list(res.items())[:5]]
+                return self._json(200, {"ok": True, "count": len(res), "sample": sample})
+            allcfg = load_config()
+            allcfg["snmp"] = cfg
+            save_config(allcfg)
+            try: os.chmod(CONF_FILE, 0o600)
+            except Exception: pass
+            if cfg["enabled"]:
+                threading.Thread(target=refresh_snmp, daemon=True).start()
+            else:
+                with _snmp_lock:
+                    _snmp_macs.clear()
+            self._json(200, {"ok": True})
 
         elif path == "/api/pihole/config":
             if not auth.check_permission(tok, "net", "admin"):

@@ -265,6 +265,52 @@ td{padding:10px 14px;vertical-align:middle}
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <span data-i18n="scanNet">Scan network</span>
       </button>
+      <div style="position:relative" id="snmp-wrap">
+        <button onclick="toggleSnmpPanel()" id="btn-snmp" title="SNMP"
+          style="display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap"
+          onmouseover="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">
+          <svg style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24"><rect x="2" y="14" width="20" height="7" rx="1"/><path d="M6 17.5h.01M10 17.5h.01M12 14V9M8 9h8M12 9V4"/></svg>
+          SNMP <span id="snmp-status-dot" style="width:6px;height:6px;border-radius:50%;background:var(--border-b);display:inline-block;margin-left:2px"></span>
+        </button>
+        <div id="snmp-panel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:200;width:340px;max-height:80vh;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.18);padding:16px">
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px" data-i18n="snmpTitle">SNMP source</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-bottom:12px;line-height:1.5" data-i18n="snmpDesc">Reads the ARP table of a switch or router to get MAC addresses (and vendor) for hosts the Pi cannot see directly. Requires the snmp package on the Pi.</div>
+          <div id="snmp-missing" style="display:none;font-size:11px;font-family:var(--mono);padding:6px 8px;border-radius:var(--r-sm);margin-bottom:10px;background:var(--red-dim);color:var(--red)" data-i18n="snmpMissing">snmpwalk is not installed — run: apt install snmp</div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);margin-bottom:10px;cursor:pointer"><input type="checkbox" id="sn-enabled"> <span data-i18n="snmpEnable">Use SNMP during scans</span></label>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px">
+            <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
+              <div ><label style="font-size:10px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px" data-i18n="snmpHost">Switch / router IP</label><input type="text" id="sn-host" placeholder="192.168.0.1" autocomplete="off" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;width:100%;box-sizing:border-box"></div>
+              <div ><label style="font-size:10px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px" data-i18n="snmpPort">Port</label><input type="number" id="sn-port" placeholder="161" autocomplete="off" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;width:100%;box-sizing:border-box"></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 80px;gap:8px">
+              <div ><label style="font-size:10px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px" data-i18n="snmpVersion">Version</label><select id="sn-version" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;width:100%;box-sizing:border-box"><option value="1">1</option><option value="2c">2c</option><option value="3">3</option></select></div>
+              <div ><label style="font-size:10px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px" data-i18n="snmpTimeout">Timeout (s)</label><input type="number" id="sn-timeout" placeholder="5" autocomplete="off" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;width:100%;box-sizing:border-box"></div>
+            </div>
+            <div id="sn-v2" style="display:flex;flex-direction:column;gap:10px">
+              <div ><label style="font-size:10px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px" data-i18n="snmpCommunity">Community</label><input type="password" id="sn-community" placeholder="public" autocomplete="off" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;width:100%;box-sizing:border-box"></div>
+            </div>
+            <div id="sn-v3" style="display:none;flex-direction:column;gap:10px">
+              <div ><label style="font-size:10px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px" data-i18n="snmpUser">Username</label><input type="text" id="sn-user" placeholder="" autocomplete="off" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;width:100%;box-sizing:border-box"></div>
+              <div ><label style="font-size:10px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px" data-i18n="snmpLevel">Security level</label><select id="sn-level" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;width:100%;box-sizing:border-box"><option value="noAuthNoPriv">noAuthNoPriv</option><option value="authNoPriv">authNoPriv</option><option value="authPriv">authPriv</option></select></div>
+              <div id="sn-auth" style="display:grid;grid-template-columns:90px 1fr;gap:8px">
+                <div ><label style="font-size:10px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px" data-i18n="snmpAuthProto">Auth</label><select id="sn-auth-proto" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;width:100%;box-sizing:border-box"><option value="SHA">SHA</option><option value="MD5">MD5</option><option value="SHA-224">SHA-224</option><option value="SHA-256">SHA-256</option><option value="SHA-384">SHA-384</option><option value="SHA-512">SHA-512</option></select></div>
+                <div ><label style="font-size:10px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px" data-i18n="snmpAuthPass">Auth password</label><input type="password" id="sn-auth-pass" placeholder="" autocomplete="off" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;width:100%;box-sizing:border-box"></div>
+              </div>
+              <div id="sn-priv" style="display:grid;grid-template-columns:90px 1fr;gap:8px">
+                <div ><label style="font-size:10px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px" data-i18n="snmpPrivProto">Privacy</label><select id="sn-priv-proto" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;width:100%;box-sizing:border-box"><option value="AES">AES</option><option value="DES">DES</option><option value="AES-192">AES-192</option><option value="AES-256">AES-256</option></select></div>
+                <div ><label style="font-size:10px;font-weight:600;color:var(--text-mid);display:block;margin-bottom:4px" data-i18n="snmpPrivPass">Privacy password</label><input type="password" id="sn-priv-pass" placeholder="" autocomplete="off" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;outline:none;width:100%;box-sizing:border-box"></div>
+              </div>
+            </div>
+            <div id="sn-status" style="font-size:11px;font-family:var(--mono);padding:6px 8px;border-radius:var(--r-sm);display:none;word-break:break-word"></div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button onclick="testSnmp()" id="btn-sn-test" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--teal);background:transparent;color:var(--teal);font-family:var(--sans);font-size:12px;cursor:pointer" data-i18n="snmpTest">Test</button>
+            <button onclick="toggleSnmpPanel()" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--sans);font-size:12px;cursor:pointer" data-i18n="cancel">Cancel</button>
+            <button onclick="saveSnmp()" id="btn-sn-save" style="padding:6px 12px;border-radius:var(--r-sm);border:none;background:var(--teal);color:#fff;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer" data-i18n="save">Save</button>
+          </div>
+        </div>
+      </div>
       <div style="position:relative" id="pihole-wrap">
         <button onclick="togglePiholePanel()" id="btn-pihole" title="Pi-hole"
           style="display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-dim);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap"
@@ -274,7 +320,7 @@ td{padding:10px 14px;vertical-align:middle}
           Pi-hole <span id="pihole-status-dot" style="width:6px;height:6px;border-radius:50%;background:var(--border-b);display:inline-block;margin-left:2px"></span>
         </button>
         <!-- Panel desplegable Pi-hole -->
-        <div id="pihole-panel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:200;width:320px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.18);padding:16px">
+        <div id="pihole-panel" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:200;width:320px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.18);padding:16px">
           <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:7px">
             <svg style="width:15px;height:15px;stroke:var(--teal);fill:none;stroke-width:2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
             <span data-i18n="piholeIntegration">Pi-hole Integration</span>
@@ -415,7 +461,7 @@ const LANG={
     uptimeEmpty:'No events recorded yet',uptimeStats:(h,d)=>`${h}h monitored · ${d} outage${d!==1?'s':''}`,
     availHistory:'Availability history',
     chartMonitoring:'Monitoring — data will appear after several scans',
-    osUnknown:'Unknown',colType:'Type',deviceTypes:'Device type',editDevice:'Edit device',fieldType:'Device type',fieldOs:'Operating system',autoDetect:'Auto-detect',saved:'Device updated',tComputer:'Computer',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tPhone:'Phone',tTv:'TV',tCamera:'Camera',tAppliance:'Appliance',tOther:'Other',newDevice:'NEW',
+    snmpTitle:'SNMP source',snmpDesc:'Reads the ARP table of a switch or router to get MAC addresses (and vendor) for hosts the Pi cannot see directly. Requires the snmp package on the Pi.',snmpMissing:'snmpwalk is not installed — run: apt install snmp',snmpEnable:'Use SNMP during scans',snmpHost:'Switch / router IP',snmpPort:'Port',snmpVersion:'Version',snmpTimeout:'Timeout (s)',snmpCommunity:'Community',snmpUser:'Username',snmpLevel:'Security level',snmpAuthProto:'Auth',snmpAuthPass:'Auth password',snmpPrivProto:'Privacy',snmpPrivPass:'Privacy password',snmpTest:'Test',snmpTesting:'Testing…',snmpSaved:'SNMP settings saved',snmpEntries:'ARP entries found',snmpKeep:'unchanged',snmpLast:'Last scan',osUnknown:'Unknown',colType:'Type',deviceTypes:'Device type',editDevice:'Edit device',fieldType:'Device type',fieldOs:'Operating system',autoDetect:'Auto-detect',saved:'Device updated',tComputer:'Computer',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tPhone:'Phone',tTv:'TV',tCamera:'Camera',tAppliance:'Appliance',tOther:'Other',newDevice:'NEW',
     newDeviceMsg:(n,names,more)=>`${n} new device${n>1?'s':''} detected: ${names}${more?' and more':''}`,
     osEditTitle:'Edit OS'},
   es:{loginTitle:'Iniciar sesión',loginSub:'Ingresa tus credenciales para continuar.',
@@ -445,7 +491,7 @@ const LANG={
     uptimeEmpty:'Sin eventos registrados aún',uptimeStats:(h,d)=>`${h}h monitoreado · ${d} caída${d!==1?'s':''}`,
     availHistory:'Historial de disponibilidad',
     chartMonitoring:'Monitoreando — los datos aparecerán tras varios escaneos',
-    osUnknown:'Desconocido',colType:'Tipo',deviceTypes:'Tipo de dispositivo',editDevice:'Editar dispositivo',fieldType:'Tipo de dispositivo',fieldOs:'Sistema operativo',autoDetect:'Detección automática',saved:'Dispositivo actualizado',tComputer:'Equipo',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tPhone:'Teléfono',tTv:'TV',tCamera:'Cámara',tAppliance:'Electrodoméstico',tOther:'Otro',newDevice:'NUEVO',
+    snmpTitle:'Fuente SNMP',snmpDesc:'Lee la tabla ARP de un switch o router para obtener MAC (y vendor) de equipos que el Pi no ve directamente. Requiere el paquete snmp en el Pi.',snmpMissing:'snmpwalk no está instalado — ejecuta: apt install snmp',snmpEnable:'Usar SNMP en los escaneos',snmpHost:'IP del switch / router',snmpPort:'Puerto',snmpVersion:'Versión',snmpTimeout:'Timeout (s)',snmpCommunity:'Community',snmpUser:'Usuario',snmpLevel:'Nivel de seguridad',snmpAuthProto:'Auth',snmpAuthPass:'Password auth',snmpPrivProto:'Privacidad',snmpPrivPass:'Password privacidad',snmpTest:'Probar',snmpTesting:'Probando…',snmpSaved:'Configuración SNMP guardada',snmpEntries:'entradas ARP encontradas',snmpKeep:'sin cambios',snmpLast:'Último escaneo',osUnknown:'Desconocido',colType:'Tipo',deviceTypes:'Tipo de dispositivo',editDevice:'Editar dispositivo',fieldType:'Tipo de dispositivo',fieldOs:'Sistema operativo',autoDetect:'Detección automática',saved:'Dispositivo actualizado',tComputer:'Equipo',tRouter:'Router',tSwitch:'Switch',tAp:'Access point',tStorage:'Storage / NAS',tPhone:'Teléfono',tTv:'TV',tCamera:'Cámara',tAppliance:'Electrodoméstico',tOther:'Otro',newDevice:'NUEVO',
     newDeviceMsg:(n,names,more)=>`${n} nuevo${n>1?'s dispositivos':'dispositivo'} detectado${n>1?'s':''}: ${names}${more?' y más':''}`,
     osEditTitle:'Editar OS'}
 };
@@ -642,6 +688,7 @@ async function fetchData(){
 
     updateScanBar(d.scan);
     if(d.pihole_enabled !== undefined) updatePiholeStatusDot(d.pihole_enabled);
+    refreshSnmpDot();
 
     // Durante escaneo activo: poll cada 3s; en reposo: cada 30s
     const targetPoll = d.scan?.running ? 3000 : 30000;
@@ -1004,6 +1051,86 @@ function renderTable(){
   // Dibujar gráfico de uptime si hay fila expandida
   requestAnimationFrame(drawAllUptimeCharts);
 }
+
+// ── SNMP config ───────────────────────────────────────────────────────────────
+let _snmpOpen=false, _snmpHas={};
+const $sn=id=>document.getElementById(id);
+function toggleSnmpPanel(){
+  _snmpOpen=!_snmpOpen;
+  $sn('snmp-panel').style.display=_snmpOpen?'block':'none';
+  if(_snmpOpen)loadSnmp();
+}
+document.addEventListener('click',e=>{
+  if(_snmpOpen&&!$sn('snmp-wrap').contains(e.target)){_snmpOpen=false;$sn('snmp-panel').style.display='none';}
+},{passive:true});
+function snmpLayout(){
+  const v=$sn('sn-version').value, lvl=$sn('sn-level').value;
+  $sn('sn-v2').style.display=v==='3'?'none':'flex';
+  $sn('sn-v3').style.display=v==='3'?'flex':'none';
+  $sn('sn-auth').style.display=lvl==='noAuthNoPriv'?'none':'grid';
+  $sn('sn-priv').style.display=lvl==='authPriv'?'grid':'none';
+}
+function snmpStatus(msg,ok){
+  const st=$sn('sn-status');
+  if(!msg){st.style.display='none';return;}
+  st.style.display='block';
+  st.style.background=ok?'var(--teal-dim)':'var(--red-dim)';
+  st.style.color=ok?'var(--teal)':'var(--red)';
+  st.textContent=(ok?'✓ ':'✕ ')+msg;
+}
+function snmpDot(on){
+  const d=$sn('snmp-status-dot');if(!d)return;
+  d.style.background=on?'var(--teal)':'var(--border-b)';d.style.boxShadow=on?'0 0 0 2px var(--teal-dim)':'none';
+}
+async function loadSnmp(){
+  try{
+    const r=await fetch('api/snmp');const d=await r.json();if(!r.ok)throw new Error(d.error);
+    const c=d.config;
+    $sn('snmp-missing').style.display=d.available?'none':'block';
+    $sn('sn-enabled').checked=!!c.enabled;$sn('sn-host').value=c.host||'';$sn('sn-port').value=c.port||161;
+    $sn('sn-timeout').value=c.timeout||5;$sn('sn-version').value=c.version||'2c';$sn('sn-user').value=c.user||'';
+    $sn('sn-level').value=c.level||'authPriv';$sn('sn-auth-proto').value=c.auth_proto||'SHA';$sn('sn-priv-proto').value=c.priv_proto||'AES';
+    _snmpHas={community:c.has_community,auth_pass:c.has_auth_pass,priv_pass:c.has_priv_pass};
+    [['sn-community','community'],['sn-auth-pass','auth_pass'],['sn-priv-pass','priv_pass']].forEach(([id,k])=>{
+      $sn(id).value='';$sn(id).placeholder=_snmpHas[k]?'•••••• ('+t('snmpKeep')+')':'';
+    });
+    snmpLayout();snmpDot(!!c.enabled);
+    const s=d.status||{};
+    if(c.enabled&&s.ts){snmpStatus(s.error?s.error:`${s.count} ${t('snmpEntries')} — ${new Date(s.ts*1000).toLocaleTimeString()}`,!s.error);}else snmpStatus('');
+  }catch(e){snmpStatus(e.message,false);}
+}
+function snmpBody(){
+  const b={enabled:$sn('sn-enabled').checked,host:$sn('sn-host').value.trim(),port:+$sn('sn-port').value||161,
+    timeout:+$sn('sn-timeout').value||5,version:$sn('sn-version').value,user:$sn('sn-user').value.trim(),
+    level:$sn('sn-level').value,auth_proto:$sn('sn-auth-proto').value,priv_proto:$sn('sn-priv-proto').value};
+  // secrets are only sent when typed; empty keeps the stored value on the server
+  [['sn-community','community'],['sn-auth-pass','auth_pass'],['sn-priv-pass','priv_pass']].forEach(([id,k])=>{if($sn(id).value)b[k]=$sn(id).value;});
+  return b;
+}
+async function snmpPost(url,btnId,label){
+  const btn=$sn(btnId);btn.disabled=true;
+  try{
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(snmpBody())});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||'Error');return d;
+  }finally{btn.disabled=false;btn.textContent=label;}
+}
+async function testSnmp(){
+  snmpStatus(t('snmpTesting'),true);
+  try{
+    const d=await snmpPost('api/snmp/test','btn-sn-test',t('snmpTest'));
+    snmpStatus(`${d.count} ${t('snmpEntries')}`+(d.sample.length?' — '+d.sample.map(x=>x.ip+' '+x.mac).join(', '):''),true);
+  }catch(e){snmpStatus(e.message,false);}
+}
+async function saveSnmp(){
+  try{
+    await snmpPost('api/snmp','btn-sn-save',t('save'));
+    snmpDot($sn('sn-enabled').checked);toast(t('snmpSaved'));
+    _snmpOpen=false;$sn('snmp-panel').style.display='none';
+  }catch(e){snmpStatus(e.message,false);toast(e.message,true);}
+}
+['sn-version','sn-level'].forEach(id=>$sn(id).addEventListener('change',snmpLayout));
+let _snmpDotDone=false;
+async function refreshSnmpDot(){if(_snmpDotDone)return;_snmpDotDone=true;try{const r=await fetch('api/snmp');if(r.ok){const d=await r.json();snmpDot(!!d.config.enabled);}}catch(e){}}
 
 // ── Pi-hole config ────────────────────────────────────────────────────────────
 let _piholeOpen=false;
