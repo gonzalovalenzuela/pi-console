@@ -339,16 +339,16 @@ install_file() {  # src dst mode owner:group
 
 cmd_restore() {
   need_root restore "$@"; need_tools
-  local archive="" assume_yes=0 with_nut=1 with_nginx=0 rm_source=0 a
+  local archive="" assume_yes=0 with_nut=0 with_nginx=0 rm_source=0 a
   for a in "$@"; do case "$a" in
     -y|--yes) assume_yes=1;;
-    --no-nut) with_nut=0;;
+    --nut) with_nut=1;;
     --nginx) with_nginx=1;;
     --rm-source) rm_source=1;;
     -*) die "unknown option: $a";;
     *) archive="$a";;
   esac; done
-  [ -n "$archive" ] || die "usage: sudo teleporter restore <file.tar.gz> [-y] [--no-nut] [--nginx]"
+  [ -n "$archive" ] || die "usage: sudo teleporter restore <file.tar.gz> [-y] [--nut] [--nginx]"
   RM_SOURCE=""; [ "$rm_source" -eq 1 ] && RM_SOURCE="$archive"
   take_lock
   [ -d "$PI_HOME" ] || die "$PI_HOME not found — install the package first: sudo dpkg -i pi-console_*.deb"
@@ -409,7 +409,7 @@ cmd_restore() {
     [ -f "$src" ] || { warn "$dst — not in backup, kept"; continue; }
     case "$rel" in
       conf/nut/*)
-        if [ "$with_nut" -ne 1 ]; then warn "$dst — NUT restore disabled, kept"; continue; fi
+        if [ "$with_nut" -ne 1 ]; then warn "$dst — kept (NUT config is only restored with --nut)"; continue; fi
         if [ ! -d "$NUT_DIR" ]; then warn "$NUT_DIR does not exist (is 'nut' installed?) — skipped"; continue; fi
         mode=640; grp=root; getent group nut >/dev/null 2>&1 && grp=nut
         install_file "$src" "$dst" "$mode" "root:$grp" && ok "$dst" || err "$dst — could not be restored";;
@@ -486,7 +486,7 @@ cmd_gui_backup() {
 
 cmd_gui_restore() {  # <name> <nut:0|1> <nginx:0|1>
   need_root gui-restore "$@"; need_tools; take_lock
-  local name="${1:-}" nut="${2:-1}" ngx="${3:-0}" src copy
+  local name="${1:-}" nut="${2:-0}" ngx="${3:-0}" src copy
   [[ "$name" =~ $NAME_RE ]] || die "invalid backup name"
   [[ "$nut" =~ ^[01]$ && "$ngx" =~ ^[01]$ ]] || die "invalid option"
   src="$SPOOL_DIR/$name"
@@ -496,7 +496,7 @@ cmd_gui_restore() {  # <name> <nut:0|1> <nginx:0|1>
   copy=$(mktemp -d /var/tmp/teleporter.XXXXXX) || die "cannot create a temporary directory"
   cp -- "$src" "$copy/restore.tar.gz" || { rm -rf "$copy"; die "could not copy the backup"; }
   chmod 600 "$copy/restore.tar.gz"
-  local flags=(-y --rm-source); [ "$nut" = 0 ] && flags+=(--no-nut); [ "$ngx" = 1 ] && flags+=(--nginx)
+  local flags=(-y --rm-source); [ "$nut" = 1 ] && flags+=(--nut); [ "$ngx" = 1 ] && flags+=(--nginx)
   local log="$SPOOL_DIR/restore.log"
   release_lock   # the detached job takes it again
   spool_init; rm -f -- "$log"
@@ -520,11 +520,11 @@ Pi Console Teleporter v$TELEPORTER_VERSION
 
   teleporter backup  [file.tar.gz]        create a backup (default: $SAFETY_DIR/)
   teleporter check   <file.tar.gz>        verify a backup, changes nothing
-  teleporter restore <file.tar.gz> [-y] [--no-nut] [--nginx]
+  teleporter restore <file.tar.gz> [-y] [--nut] [--nginx]
                                           restore on this Pi (verifies first, takes a
-                                          safety snapshot, restarts services). nginx is
-                                          only overwritten with --nginx; --no-nut keeps
-                                          the current NUT configuration.
+                                          safety snapshot, restarts services). The NUT
+                                          and nginx configuration are kept unless you
+                                          pass --nut / --nginx.
 
 Backup contents: users/sessions, WOL devices, UPS servers + history.db,
 Net Monitor hosts + config (SNMP), Proxmox clusters, NUT config, nginx site.

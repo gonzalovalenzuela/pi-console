@@ -125,9 +125,9 @@ teleporter check ~/pi-console-20261009.tar.gz                # verificar (no mod
 sudo teleporter restore ~/pi-console-20261009.tar.gz         # restaurar (agregar -y para no preguntar)
 ```
 
-**Desde el panel de administración** (`/admin/` → *Backup & restore*) se hace lo mismo con botones: crear y descargar un respaldo, subir uno, verificarlo y restaurarlo. Para migrar: instala el `.deb` en la Pi nueva, entra con `admin / admin`, sube el respaldo y pulsa *Restore*; después inicia sesión con los usuarios del respaldo. Opciones de consola equivalentes: `--no-nut` (no tocar la configuración de NUT) y `--nginx` (sobrescribir también el sitio nginx; por defecto se conserva el del paquete).
+**Desde el panel de administración** (`/admin/` → *Backup & restore*) se hace lo mismo con botones: crear y descargar un respaldo, subir uno, verificarlo y restaurarlo. Para migrar: instala el `.deb` en la Pi nueva, entra con `admin / admin`, sube el respaldo y pulsa *Restore*; después inicia sesión con los usuarios del respaldo. La configuración de NUT (`/etc/nut`) y el sitio nginx **no se restauran por defecto** (se configuran manualmente o se conservan los del paquete); son opcionales con la casilla correspondiente en el panel o con `--nut` / `--nginx` en consola. Los datos del UPS Monitor (servidores e historial) sí se restauran siempre.
 
-Seguridad: el panel ejecuta el respaldo/restauración como root mediante una regla `sudo` limitada a `teleporter.sh gui-backup` y `gui-restore`. Restaurar la configuración de NUT puede introducir comandos que el demonio del UPS ejecuta como root: restaura solo respaldos de confianza (o usa *sin NUT*).
+Seguridad: el panel ejecuta el respaldo/restauración como root mediante una regla `sudo` limitada a `teleporter.sh gui-backup` y `gui-restore`. Restaurar la configuración de NUT (opcional) puede introducir comandos que el demonio del UPS ejecuta como root: restaura solo respaldos de confianza.
 
 Incluye usuarios, WOL, UPS (servidores e historial), Net Monitor (hosts y SNMP), Proxmox, configuración de NUT y nginx. El archivo contiene contraseñas y tokens (permisos 600): guárdalo en un lugar privado. Para migrar a otra Pi: instalar el `.deb`, copiar el backup y ejecutar `restore`. Antes de restaurar se guarda un snapshot del estado actual en `/var/backups/pi-console/`.
 

@@ -373,7 +373,7 @@ input.err{border-color:var(--red)}
   <div class="modal wide">
     <h3 data-i18n="tpRestoreTitle">Restore backup</h3>
     <p><b id="tp-rs-name" style="font-family:var(--mono);font-size:12px"></b><br><span data-i18n="tpRestoreWarn">This replaces the current users, devices, history and settings with the ones in the backup. A safety snapshot of the current state is saved first. The panel restarts and you will have to sign in again.</span></p>
-    <label class="tp-opt"><input type="checkbox" id="tp-opt-nut" checked><span data-i18n="tpOptNut">Restore the NUT (UPS) configuration. It can contain passwords and commands run by the UPS daemon as root: only restore backups you trust.</span></label>
+    <label class="tp-opt"><input type="checkbox" id="tp-opt-nut"><span data-i18n="tpOptNut">Also restore the NUT configuration in /etc/nut (optional; normally configure it manually). It can contain passwords and commands run by the UPS daemon as root: only restore backups you trust.</span></label>
     <label class="tp-opt"><input type="checkbox" id="tp-opt-nginx"><span data-i18n="tpOptNginx">Also overwrite the nginx site (normally keep the one that comes with this version).</span></label>
     <label class="tp-opt"><input type="checkbox" id="tp-opt-ok" onchange="document.getElementById('tp-rs-go').disabled=!this.checked"><span data-i18n="tpOptOk">I understand that the current data will be overwritten.</span></label>
     <div class="modal-acts">
@@ -437,7 +437,7 @@ const LANG = {
     tpNotAvailable:'teleporter.sh is not installed on this system.',
     tpRestoreTitle:'Restore backup',
     tpRestoreWarn:'This replaces the current users, devices, history and settings with the ones in the backup. A safety snapshot of the current state is saved first. The panel restarts and you will have to sign in again.',
-    tpOptNut:'Restore the NUT (UPS) configuration. It can contain passwords and commands run by the UPS daemon as root: only restore backups you trust.',
+    tpOptNut:'Also restore the NUT configuration in /etc/nut (optional; normally configure it manually). It can contain passwords and commands run by the UPS daemon as root: only restore backups you trust.',
     tpOptNginx:'Also overwrite the nginx site (normally keep the one that comes with this version).',
     tpOptOk:'I understand that the current data will be overwritten.',
     tpRestoreBtn:'Restore', tpConfirmDelete:n=>`Delete the backup "${n}"?`, tpDeleted:'Backup deleted',
@@ -491,7 +491,7 @@ const LANG = {
     tpNotAvailable:'teleporter.sh no está instalado en este sistema.',
     tpRestoreTitle:'Restaurar respaldo',
     tpRestoreWarn:'Esto reemplaza los usuarios, dispositivos, historial y ajustes actuales por los del respaldo. Antes se guarda un snapshot de seguridad del estado actual. El panel se reinicia y tendrás que iniciar sesión de nuevo.',
-    tpOptNut:'Restaurar la configuración de NUT (UPS). Puede contener contraseñas y comandos que el demonio del UPS ejecuta como root: restaura solo respaldos de confianza.',
+    tpOptNut:'Restaurar también la configuración de NUT en /etc/nut (opcional; lo normal es configurarla manualmente). Puede contener contraseñas y comandos que el demonio del UPS ejecuta como root: restaura solo respaldos de confianza.',
     tpOptNginx:'Sobrescribir también el sitio nginx (normalmente conviene mantener el que trae esta versión).',
     tpOptOk:'Entiendo que se sobrescribirán los datos actuales.',
     tpRestoreBtn:'Restaurar', tpConfirmDelete:n=>`¿Eliminar el respaldo "${n}"?`, tpDeleted:'Respaldo eliminado',
@@ -890,7 +890,7 @@ async function tpDelete(name) {
 function tpRestoreOpen(name) {
   _tpName = name;
   document.getElementById('tp-rs-name').textContent = name;
-  document.getElementById('tp-opt-nut').checked = true;
+  document.getElementById('tp-opt-nut').checked = false;
   document.getElementById('tp-opt-nginx').checked = false;
   document.getElementById('tp-opt-ok').checked = false;
   document.getElementById('tp-rs-go').disabled = true;

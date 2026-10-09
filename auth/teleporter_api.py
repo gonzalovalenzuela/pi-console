@@ -123,7 +123,7 @@ def verify(name):
     return run(["check", str(p)], sudo=False, timeout=180)
 
 
-def start_restore(name, nut=True, nginx=False):
+def start_restore(name, nut=False, nginx=False):
     if not path_of(name):
         return False, "Backup not found"
     ok, out = run(["gui-restore", name, "1" if nut else "0", "1" if nginx else "0"],

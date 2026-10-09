@@ -172,7 +172,7 @@ class H(BaseHTTPRequestHandler):
             if action == "restore":
                 if body.get("confirm") is not True:
                     return self._json(400, {"error": "Confirmation required"})
-                ok, out = tp.start_restore(name, nut=body.get("nut", True) is not False,
+                ok, out = tp.start_restore(name, nut=body.get("nut") is True,
                                            nginx=body.get("nginx") is True)
                 log.warning(f"Restore started by {me}: {name} -> {'ok' if ok else 'FAILED'}")
                 return self._json(200 if ok else 500, {"ok": ok, "output": out,
