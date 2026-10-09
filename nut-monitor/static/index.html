@@ -667,8 +667,11 @@ async function initApp(){
   pollTimer=setInterval(fetchAll,POLL);
 }
 
-// Siempre pedimos todo el historial al servidor; el filtro es solo visual
-const _activeRange = 'all';
+// El refresco automático pide solo el estado actual (sin historial); el historial de cada
+// gráfico se pide aparte, por rango, y solo cuando ese gráfico lo necesita.
+const _pollRange = 'none';
+const _csvRange  = 'all';
+const DEFAULT_RANGE = '1h';   // rango inicial de los gráficos
 let _obStartTs = {}; // { "srvId:upsName": timestamp cuando entró en OB }
 
 function exportCSV(){
@@ -684,7 +687,7 @@ function exportCSV(){
     const keys = snap ? Object.keys(snap.ups||{}) : [];
     if(keys.length>0) upsName = keys[0];
   }
-  const range = _activeRange === 'all' ? 'all' : _activeRange;
+  const range = _csvRange;
   const url = `api/export/csv?srv=${encodeURIComponent(srvId)}&ups=${encodeURIComponent(upsName)}&range=${range}`;
   const a = document.createElement('a');
   a.href = url;
@@ -695,8 +698,8 @@ function exportCSV(){
 async function fetchAll(){
   try{
     const [r1,r2]=await Promise.all([
-      fetch('api/servers?range='+_activeRange),
-      fetch('api/ups?range='+_activeRange)
+      fetch('api/servers?range='+_pollRange),
+      fetch('api/ups?range='+_pollRange)
     ]);
     if(r1.status===401||r2.status===401){location.reload();return;}
     servers=(await r1.json()).servers||[];
@@ -708,7 +711,7 @@ async function fetchAll(){
       const parts = expanded.split('/');
       const sid = parts[0], upsName = parts.slice(1).join('/');
       const snap = allData[sid];
-      if(snap) drawVoltageChartForKey(expanded, (snap.history||{})[upsName]||[]);
+      if(snap) drawVoltageChartForKey(expanded);
     }
     // Primera carga: dibujar gráfico de la primera UPS auto-expandida
     if(!_firstChartDrawn && expanded){
@@ -717,7 +720,7 @@ async function fetchAll(){
       const snap = allData[parts[0]];
       if(snap){
         const upsName = parts.slice(1).join('/');
-        setTimeout(()=>drawVoltageChartForKey(expanded,(snap.history||{})[upsName]||[]),100);
+        setTimeout(()=>drawVoltageChartForKey(expanded),100);
       }
     }
   }catch(e){log('ERR','Error: '+e.message);}
@@ -977,7 +980,7 @@ function renderDashboard(){
               <div class="vchart-legend-item"><div class="vchart-legend-dot" style="background:#22c55e"></div>${t('chartLegend_output')}</div>
             </div>
             <div class="vchart-filters" id="vchart-filters-${key.replace(/[^a-z0-9]/gi,'-')}">
-              ${['all','1h','1d','1mo'].map(r=>`<button class="vchart-filter${(vchartRanges[key]||'all')===r?' active':''}" data-range="${r}" onclick="setVChartRange(this,'${key}','v')">${r==='all'?t('filterAll'):r}</button>`).join('')}
+              ${['1h','1d','1mo','all'].map(r=>`<button class="vchart-filter${(vchartRanges[key]||DEFAULT_RANGE)===r?' active':''}" data-range="${r}" onclick="setVChartRange(this,'${key}','v')">${r==='all'?t('filterAll'):r}</button>`).join('')}
             </div>
           </div>
           <div class="vchart-body" style="position:relative">
@@ -994,7 +997,7 @@ function renderDashboard(){
               <div class="vchart-legend-item"><div class="vchart-legend-dot" style="background:#f97316"></div>${t('chartLegend_watts')}</div>
             </div>
             <div class="vchart-filters" id="wchart-filters-${key.replace(/[^a-z0-9]/gi,'-')}">
-              ${['all','1h','1d','1mo'].map(r=>`<button class="vchart-filter${(wchartRanges[key]||'all')===r?' active':''}" data-range="${r}" onclick="setVChartRange(this,'${key}','w')">${r==='all'?t('filterAll'):r}</button>`).join('')}
+              ${['1h','1d','1mo','all'].map(r=>`<button class="vchart-filter${(wchartRanges[key]||DEFAULT_RANGE)===r?' active':''}" data-range="${r}" onclick="setVChartRange(this,'${key}','w')">${r==='all'?t('filterAll'):r}</button>`).join('')}
             </div>
           </div>
           <div class="vchart-body" style="position:relative">
@@ -1027,21 +1030,22 @@ function toggleExpand(key,row){
     const el=document.getElementById('detail-'+key.replace(/[^a-z0-9]/gi,'-'));
     if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});
     // Draw voltage chart after DOM settles
-    drawVoltageChartForKey(key, row.history);
+    drawVoltageChartForKey(key);
   }
 }
 
 // ── Voltage + Watts charts ─────────────────────────────────────────────────────
-const vchartRanges = {};  // { key: 'all'|'1h'|'1d'|'1mo' }
+const vchartRanges = {};  // { key: '1h'|'1d'|'1mo'|'all' }
 const wchartRanges = {};  // idem para watts
 
-// Historial por rango: el servidor devuelve cada rango con su propia resolución.
-// (El historial "all" está diezmado, así que 1h/1d/1mo no pueden filtrarse desde él.)
+// Historial por rango: el servidor devuelve cada rango ya reducido (agrupado por tiempo).
+// Cada rango se pide solo cuando algún gráfico lo usa y se vuelve a pedir a su propio
+// ritmo: los rangos largos casi no cambian, así que no hace falta releerlos seguido.
 const rangeCache = {};   // 'srv/ups|range' -> {ts, rows}
-const RANGE_TTL = 10000; // ms
+const RANGE_TTL = {'1h':10000, '1d':60000, '1mo':300000, 'all':600000}; // ms
 async function fetchRangeHistory(key, range){
   const ck = key+'|'+range, c = rangeCache[ck];
-  if(c && Date.now()-c.ts < RANGE_TTL) return c.rows;
+  if(c && Date.now()-c.ts < (RANGE_TTL[range]||10000)) return c.rows;
   const srv = key.split('/')[0], ups = key.split('/').slice(1).join('/');
   try{
     const r = await fetch('api/history?srv='+encodeURIComponent(srv)+'&ups='+encodeURIComponent(ups)+'&range='+range);
@@ -1051,23 +1055,22 @@ async function fetchRangeHistory(key, range){
     return rows;
   }catch(e){ return c ? c.rows : null; }
 }
-function rangeRows(key, range, allHistory){
-  if(range==='all') return allHistory;
+// Filas ya descargadas para ese rango (null si todavía no llegaron)
+function rangeRows(key, range){
   const c = rangeCache[key+'|'+range];
-  return c ? c.rows : allHistory;   // mientras llega la respuesta, se muestra lo que haya
+  return c ? c.rows : null;
 }
-function drawChartsFor(key, allHistory){
+function drawChartsFor(key){
   const id = key.replace(/[^a-z0-9]/gi,'-');
-  const vr = vchartRanges[key]||'all', wr = wchartRanges[key]||'all';
-  drawVoltageChart('vchart-'+id, rangeRows(key,vr,allHistory), vr);
-  drawWattsChart('wchart-'+id, rangeRows(key,wr,allHistory), wr);
+  const vr = vchartRanges[key]||DEFAULT_RANGE, wr = wchartRanges[key]||DEFAULT_RANGE;
+  const vrows = rangeRows(key,vr), wrows = rangeRows(key,wr);
+  if(vrows) drawVoltageChart('vchart-'+id, vrows, vr);
+  if(wrows) drawWattsChart('wchart-'+id, wrows, wr);
 }
-async function refreshRangeCharts(key, allHistory){
-  const ranges = new Set([vchartRanges[key]||'all', wchartRanges[key]||'all']);
-  ranges.delete('all');
-  if(!ranges.size) return;
+async function refreshRangeCharts(key){
+  const ranges = new Set([vchartRanges[key]||DEFAULT_RANGE, wchartRanges[key]||DEFAULT_RANGE]);
   await Promise.all([...ranges].map(r=>fetchRangeHistory(key, r)));
-  drawChartsFor(key, allHistory);
+  drawChartsFor(key);
 }
 
 async function setVChartRange(btn, key, type){
@@ -1078,12 +1081,8 @@ async function setVChartRange(btn, key, type){
   btn.classList.add('active');
   const store = type==='w' ? wchartRanges : vchartRanges;
   store[key] = btn.dataset.range;
-  const snap = allData[key.split('/')[0]];
-  if(!snap) return;
-  const upsName = key.split('/').slice(1).join('/');
-  const allHistory = (snap.history||{})[upsName]||[];
-  if(store[key]!=='all') await fetchRangeHistory(key, store[key]);
-  drawChartsFor(key, allHistory);
+  await fetchRangeHistory(key, store[key]);
+  drawChartsFor(key);
 }
 
 // Dibujar ambos gráficos al expandir detalle
@@ -1312,10 +1311,10 @@ function drawWattsChart(canvasId, history, range, hoverIdx=-1){
 }
 
 // Dibujar ambos gráficos al expandir detalle
-function drawVoltageChartForKey(key, history){
+function drawVoltageChartForKey(key){
   requestAnimationFrame(()=>{
-    drawChartsFor(key, history);
-    refreshRangeCharts(key, history);
+    drawChartsFor(key);          // al instante con lo que ya hay descargado
+    refreshRangeCharts(key);     // y actualiza solo si venció el TTL del rango
   });
 }
 
@@ -1406,8 +1405,8 @@ function onVChartMove(e, canvas, key, type){
   const snap = allData[key.split('/')[0]];
   if(!snap) return;
   const upsName = key.split('/').slice(1).join('/');
-  const range = type==='w' ? (wchartRanges[key]||'all') : (vchartRanges[key]||'all');
-  const history = filterHistory(rangeRows(key, range, (snap.history||{})[upsName]||[]), range);
+  const range = type==='w' ? (wchartRanges[key]||DEFAULT_RANGE) : (vchartRanges[key]||DEFAULT_RANGE);
+  const history = filterHistory(rangeRows(key, range)||[], range);
   if(!history||history.length<2){tip.className='vchart-tooltip';return;}
 
   const rect = canvas.getBoundingClientRect();
@@ -1454,8 +1453,8 @@ function onVChartLeave(key, type){
   const snap = allData[key.split('/')[0]];
   if(!snap) return;
   const upsName = key.split('/').slice(1).join('/');
-  const range = type==='w' ? (wchartRanges[key]||'all') : (vchartRanges[key]||'all');
-  const history = filterHistory(rangeRows(key, range, (snap.history||{})[upsName]||[]), range);
+  const range = type==='w' ? (wchartRanges[key]||DEFAULT_RANGE) : (vchartRanges[key]||DEFAULT_RANGE);
+  const history = filterHistory(rangeRows(key, range)||[], range);
   if(type==='w') drawWattsChart('wchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, range, -1);
   else           drawVoltageChart('vchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, range, -1);
 }

@@ -106,43 +106,35 @@ def db_insert(srv_id, ups, entry, urgent=False):
             except Exception as e: log.error(f"db flush: {e}")
 
 def db_query(srv_id, ups, since_ts=0, limit=4320):
-    """Devuelve puntos del historial, decimando si hay demasiados."""
+    """Historial de un UPS reducido a como máximo ~`limit` puntos.
+
+    Agrupa por intervalos de tiempo iguales y promedia cada uno (el último punto
+    conserva su timestamp real). Así la muestra es pareja, llega hasta el dato más
+    reciente y no depende de los ids de fila, que se comparten entre todos los UPS.
+    (Elegir filas con `id % paso` dejaba sin ningún punto a un UPS cuando había
+    dos o más y el paso era par.)
+    """
     with _db_lock:
         conn = db_connect()
-        # Total de puntos en el rango pedido
-        total = conn.execute(
-            "SELECT COUNT(*) FROM history WHERE srv_id=? AND ups=? AND ts>=?",
-            (srv_id, ups, since_ts)
-        ).fetchone()[0]
-
-        # Si hay muchos más que el límite, diezmar tomando 1 de cada N
-        if total > limit and total > 0:
-            step = max(1, total // limit)
-            # SQLite no tiene ROW_NUMBER fácil, usamos modulo con rowid
+        try:
+            lo, hi = conn.execute(
+                "SELECT MIN(ts), MAX(ts) FROM history WHERE srv_id=? AND ups=? AND ts>=?",
+                (srv_id, ups, since_ts)).fetchone()
+            if lo is None:
+                return []
+            bucket = max(1, -(-(hi - lo) // max(1, limit - 1)))   # techo de span/(limit-1)
             rows = conn.execute("""
-                SELECT ts,charge,runtime,load,vin,vout,watts,temp
+                SELECT MAX(ts) AS ts, AVG(charge) AS charge, AVG(runtime) AS runtime,
+                       AVG(load) AS load, AVG(vin) AS vin, AVG(vout) AS vout,
+                       AVG(watts) AS watts, AVG(temp) AS temp
                 FROM history
                 WHERE srv_id=? AND ups=? AND ts>=?
-                  AND (id % ?) = 0
+                GROUP BY (ts - ?) / ?
                 ORDER BY ts ASC
-                LIMIT ?
-            """, (srv_id, ups, since_ts, step, limit)).fetchall()
-            # Siempre agregar el último punto real
-            last = conn.execute("""
-                SELECT ts,charge,runtime,load,vin,vout,watts,temp
-                FROM history WHERE srv_id=? AND ups=? ORDER BY ts DESC LIMIT 1
-            """, (srv_id, ups)).fetchone()
-            rows = list(rows)
-            if last and (not rows or rows[-1]["ts"] != last["ts"]):
-                rows.append(last)
-        else:
-            rows = conn.execute("""
-                SELECT ts,charge,runtime,load,vin,vout,watts,temp
-                FROM history WHERE srv_id=? AND ups=? AND ts>=?
-                ORDER BY ts ASC LIMIT ?
-            """, (srv_id, ups, since_ts, limit)).fetchall()
-        conn.close()
-        return [dict(r) for r in rows]
+            """, (srv_id, ups, since_ts, lo, bucket)).fetchall()
+            return [dict(r) for r in rows]
+        finally:
+            conn.close()
 
 def db_prune():
     """Elimina registros de más de 1 año. Llamar periódicamente."""
@@ -294,6 +286,12 @@ class SCache:
             error     = self._error
             last_ok   = self._last_ok
             ver       = self._ver
+
+        # range=none: solo estado actual, sin tocar la base (refresco automático de la página)
+        if range_ == "none":
+            return {"id": self.id, "ups": ups_snap, "clients": cli_snap,
+                    "history": {}, "error": error, "last_ok": last_ok,
+                    "version": ver, "ts": time.time()}
 
         # Cargar historial de DB según rango
         since = 0
