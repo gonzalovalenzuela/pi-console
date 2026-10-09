@@ -1,6 +1,9 @@
 # Pi Console
 
-**Homelab dashboard** para Raspberry Pi — panel centralizado con autenticación SSO y cinco módulos de gestión.
+**Homelab dashboard** para Raspberry Pi
+
+![alt text](https://github.com/gonzalovalenzuela/pi-console/blob/main/ups_monitor.png "Panel Screenshot")
+
 
 ---
 
@@ -62,10 +65,10 @@ Cada módulo es un servidor HTTP Python 3 independiente. La autenticación se co
 
 ```bash
 # Descargar el .deb desde Releases
-wget https://github.com/gonzalovalenzuela/pi-console/releases/latest/download/pi-console_1.0.4_all.deb
+wget https://github.com/gonzalovalenzuela/pi-console/releases/download/1.0.8/pi-console_1.0.8_all.deb
 
 # Instalar
-sudo dpkg -i pi-console_1.0.4_all.deb
+sudo dpkg -i pi-console_1.0.8_all.deb
 sudo apt-get install -f   # si faltan dependencias
 ```
 
