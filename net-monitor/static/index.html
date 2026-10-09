@@ -123,6 +123,14 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse}
 thead th{padding:9px 14px;text-align:left;font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);white-space:nowrap}
+thead th.sortable{cursor:pointer;user-select:none;transition:color .12s}
+thead th.sortable:hover,thead th.sortable:focus-visible{color:var(--text);outline:none}
+thead th .sort-ind{display:inline-block;margin-left:5px;font-size:9px;opacity:.35}
+thead th .sort-ind::after{content:'\2195'}
+thead th[aria-sort=ascending],thead th[aria-sort=descending]{color:var(--teal)}
+thead th[aria-sort=ascending] .sort-ind,thead th[aria-sort=descending] .sort-ind{opacity:1}
+thead th[aria-sort=ascending] .sort-ind::after{content:'\25B2'}
+thead th[aria-sort=descending] .sort-ind::after{content:'\25BC'}
 tbody tr{border-bottom:1px solid var(--border);transition:background .1s;animation:row-in .22s ease both}
 @keyframes row-in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 tbody tr:last-child{border-bottom:none}
@@ -355,12 +363,13 @@ td{padding:10px 14px;vertical-align:middle}
       <div class="tbl-wrap">
         <table>
           <thead><tr>
-            <th style="width:28px"></th>
-            <th>IP / Hostname</th>
-            <th>OS</th>
-            <th>Vendor / MAC</th>
-            <th data-i18n="colOpenPorts">Open ports</th>
-            <th data-i18n="colLastSeen">Last seen</th>
+            <th class="sortable" data-sort="status" style="width:40px;padding:9px 6px;text-align:center" tabindex="0" onclick="setSort('status')" onkeydown="sortKey(event,'status')"><span data-i18n="colStatus" style="font-size:0;letter-spacing:0">Status</span><span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="ip" tabindex="0" onclick="setSort('ip')" onkeydown="sortKey(event,'ip')"><span>IP / Hostname</span><span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="os" tabindex="0" onclick="setSort('os')" onkeydown="sortKey(event,'os')"><span>OS</span><span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="vendor" tabindex="0" onclick="setSort('vendor')" onkeydown="sortKey(event,'vendor')"><span>Vendor / MAC</span><span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="ports" tabindex="0" onclick="setSort('ports')" onkeydown="sortKey(event,'ports')"><span data-i18n="colOpenPorts">Open ports</span><span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="latency" tabindex="0" onclick="setSort('latency')" onkeydown="sortKey(event,'latency')"><span data-i18n="colLatency">Latency</span><span class="sort-ind"></span></th>
+            <th class="sortable" data-sort="seen" tabindex="0" onclick="setSort('seen')" onkeydown="sortKey(event,'seen')"><span data-i18n="colLastSeen">Last seen</span><span class="sort-ind"></span></th>
             <th style="width:28px"></th>
           </tr></thead>
           <tbody id="hosts-tbody"></tbody>
@@ -383,7 +392,7 @@ const LANG={
     statOpenPorts:'Open ports',statLastScan:'Last scan',
     filterAll:'All',filterOnline:'Online',filterOffline:'Offline',
     hostsTitle:'Hosts on network',
-    colOpenPorts:'Open ports',colLastSeen:'Last seen',
+    colOpenPorts:'Open ports',colLastSeen:'Last seen',colLatency:'Latency',colStatus:'Status',
     cancel:'Cancel',saveConnect:'Save & connect',
     scanningNet:'Scanning network...',
     permReadonly:'Read-only',permExecute:'Execute',permAdmin:'Administrator',
@@ -413,7 +422,7 @@ const LANG={
     statOpenPorts:'Puertos abiertos',statLastScan:'Último escaneo',
     filterAll:'Todos',filterOnline:'Online',filterOffline:'Offline',
     hostsTitle:'Hosts en la red',
-    colOpenPorts:'Puertos abiertos',colLastSeen:'Último contacto',
+    colOpenPorts:'Puertos abiertos',colLastSeen:'Último contacto',colLatency:'Latencia',colStatus:'Estado',
     cancel:'Cancelar',saveConnect:'Guardar y conectar',
     scanningNet:'Escaneando red...',
     permReadonly:'Solo lectura',permExecute:'Ejecución',permAdmin:'Administrador',
@@ -450,6 +459,8 @@ function setLang(l){
 (()=>setLang(_lang))();
 
 let ME=null, hosts=[], filterOs='ALL', filterStatus='ALL', searchQ='', expanded=null, pollTimer=null;
+let sortKeyName=null, sortDir=1;   // null = orden por defecto (online primero, luego IP)
+try{const sv=JSON.parse(localStorage.getItem('pi-net-sort')||'null');if(sv&&['status','ip','os','vendor','ports','latency','seen'].includes(sv.k)){sortKeyName=sv.k;sortDir=sv.d===-1?-1:1;}}catch(e){}
 const POLL=30000;
 let _lastDataHash='', _currentPoll=POLL;
 
@@ -710,12 +721,49 @@ function filtered(){
       if(!hay.includes(searchQ))return false;
     }
     return true;
-  }).sort((a,b)=>{
-    // Online first, then by IP
+  }).sort(compareHosts);
+}
+
+// ── Ordenamiento ─────────────────────────────────────────────
+const ipKey=ip=>String(ip).split('.').map(n=>n.padStart(3,'0')).join('');
+const SORT_VALUE={
+  status: h=>h.online?0:1,
+  ip:     h=>ipKey(h.ip),
+  os:     h=>tOs(h.os||'Desconocido').toLowerCase(),
+  vendor: h=>(h.vendor||'').toLowerCase(),
+  ports:  h=>(h.ports||[]).length,
+  latency:h=>h.online&&h.latency?h.latency:null,   // sin dato (offline / sin respuesta) va al final
+  seen:   h=>h.last_seen||null,
+};
+function compareHosts(a,b){
+  if(!sortKeyName){          // por defecto: online primero, luego IP
     if(a.online!==b.online)return a.online?-1:1;
-    return a.ip.split('.').map(n=>n.padStart(3,'0')).join('').localeCompare(b.ip.split('.').map(n=>n.padStart(3,'0')).join(''));
+    return ipKey(a.ip).localeCompare(ipKey(b.ip));
+  }
+  const va=SORT_VALUE[sortKeyName](a), vb=SORT_VALUE[sortKeyName](b);
+  const ea=va===null||va==='', eb=vb===null||vb==='';
+  if(ea!==eb)return ea?1:-1;                       // vacíos siempre al final, en ambos sentidos
+  if(!ea){
+    const c=typeof va==='number'?va-vb:String(va).localeCompare(String(vb),undefined,{numeric:true});
+    if(c)return c*sortDir;
+  }
+  return ipKey(a.ip).localeCompare(ipKey(b.ip));   // desempate estable por IP
+}
+function updateSortHeaders(){
+  document.querySelectorAll('thead th.sortable').forEach(th=>{
+    const on=th.dataset.sort===sortKeyName;
+    th.setAttribute('aria-sort',on?(sortDir===1?'ascending':'descending'):'none');
   });
 }
+// Clic en la misma columna: ascendente → descendente → orden por defecto
+function setSort(k){
+  if(sortKeyName!==k){sortKeyName=k;sortDir=1;}
+  else if(sortDir===1){sortDir=-1;}
+  else{sortKeyName=null;sortDir=1;}
+  try{if(sortKeyName)localStorage.setItem('pi-net-sort',JSON.stringify({k:sortKeyName,d:sortDir}));else localStorage.removeItem('pi-net-sort');}catch(e){}
+  updateSortHeaders();renderTable();
+}
+function sortKey(e,k){if(e.key==='Enter'||e.key===' '){e.preventDefault();setSort(k);}}
 
 // ── Render ────────────────────────────────────────────────────────────────────
 function renderOsFilters(){
@@ -770,7 +818,7 @@ function renderTable(){
   document.getElementById('host-count').textContent=list.length===hosts.length?hosts.length+' hosts':list.length+' / '+hosts.length+' hosts';
 
   if(!list.length){
-    tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state">
+    tbody.innerHTML=`<tr><td colspan="8"><div class="empty-state">
       <strong>${hosts.length?t('noResults'):t('noHosts2')}</strong>
       ${hosts.length?t('filterHint'):t('startScanHint')}
     </div></td></tr>`;
@@ -838,7 +886,7 @@ function renderTable(){
     const dtr=document.createElement('tr');
     dtr.className='detail-row'+(isExp?' show':'');
     const allPorts=h.ports||[];
-    dtr.innerHTML=`<td colspan="7" class="detail-cell">
+    dtr.innerHTML=`<td colspan="8" class="detail-cell">
       <div class="detail-inner">
         <div class="detail-section">
           <div class="detail-label">Información</div>
@@ -1136,6 +1184,7 @@ let _tt;
 function toast(msg,isErr=false){const el=document.getElementById('toast');el.textContent=msg;el.style.background=isErr?'var(--red)':'var(--text)';void el.offsetWidth;el.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),3400);}
 
 _i18nReady=true;
+updateSortHeaders();
 (async()=>{
   const ok=await checkSession();
   if(ok){applyPermissions();await initApp();const ls=document.getElementById('login-screen');ls.style.opacity='0';setTimeout(()=>ls.style.display='none',150);}else{document.getElementById('login-screen').style.display='flex';}
