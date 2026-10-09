@@ -116,6 +116,18 @@ El servidor consulta cada cluster con sondeo adaptivo (5 s con la vista abierta,
 
 ---
 
+## Backup y migración — Teleporter
+
+```bash
+sudo teleporter backup ~/pi-console-$(date +%Y%m%d).tar.gz   # crear backup
+teleporter check ~/pi-console-20261009.tar.gz                # verificar (no modifica nada)
+sudo teleporter restore ~/pi-console-20261009.tar.gz         # restaurar (agregar -y para no preguntar)
+```
+
+Incluye usuarios, WOL, UPS (servidores e historial), Net Monitor (hosts y SNMP), Proxmox, configuración de NUT y nginx. El archivo contiene contraseñas y tokens (permisos 600): guárdalo en un lugar privado. Para migrar a otra Pi: instalar el `.deb`, copiar el backup y ejecutar `restore`. Antes de restaurar se guarda un snapshot del estado actual en `/var/backups/pi-console/`.
+
+---
+
 ## Internacionalización
 
 La interfaz soporta **inglés** (por defecto) y **español**. El idioma se persiste en `localStorage` con la clave `pi-lang` y se comparte entre todos los módulos.
@@ -150,6 +162,8 @@ pi-console/
 │   └── nginx/
 │       └── sites-available/
 │           └── pi-console.conf
+├── scripts/
+│   └── teleporter.sh        # Backup / check / restore
 ├── debian/                  # Scripts de empaquetado .deb
 │   ├── control
 │   ├── postinst

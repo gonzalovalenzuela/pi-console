@@ -24,6 +24,13 @@
 ### Interfaz general
 - Campos de entrada con fondo más oscuro y borde más marcado (tema claro y oscuro) para distinguir qué se puede completar.
 
+### Teleporter (backup / verificación / restauración)
+- Nuevo `/usr/local/bin/teleporter.sh` (con enlace `teleporter`): `teleporter backup`, `teleporter check <archivo>` y `sudo teleporter restore <archivo>`.
+- Respalda usuarios y sesiones (`/var/lib/pi-console`), dispositivos WOL, servidores UPS + `history.db` (snapshot consistente con la API de SQLite), hosts/config de Net Monitor (SNMP), clusters Proxmox, configuración de NUT y el sitio nginx.
+- `check` valida gzip, rutas seguras, checksums SHA-256, JSON, integridad SQLite y que `users.json` no esté vacío; no modifica nada.
+- `restore` verifica antes de tocar nada, crea un snapshot de seguridad en `/var/backups/pi-console/`, detiene servicios, reemplaza archivos de forma atómica (permisos 600), recrea los enlaces de `/opt/pi-console-auth`, valida `nginx -t` (y revierte si falla) y siempre reinicia los servicios, incluso si algo falla.
+- Acepta backups del teleporter 1.x. `pi-console-backup` y `pi-console-restore` ahora son atajos a `teleporter`.
+
 ### Paquete
 - Nuevos `Suggests`: `ieee-data`, `snmp` (opcionales; `snmp` solo se necesita para la fuente SNMP).
 - Los datos de usuario (`clusters.json`, `hosts.json`, `config.json`) se conservan al actualizar.
