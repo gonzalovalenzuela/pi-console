@@ -14,7 +14,7 @@
 body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;display:flex}
 ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--border-b);border-radius:99px}
 /* ── Login overlay ── */
-#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:99999;padding:24px}
+#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:99999;padding:24px;transition:opacity .15s}
 .login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:32px;width:100%;max-width:360px;box-shadow:var(--shadow-md)}
 .login-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px}
 .login-logo-ico{width:36px;height:36px;border-radius:8px;background:var(--blue);display:flex;align-items:center;justify-content:center}
@@ -585,9 +585,11 @@ async function doLogin(){
       err.textContent='No tienes acceso a WOL Console';err.className='login-err show';return;
     }
     ME=d;
-    document.getElementById('login-screen').style.display='none';
     applyPermissions();
     await initApp();
+    const ls=document.getElementById('login-screen');
+    ls.style.opacity='0';
+    setTimeout(()=>ls.style.display='none',150);
   }catch(e){err.textContent='Error: '+e.message;err.className='login-err show';}
   finally{btn.disabled=false;btn.textContent=t('loginBtn');}
 }
@@ -929,9 +931,11 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
 (async()=>{
   const ok=await checkSession();
   if(ok){
-    document.getElementById('login-screen').style.display='none';
     applyPermissions();
     await initApp();
+    const ls=document.getElementById('login-screen');
+    ls.style.opacity='0';
+    setTimeout(()=>ls.style.display='none',150);
   }
 })();
 </script>
