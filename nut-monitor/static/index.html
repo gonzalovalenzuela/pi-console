@@ -1407,7 +1407,7 @@ function onVChartMove(e, canvas, key, type){
   if(!snap) return;
   const upsName = key.split('/').slice(1).join('/');
   const range = type==='w' ? (wchartRanges[key]||'all') : (vchartRanges[key]||'all');
-  const history = filterHistory((snap.history||{})[upsName]||[], range);
+  const history = filterHistory(rangeRows(key, range, (snap.history||{})[upsName]||[]), range);
   if(!history||history.length<2){tip.className='vchart-tooltip';return;}
 
   const rect = canvas.getBoundingClientRect();
@@ -1455,7 +1455,7 @@ function onVChartLeave(key, type){
   if(!snap) return;
   const upsName = key.split('/').slice(1).join('/');
   const range = type==='w' ? (wchartRanges[key]||'all') : (vchartRanges[key]||'all');
-  const history = filterHistory((snap.history||{})[upsName]||[], range);
+  const history = filterHistory(rangeRows(key, range, (snap.history||{})[upsName]||[]), range);
   if(type==='w') drawWattsChart('wchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, range, -1);
   else           drawVoltageChart('vchart-'+key.replace(/[^a-z0-9]/gi,'-'), history, range, -1);
 }
