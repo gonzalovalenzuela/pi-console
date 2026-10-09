@@ -152,6 +152,8 @@ def _pihole_logout(host: str, sid: str):
     except Exception:
         pass
 
+MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+
 def refresh_pihole_cache():
     """Obtiene hostname+vendor+MAC de Pi-hole y llena _pihole_cache."""
     global _pihole_ts
@@ -170,15 +172,17 @@ def refresh_pihole_cache():
             data = _pihole_request(host, "/api/network/devices", sid=sid)
             devices = data.get("devices", [])
             for dev in devices:
-                mac    = dev.get("hwaddr", "")
+                mac    = dev.get("hwaddr", "") or ""
+                if not MAC_RE.match(mac):
+                    mac = ""          # Pi-hole uses placeholders like "ip-192.168.0.5"
                 vendor = dev.get("macVendor", "")
                 for ip_entry in dev.get("ips", []):
                     ip   = ip_entry.get("ip", "")
-                    name = ip_entry.get("name", "").rstrip(".local").rstrip(".")
+                    name = re.sub(r"(\.local)?\.?$", "", ip_entry.get("name", "") or "")
                     if ip:
                         new_cache[ip] = {
                             "hostname": name,
-                            "vendor":   vendor,
+                            "vendor":   vendor or (oui_vendor(mac) if mac else ""),
                             "mac":      mac,
                         }
             log.info(f"Pi-hole cache: {len(new_cache)} entradas desde {host}")
@@ -543,6 +547,10 @@ def run_scan(network: str = None, single_ip: str = None):
                         # Respetar latencia anterior si ahora no hay datos
                         if result.get("latency", 0) == 0 and existing.get("latency", 0) > 0:
                             result["latency"] = existing["latency"]
+                        # Keep MAC/vendor from earlier scans when this one found none
+                        for k in ("mac", "vendor"):
+                            if not result.get(k) and existing.get(k):
+                                result[k] = existing[k]
                         # Keep manually chosen device type
                         if existing.get("type_manual"):
                             result["device_type"] = existing.get("device_type", result["device_type"])

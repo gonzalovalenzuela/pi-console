@@ -737,7 +737,7 @@ function filtered(){
     if(filterStatus==='online'&&!h.online)return false;
     if(filterStatus==='offline'&&h.online)return false;
     if(searchQ){
-      const hay=(h.ip+' '+(h.hostname||'')+' '+(h.alias||'')+' '+h.os+' '+tType(devType(h))+' '+(h.vendor||'')+' '+(h.ports||[]).map(p=>p.port+' '+p.service).join(' ')).toLowerCase();
+      const hay=(h.ip+' '+(h.hostname||'')+' '+(h.alias||'')+' '+h.os+' '+tType(devType(h))+' '+(h.vendor||'')+' '+(h.mac||'')+' '+(h.ports||[]).map(p=>p.port+' '+p.service).join(' ')).toLowerCase();
       if(!hay.includes(searchQ))return false;
     }
     return true;
@@ -751,7 +751,7 @@ const SORT_VALUE={
   ip:     h=>ipKey(h.ip),
   type:   h=>tType(devType(h)).toLowerCase(),
   os:     h=>tOs(h.os||'Desconocido').toLowerCase(),
-  vendor: h=>(h.vendor||'').toLowerCase(),
+  vendor: h=>(h.vendor||h.mac||'').toLowerCase(),
   ports:  h=>(h.ports||[]).length,
   latency:h=>h.online&&h.latency?h.latency:null,   // sin dato (offline / sin respuesta) va al final
   seen:   h=>h.last_seen||null,
@@ -912,7 +912,7 @@ function renderTable(){
             onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--text-dim)'">✎</button>
         </div>
       </td>
-      <td style="font-size:11px;color:var(--text-dim);font-family:var(--mono)">${esc(h.vendor||'—')}</td>
+      <td style="font-size:11px;color:var(--text-dim);font-family:var(--mono)">${h.vendor?`<div>${esc(h.vendor)}</div>`:''}${h.mac?`<div style="${h.vendor?'font-size:10px;opacity:.75':''}">${esc(h.mac)}</div>`:''}${!h.vendor&&!h.mac?'—':''}</td>
       <td>
         <div class="port-chips">
           ${topPorts.map(p=>`<span class="port-chip known" title="${esc(p.service)}">${p.port}</span>`).join('')}
@@ -935,7 +935,7 @@ function renderTable(){
           <div class="detail-label">Información</div>
           <div class="detail-value">IP: ${esc(h.ip)}</div>
           ${h.hostname?`<div class="detail-value">Host: ${esc(h.hostname)}</div>`:''}
-          ${h.vendor?`<div class="detail-value">Vendor: ${esc(h.vendor)}</div>`:''}
+          ${h.vendor?`<div class="detail-value">Vendor: ${esc(h.vendor)}</div>`:''}${h.mac?`<div class="detail-value">MAC: ${esc(h.mac)}</div>`:''}
           ${h.os_raw?`<div class="detail-value" style="color:var(--text-dim);font-size:10px">${esc(h.os_raw)}</div>`:''}
           <div class="detail-value" style="margin-top:6px">
             <button class="btn-rescan" onclick="rescanHost('${esc(h.ip)}');event.stopPropagation()">
