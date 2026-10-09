@@ -21,6 +21,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14
 .nav-item svg{width:15px;height:15px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2}
 .nav-item:hover{background:var(--bg);color:var(--text)}
 .nav-item.active{background:var(--purple-dim);color:var(--purple)}
+.nav-drag-handle{font-size:14px;opacity:0;cursor:grab;flex-shrink:0;color:var(--text-dim);line-height:1;transition:opacity .15s}
+.nav-drag-item:hover .nav-drag-handle{opacity:1}
+.nav-drag-item.nav-dragging{opacity:.4}
+.nav-drag-item.nav-drag-over{outline:2px solid var(--purple);outline-offset:-2px;border-radius:var(--r-sm)}
 .sb-footer{margin-top:auto;padding:12px 12px 14px;border-top:1px solid var(--border)}
 .user-badge{display:flex;align-items:center;gap:8px;padding:9px 10px;background:var(--bg);border-radius:var(--r-sm);border:1px solid var(--border)}
 .user-avatar{width:28px;height:28px;border-radius:50%;background:var(--purple-dim);color:var(--purple);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
@@ -166,16 +170,8 @@ input.err{border-color:var(--red)}
     <div><div class="sb-name">Admin Panel</div><div class="sb-ver">Pi Console</div></div>
   </div>
   <div class="sb-sec">
-    <div class="sb-lbl">Panel</div>
-    <div class="nav-item active"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuarios</div>
-  </div>
-  <div class="sb-sec">
-    <div class="sb-lbl">Aplicaciones</div>
-    <a class="nav-item" href="/wol/"><svg viewBox="0 0 24 24"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg>WOL Console</a>
-    <a class="nav-item" href="/nut/" style="margin-top:2px"><svg viewBox="0 0 24 24"><path d="M5 9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><rect x="3" y="9" width="18" height="11" rx="2"/><line x1="12" y1="13" x2="12" y2="16"/></svg>UPS Monitor</a>
-    <a class="nav-item" href="/net/" style="margin-top:2px"><svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>Net Monitor</a>
-    <a class="nav-item" href="/pve/" style="margin-top:2px"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Proxmox</a>
-
+    <div class="sb-lbl">Navegación</div>
+    <div id="nav-items"></div>
   </div>
   <div class="sb-footer">
     <div class="user-badge">
@@ -328,6 +324,52 @@ input.err{border-color:var(--red)}
 
 <script>
 let me = null;
+
+// ── Nav reordenable ───────────────────────────────────────────────────────────
+const _NAV_ITEMS=[
+  {id:'wol',   href:'/wol/',   label:'WOL Console', svg:'<polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/>'},
+  {id:'nut',   href:'/nut/',   label:'UPS Monitor', svg:'<path d="M5 9V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><rect x="3" y="9" width="18" height="11" rx="2"/><line x1="12" y1="13" x2="12" y2="16"/>'},
+  {id:'net',   href:'/net/',   label:'Net Monitor', svg:'<rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>'},
+  {id:'pve',   href:'/pve/',   label:'Proxmox',     svg:'<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>'},
+  {id:'admin', href:'/admin/', label:'Admin Panel', svg:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'},
+];
+const _NAV_SELF='admin';
+let _navDragSrc=null;
+function _navOrder(){
+  try{const s=JSON.parse(localStorage.getItem('pi-nav-order')||'[]');
+    if(s.length){const ids=_NAV_ITEMS.map(i=>i.id);const o=s.filter(id=>ids.includes(id));ids.forEach(id=>{if(!o.includes(id))o.push(id);});return o;}}catch(e){}
+  return _NAV_ITEMS.map(i=>i.id);
+}
+function renderNav(){
+  const wrap=document.getElementById('nav-items');if(!wrap)return;
+  const order=_navOrder();
+  wrap.innerHTML='';
+  order.forEach(id=>{
+    const item=_NAV_ITEMS.find(i=>i.id===id);if(!item)return;
+    const isSelf=item.id===_NAV_SELF;
+    const a=document.createElement('a');
+    a.className='nav-item nav-drag-item'+(isSelf?' active':'');
+    a.href=isSelf?'#':item.href;a.dataset.navId=item.id;a.draggable=true;
+    a.innerHTML=`<span class="nav-drag-handle" title="Arrastrar">⠿</span><svg viewBox="0 0 24 24">${item.svg}</svg>${item.label}`;
+    a.addEventListener('dragstart',e=>{_navDragSrc=id;e.dataTransfer.effectAllowed='move';a.classList.add('nav-dragging');});
+    a.addEventListener('dragend',()=>a.classList.remove('nav-dragging'));
+    a.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';a.classList.add('nav-drag-over');});
+    a.addEventListener('dragleave',()=>a.classList.remove('nav-drag-over'));
+    a.addEventListener('drop',e=>{
+      e.preventDefault();a.classList.remove('nav-drag-over');
+      if(_navDragSrc&&_navDragSrc!==id){
+        const cur=_navOrder(),from=cur.indexOf(_navDragSrc),to=cur.indexOf(id);
+        if(from>-1&&to>-1){cur.splice(from,1);cur.splice(to,0,_navDragSrc);}
+        try{localStorage.setItem('pi-nav-order',JSON.stringify(cur));}catch(e){}
+        renderNav();
+      }
+      _navDragSrc=null;
+    });
+    wrap.appendChild(a);
+  });
+}
+// Admin siempre ve todos los items — renderizar inmediatamente
+renderNav();
 
 // ── Theme ──────────────────────────────────────────────
 function setTheme(t){
