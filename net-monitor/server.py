@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Net Monitor — Escaneo de red sin nmap
+Net Monitor — Escaneo de red sin nmap + mapeo de host con mac address + evaluacion de sistema operativo y tipo de dispositivo.
 Detección: TTL + puertos Python puro + HTTP banner + mDNS
 """
 import json, os, re, socket, struct, subprocess, sys, time, logging, threading, ipaddress, ssl
