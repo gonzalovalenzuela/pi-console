@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.7e — 2026-10-10
+
+### Correcciones
+- **UPS Monitor: gráficos vacíos (sin datos de la última hora)**: el gráfico volvía a filtrar los puntos con el reloj del *navegador*, aunque el servidor ya los había filtrado con el reloj de la Pi. Si ambos relojes difieren en 1 hora o más (por ejemplo una Pi sin RTC/NTP al día), se descartaban todos los puntos. Ahora el recorte usa el punto más reciente del propio historial y no depende del reloj del navegador.
+
 ## 1.1.7d — 2026-10-09
 
 ### Correcciones

@@ -1114,10 +1114,13 @@ async function setVChartRange(btn, key, type){
 function filterHistory(history, range){
   if(!history||!history.length) return history;
   if(range==='all') return history;
-  const now = Date.now()/1000;
+  // The server already limits each range using ITS clock. Trim relative to the newest point
+  // (also server time), never to this browser's clock: a Pi without RTC/NTP, or a PC with a
+  // different time, would otherwise drop every point and show an empty chart.
   const cutoffs = {'1h':3600,'1d':86400,'1mo':2592000};
   const cutoff = cutoffs[range]||0;
-  return history.filter(p=>p.ts>=(now-cutoff));
+  const ref = history[history.length-1].ts;
+  return history.filter(p=>p.ts>=(ref-cutoff));
 }
 
 function drawVoltageChart(canvasId, history, range, hoverIdx=-1){
