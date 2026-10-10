@@ -250,6 +250,11 @@ class SCache:
         self._ups = {}; self._clients = {}
         self._error = None; self._last_ok = None; self._ver = ""
 
+    def reset(self):
+        with self._lock:
+            self._ups = {}; self._clients = {}
+            self._error = None; self._last_ok = None; self._ver = ""
+
     def update(self, name, vars_, clients=None, ver=""):
         with self._lock:
             self._ups[name]     = {**vars_, "_ts": time.time()}
@@ -308,27 +313,36 @@ class SCache:
                 "history": history, "error": error, "last_ok": last_ok,
                 "version": ver, "ts": time.time()}
 
-_caches: dict = {}; _pollers: dict = {}; _gl = threading.Lock()
+_caches: dict = {}; _pollers: dict = {}; _wake: dict = {}; _gl = threading.Lock()
 
 def ensure_poller(server):
     sid = server["id"]
     with _gl:
         if sid not in _caches: _caches[sid] = SCache(sid)
+        ev = _wake.setdefault(sid, threading.Event())
+        if sid in _pollers: ev.set()   # edited server: poll again right away
         if sid not in _pollers or not _pollers[sid].is_alive():
             t = threading.Thread(target=_poll, args=(server,), daemon=True)
             _pollers[sid] = t; t.start()
             log.info(f"Poller → {server['name']} ({server['host']}:{server['port']})")
 
 def remove_poller(sid):
-    with _gl: _caches.pop(sid, None); _pollers.pop(sid, None)
+    with _gl: _caches.pop(sid, None); _pollers.pop(sid, None); _wake.pop(sid, None)
 
 def _poll(server):
     sid = server["id"]; nut = NUTClient(server["host"], server["port"])
     cache = _caches.get(sid)
     if not cache: return
     poll_n = 0
+    target = (server["host"], int(server["port"]))
     while True:
-        if not any(s["id"] == sid for s in load_servers()): return
+        cur = next((s for s in load_servers() if s["id"] == sid), None)
+        if cur is None: return
+        if (cur["host"], int(cur["port"])) != target:
+            # host/port edited: reconnect and drop data from the old address
+            target = (cur["host"], int(cur["port"]))
+            nut = NUTClient(*target); cache.reset()
+            log.info(f"Poller → {cur['name']} ({target[0]}:{target[1]}) (edited)")
         try:
             ver   = nut.get_version()
             ups_l = nut.list_ups()
@@ -349,7 +363,9 @@ def _poll(server):
         # Limpiar DB cada 1440 polls (~4h con poll=10s)
         if poll_n % 1440 == 0:
             threading.Thread(target=db_prune, daemon=True).start()
-        time.sleep(POLL_SEC)
+        ev = _wake.get(sid)
+        if ev: ev.wait(POLL_SEC); ev.clear()
+        else: time.sleep(POLL_SEC)
 
 def start_all():
     db_init()
@@ -518,6 +534,31 @@ class H(BaseHTTPRequestHandler):
                 self._json(200, {"ok": False, "error": str(e)})
         else:
             self._json(404, {"error": "Not found"})
+
+    def do_PUT(self):
+        path = urlparse(self.path).path.rstrip("/")
+        tok  = self._token()
+        if not auth.check_permission(tok, "nut", "admin"):
+            return self._json(403, {"error": "Requiere permiso admin"})
+        m = re.match(r'^/api/servers/([a-zA-Z0-9\-]+)$', path)
+        if not m: return self._json(400, {"error": "Invalid ID"})
+        body = self._body()
+        if body is None: return self._json(400, {"error": "Invalid request body"})
+        sid  = m.group(1)
+        host = (body.get("host") or "").strip()
+        name = (body.get("name") or "").strip()
+        try: port = int(body.get("port") or 3493)
+        except (TypeError, ValueError): return self._json(400, {"error": "Invalid port"})
+        if not host or not name: return self._json(400, {"error": "host y name requeridos"})
+        if not 1 <= port <= 65535: return self._json(400, {"error": "Invalid port"})
+        srvs = load_servers()
+        srv  = next((x for x in srvs if x["id"] == sid), None)
+        if srv is None: return self._json(404, {"error": "No encontrado"})
+        if any(x["id"] != sid and x["host"] == host and x["port"] == port for x in srvs):
+            return self._json(409, {"error": "Ya existe ese host:puerto"})
+        srv.update({"name": name, "host": host, "port": port})
+        save_servers(srvs); ensure_poller(srv)
+        self._json(200, {"server": srv})
 
     def do_DELETE(self):
         path = urlparse(self.path).path

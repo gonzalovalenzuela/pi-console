@@ -208,6 +208,8 @@ input.err{border-color:var(--red)}
 .btn-ghost-sm{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--text-mid);font-family:var(--sans);font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap}
 .btn-ghost-sm svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2}
 .btn-ghost-sm:hover{border-color:var(--red);color:var(--red)}
+.btn-ghost-sm.edit{margin-right:4px}
+.btn-ghost-sm.edit:hover{border-color:var(--blue);color:var(--blue)}
 .test-result{padding:10px 12px;border-radius:var(--r-sm);font-size:12px;font-family:var(--mono);display:none}
 .test-result.show{display:block}
 .test-result.ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
@@ -441,7 +443,7 @@ canvas.vchart{width:100%;height:var(--chart-h,140px);display:block}
       <div style="display:flex;flex-direction:column;gap:16px">
         <!-- Agregar servidor -->
         <div class="card" id="add-srv-card" style="display:none">
-          <div class="card-hd"><span class="card-title" data-i18n="addServerTitle">Add NUT server</span><button class="btn-link" onclick="closeAddServer()">✕</button></div>
+          <div class="card-hd"><span class="card-title" id="srv-form-title" data-i18n="addServerTitle">Add NUT server</span><button class="btn-link" onclick="closeAddServer()">✕</button></div>
           <div class="form-body">
             <div class="field"><label data-i18n="addServerName">Name</label><input type="text" id="f-sname" placeholder="Servidor" autocomplete="off"></div>
             <div class="two-col">
@@ -509,7 +511,7 @@ const LANG={
     testConnected:(n,v)=>`✓ Connected — ${n} UPS${v?' · '+v:''}`,
     calcVA:'V×A calculated',calcLoad:'VA×load',
     upsCountUnit:(n)=>`${n} UPS`,nodeCountUnit:(n)=>`${n} node${n!==1?'s':''}`,
-    addServerTitle:'Add NUT server',addServerName:'Name',addServerHost:'Host / IP',
+    addServerTitle:'Add NUT server',editServerTitle:'Edit NUT server',saveBtn:'Save',serverEdited:(name)=>`${name} updated`,serverEditedLog:(name)=>`Server updated: ${name}`,addServerName:'Name',addServerHost:'Host / IP',
     addServerPort:'Port',addServerTest:'Test',addServerBtn:'Add',
     deleteServerTitle:'Delete server',deleteServerConfirm:(name)=>`Delete server "${name}"? Monitoring will stop.`,
     noUPSDetail:'No UPS found. Add a NUT server or verify upsd is running.',
@@ -553,7 +555,7 @@ const LANG={
     testConnected:(n,v)=>`✓ Conectado — ${n} UPS${v?' · '+v:''}`,
     calcVA:'V×A calculado',calcLoad:'VA×carga',
     upsCountUnit:(n)=>`${n} UPS`,nodeCountUnit:(n)=>`${n} nodo${n!==1?'s':''}`,
-    addServerTitle:'Agregar servidor NUT',addServerName:'Nombre',addServerHost:'Host / IP',
+    addServerTitle:'Agregar servidor NUT',editServerTitle:'Editar servidor NUT',saveBtn:'Guardar',serverEdited:(name)=>`${name} actualizado`,serverEditedLog:(name)=>`Servidor actualizado: ${name}`,addServerName:'Nombre',addServerHost:'Host / IP',
     addServerPort:'Puerto',addServerTest:'Probar',addServerBtn:'Agregar',
     deleteServerTitle:'Eliminar servidor',deleteServerConfirm:(name)=>`¿Eliminar el servidor "${name}"? Se detendrá el monitoreo.`,
     noUPSDetail:'Sin UPS. Agrega un servidor NUT o verifica que upsd esté activo.',
@@ -571,6 +573,7 @@ function setLang(l){
   document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.getAttribute('data-i18n')));
   ['en','es'].forEach(x=>document.getElementById('lang-'+x)?.classList.toggle('active',x===l));
   if(_i18nReady && typeof renderDashboard==='function')renderDashboard();
+  try{setServerForm();}catch(e){}
 }
 (()=>setLang(_lang))();
 
@@ -748,6 +751,7 @@ function renderSidebar(){
         <div class="srv-nav-name">${esc(s.name)}</div>
         <div class="srv-nav-host">${esc(s.host)}:${s.port}${upsCount?' · '+t('upsCountUnit',upsCount):''}</div>
       </div>
+      ${canAdmin()?`<button class="btn-ghost-sm edit" onclick="openEditServer('${s.id}')" title="${t('editServerTitle')}"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>`:''}
       ${canAdmin()&&s.id!=='local'?`<button class="btn-ghost-sm" onclick="confirmDeleteServer('${s.id}','${esc(s.name)}')" title="Eliminar"><svg viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6"/></svg></button>`:''}`;
     list.appendChild(div);
   });
@@ -1347,8 +1351,19 @@ function drawVoltageChartForKey(key){
 }
 
 // ── Add/delete server ─────────────────────────────────────────────────────────
-function openAddServer(){document.getElementById('add-srv-card').style.display='block';document.getElementById('f-sname').focus();}
-function closeAddServer(){document.getElementById('add-srv-card').style.display='none';document.getElementById('test-result').className='test-result';['f-sname','f-shost'].forEach(id=>{document.getElementById(id).value='';document.getElementById(id).classList.remove('err');});document.getElementById('f-sport').value='3493';}
+let editingSrv=null;
+function setServerForm(){
+  document.getElementById('srv-form-title').textContent=t(editingSrv?'editServerTitle':'addServerTitle');
+  document.getElementById('btn-save-srv').textContent=t(editingSrv?'saveBtn':'addServerBtn');
+}
+function openAddServer(){editingSrv=null;closeAddServer();setServerForm();document.getElementById('add-srv-card').style.display='block';document.getElementById('f-sname').focus();}
+function openEditServer(sid){
+  const s=servers.find(x=>x.id===sid);if(!s)return;
+  closeAddServer();editingSrv=sid;
+  document.getElementById('f-sname').value=s.name;document.getElementById('f-shost').value=s.host;document.getElementById('f-sport').value=s.port;
+  setServerForm();document.getElementById('add-srv-card').style.display='block';document.getElementById('f-sname').focus();
+}
+function closeAddServer(){editingSrv=null;document.getElementById('add-srv-card').style.display='none';document.getElementById('test-result').className='test-result';['f-sname','f-shost'].forEach(id=>{document.getElementById(id).value='';document.getElementById(id).classList.remove('err');});document.getElementById('f-sport').value='3493';}
 
 async function testServer(){
   const host=document.getElementById('f-shost').value.trim(),port=parseInt(document.getElementById('f-sport').value)||3493;
@@ -1372,11 +1387,14 @@ async function saveServer(){
   if(!host){document.getElementById('f-shost').classList.add('err');document.getElementById('f-shost').focus();return;}
   btn.disabled=true;btn.innerHTML='<span class="spin">⟳</span>';
   try{
-    const r=await fetch('api/servers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,host,port})});
+    const ed=editingSrv;
+    const r=await fetch(ed?'api/servers/'+ed:'api/servers',{method:ed?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,host,port})});
     const d=await r.json();if(!r.ok)throw new Error(d.error||'HTTP '+r.status);
-    log('OK',t('serverAddedLog',name));toast(t('serverAdded',name),false);closeAddServer();await fetchAll();
+    if(ed){log('OK',t('serverEditedLog',name));toast(t('serverEdited',name),false);}
+    else{log('OK',t('serverAddedLog',name));toast(t('serverAdded',name),false);}
+    closeAddServer();await fetchAll();
   }catch(e){log('ERR',e.message);toast(e.message,true);}
-  finally{btn.disabled=false;btn.textContent=t('addServerBtn');}
+  finally{btn.disabled=false;setServerForm();}
 }
 
 function confirmDeleteServer(sid,name){
