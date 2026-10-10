@@ -11,7 +11,11 @@ if [ "$1" = "purge" ]; then
     rm -rf /opt/pi-console /opt/pi-console-auth
     rm -f /etc/nginx/sites-enabled/pi-console.conf
     rm -f /etc/systemd/system/wol-console.service
-    rm -f /etc/systemd/system/nut-monitor.service
+    rm -f /etc/systemd/system/pi-console-ups.service
+    # servicio con el nombre antiguo (solo si es el de Pi Console; nut-monitor tambien es el upsmon de NUT)
+    if grep -q "Pi Console" /etc/systemd/system/nut-monitor.service 2>/dev/null; then
+        rm -f /etc/systemd/system/nut-monitor.service
+    fi
     rm -f /etc/systemd/system/admin-panel.service
     rm -f /etc/systemd/system/net-monitor.service
     rm -f /etc/systemd/system/proxmox-monitor.service

@@ -59,6 +59,30 @@ if getent group dialout >/dev/null 2>&1; then
     usermod -aG dialout pi-console 2>/dev/null || true
 fi
 
+# ── 4b. Migracion: el servicio del dashboard se llamaba "nut-monitor", igual que el
+# servicio upsmon de NUT (paquete nut-client). Nuestro archivo en /etc/systemd/system
+# tapaba el de NUT, y nut.target arrancaba el dashboard en lugar de upsmon.
+migrate_legacy_nut_unit() {
+    legacy="/etc/systemd/system/nut-monitor.service"
+    [ -f "$legacy" ] || return 0
+    grep -q "Pi Console" "$legacy" 2>/dev/null || return 0    # no es el nuestro: no tocar
+    echo "  migrando servicio antiguo nut-monitor -> pi-console-ups"
+    systemctl stop nut-monitor 2>/dev/null || true
+    systemctl disable nut-monitor 2>/dev/null || true
+    rm -f "$legacy" /etc/systemd/system/multi-user.target.wants/nut-monitor.service
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl reset-failed nut-monitor 2>/dev/null || true
+    # devolver el servicio upsmon de NUT si hay un MONITOR configurado
+    if [ -f /etc/nut/upsmon.conf ] && grep -qE '^[[:space:]]*MONITOR[[:space:]]' /etc/nut/upsmon.conf; then
+        if systemctl cat nut-monitor >/dev/null 2>&1; then
+            systemctl enable nut-monitor 2>/dev/null || true
+            systemctl restart nut-monitor 2>/dev/null || true
+            echo "  servicio nut-monitor (upsmon de NUT) restaurado"
+        fi
+    fi
+}
+migrate_legacy_nut_unit
+
 # ── 5. Instalar archivos de servicio systemd ──────────────────────────────────
 install_service() {
     name="$1" desc="$2" module="$3" script="$4"
@@ -86,7 +110,7 @@ EOF
 }
 
 install_service "wol-console"     "WOL Console"     "wol-console"     "server.py"
-install_service "nut-monitor"     "NUT Monitor"      "nut-monitor"     "server.py"
+install_service "pi-console-ups" "UPS Monitor"      "nut-monitor"     "server.py"
 install_service "admin-panel"     "Admin Panel"      "auth"            "admin_panel.py"
 install_service "net-monitor"     "Net Monitor"      "net-monitor"     "server.py"
 install_service "proxmox-monitor" "Proxmox Monitor"  "proxmox-monitor" "server.py"
@@ -177,7 +201,7 @@ fi
 # ── 8. Recargar y habilitar servicios ─────────────────────────────────────────
 systemctl daemon-reload
 
-for svc in wol-console nut-monitor admin-panel net-monitor proxmox-monitor; do
+for svc in wol-console pi-console-ups admin-panel net-monitor proxmox-monitor; do
     systemctl enable "$svc" 2>/dev/null || true
     systemctl restart "$svc" 2>/dev/null || true
     echo "  $svc habilitado"

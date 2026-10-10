@@ -2,7 +2,7 @@
 set -e
 
 echo "pi-console: deteniendo servicios..."
-for svc in wol-console nut-monitor admin-panel net-monitor proxmox-monitor; do
+for svc in wol-console pi-console-ups admin-panel net-monitor proxmox-monitor; do
     systemctl stop "$svc" 2>/dev/null || true
     systemctl disable "$svc" 2>/dev/null || true
 done

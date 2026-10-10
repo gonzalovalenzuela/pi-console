@@ -39,7 +39,7 @@ Raspberry Pi
 │
 └── systemd services
     ├── wol-console.service
-    ├── nut-monitor.service
+    ├── pi-console-ups.service   # (antes nut-monitor: chocaba con el upsmon de NUT)
     ├── admin-panel.service
     ├── net-monitor.service
     └── proxmox-monitor.service

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.7f — 2026-10-10
+
+### Correcciones
+- **Conflicto con el servicio `nut-monitor` de NUT**: el servicio systemd del UPS Monitor se llamaba `nut-monitor`, igual que el servicio `upsmon` del paquete `nut-client`. El archivo de Pi Console en `/etc/systemd/system` tapaba el de NUT, así que `systemctl restart nut-monitor` y `nut.target` arrancaban el dashboard en lugar de `upsmon` (que apaga la Pi cuando el UPS se queda sin batería), y administrar NUT con `systemctl` no funcionaba.
+- El servicio del dashboard ahora se llama **`pi-console-ups`** (`journalctl -u pi-console-ups`). Al actualizar, el `postinst` detecta el servicio antiguo, lo elimina y, si hay un `MONITOR` en `/etc/nut/upsmon.conf`, vuelve a habilitar y arrancar el `nut-monitor` real de NUT. El teleporter y el `postrm` usan el nombre nuevo.
+
 ## 1.1.7e — 2026-10-10
 
 ### Correcciones

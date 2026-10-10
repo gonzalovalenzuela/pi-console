@@ -37,7 +37,7 @@ SAFETY_DIR="${PICONSOLE_SAFETY_DIR:-/var/backups/pi-console}"
 SPOOL_DIR="$DATA_DIR/teleporter"      # backups/uploads handled by the admin panel
 LOCK_FILE="${PICONSOLE_LOCK:-/run/lock/pi-console-teleporter.lock}"
 SERVICE_USER="pi-console"
-SERVICES="wol-console nut-monitor admin-panel net-monitor proxmox-monitor"
+SERVICES="wol-console pi-console-ups admin-panel net-monitor proxmox-monitor"
 SKIP_SYSTEM="${TELEPORTER_SKIP_SYSTEM:-0}"   # 1 = no systemctl/nginx/chown (tests)
 
 # member-in-archive | real path on disk
