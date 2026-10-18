@@ -2,4 +2,4 @@
 
 Test builds. Official releases are published under Releases.
 
-    wget https://raw.githubusercontent.com/gonzalovalenzuela/pi-console/deb-builds/pi-console_1.2.1h_all.deb
+    wget https://raw.githubusercontent.com/gonzalovalenzuela/pi-console/deb-builds/pi-console_1.2.1i_all.deb
