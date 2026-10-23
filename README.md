@@ -42,7 +42,7 @@ Todas las pantallas (tema claro y oscuro, 4 tamaños) están en [`docs/screensho
 ```bash
 wget https://raw.githubusercontent.com/gonzalovalenzuela/pi-console/deb-builds/pi-console_1.2.2g_all.deb
 sudo apt-get update
-sudo apt-get install -y ./pi-console_1.2.2_all.deb
+sudo apt-get install -y ./pi-console_1.2.2g_all.deb
 ```
 
 Usa `apt-get install ./archivo.deb` y no `dpkg -i`, para que `apt` instale las dependencias. Luego abre `http://<ip-de-la-pi>/`.
@@ -55,7 +55,7 @@ El instalador crea el usuario del sistema `pi-console`, los servicios systemd, l
 
 ```bash
 wget https://raw.githubusercontent.com/gonzalovalenzuela/pi-console/deb-builds/pi-console_1.2.2g_all.deb
-sudo apt-get install -y ./pi-console_1.2.2_all.deb
+sudo apt-get install -y ./pi-console_1.2.2g_all.deb
 pi-console-health
 ```
 
