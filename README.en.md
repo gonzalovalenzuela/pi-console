@@ -40,7 +40,7 @@ All screens (light and dark, 4 sizes) are in [`docs/screenshots/`](docs/screensh
 ## Install
 
 ```bash
-wget https://github.com/gonzalovalenzuela/pi-console/releases/download/1.2.2/pi-console_1.2.2_all.deb
+wget https://raw.githubusercontent.com/gonzalovalenzuela/pi-console/deb-builds/pi-console_1.2.2g_all.deb
 sudo apt-get update
 sudo apt-get install -y ./pi-console_1.2.2_all.deb
 ```
@@ -54,7 +54,7 @@ The installer creates the `pi-console` system user, the systemd services, the ng
 ## Update
 
 ```bash
-wget https://github.com/gonzalovalenzuela/pi-console/releases/download/1.2.2/pi-console_1.2.2_all.deb
+wget https://raw.githubusercontent.com/gonzalovalenzuela/pi-console/deb-builds/pi-console_1.2.2g_all.deb
 sudo apt-get install -y ./pi-console_1.2.2_all.deb
 pi-console-health
 ```
