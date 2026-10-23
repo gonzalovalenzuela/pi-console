@@ -264,7 +264,7 @@ pi-console/
 ├── assets/icons/      # source icons and the script that regenerates the PNGs
 ├── tests/             # automated tests (unittest)
 ├── docs/              # APT.md and screenshots
-├── CHANGELOG.md, RELEASE_NOTES_*.md, VERSION, LICENSE
+├── CHANGELOG.md, RELEASE_NOTES_1.3.md, VERSION, LICENSE
 └── README.md, README.en.md
 ```
 
