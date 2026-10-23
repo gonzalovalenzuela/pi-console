@@ -7,13 +7,13 @@ MODULES = ["wol-console", "nut-monitor", "net-monitor", "proxmox-monitor", "over
 class Versions(unittest.TestCase):
     def test_version_file_control_and_changelog_agree(self):
         v = (ROOT / "VERSION").read_text().strip()
-        self.assertRegex(v, r"^\d+\.\d+\.\d+[a-z]?$")
+        self.assertRegex(v, r"^\d+\.\d+(\.\d+)?[a-z]?$")
         ctrl = re.search(r"^Version:\s*(\S+)", (ROOT / "debian/control").read_text(), re.M).group(1)
         top = re.search(r"^## (\S+)", (ROOT / "CHANGELOG.md").read_text(), re.M).group(1)
         self.assertEqual((ctrl, top), (v, v), "VERSION, debian/control y la primera entrada del CHANGELOG deben coincidir")
 
 class License(unittest.TestCase):
-    """Desde la 1.2.2g el proyecto es PolyForm Noncommercial 1.0.0 (uso comercial solo con permiso del autor)."""
+    """Desde la 1.3 el proyecto es PolyForm Noncommercial 1.0.0 (uso comercial solo con permiso del autor)."""
     def test_license_file_and_docs_agree(self):
         lic = (ROOT / "LICENSE").read_text()
         self.assertTrue(lic.startswith("Required Notice: Copyright"), "PolyForm exige la línea «Required Notice:»")

@@ -40,9 +40,9 @@ Todas las pantallas (tema claro y oscuro, 4 tamaños) están en [`docs/screensho
 ## Instalar
 
 ```bash
-wget https://raw.githubusercontent.com/gonzalovalenzuela/pi-console/deb-builds/pi-console_1.2.2g_all.deb
+wget https://github.com/gonzalovalenzuela/pi-console/releases/download/1.3/pi-console_1.3_all.deb
 sudo apt-get update
-sudo apt-get install -y ./pi-console_1.2.2g_all.deb
+sudo apt-get install -y ./pi-console_1.3_all.deb
 ```
 
 Usa `apt-get install ./archivo.deb` y no `dpkg -i`, para que `apt` instale las dependencias. Luego abre `http://<ip-de-la-pi>/`.
@@ -54,8 +54,8 @@ El instalador crea el usuario del sistema `pi-console`, los servicios systemd, l
 ## Actualizar
 
 ```bash
-wget https://raw.githubusercontent.com/gonzalovalenzuela/pi-console/deb-builds/pi-console_1.2.2g_all.deb
-sudo apt-get install -y ./pi-console_1.2.2g_all.deb
+wget https://github.com/gonzalovalenzuela/pi-console/releases/download/1.3/pi-console_1.3_all.deb
+sudo apt-get install -y ./pi-console_1.3_all.deb
 pi-console-health
 ```
 
@@ -289,10 +289,10 @@ Los comentarios del código están en español e inglés (los de inglés llevan 
 
 ## Licencia
 
-[PolyForm Noncommercial 1.0.0](LICENSE), desde la versión 1.2.2g.
+[PolyForm Noncommercial 1.0.0](LICENSE), desde la versión 1.3.
 
 - **Gratis** para uso personal, hobby, estudio, educación y organizaciones sin fines de lucro.
 - **El uso comercial (por ejemplo, dentro de una empresa) y los derivados comerciales requieren permiso escrito del autor.** Para pedirlo, abre un issue en GitHub.
-- Las versiones hasta la 1.2.2f se publicaron con licencia MIT; esas copias conservan esa licencia.
+- Las versiones anteriores a la 1.3 se publicaron con licencia MIT; esas copias conservan esa licencia.
 
 Creado con ayuda de IA.

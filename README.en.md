@@ -40,9 +40,9 @@ All screens (light and dark, 4 sizes) are in [`docs/screenshots/`](docs/screensh
 ## Install
 
 ```bash
-wget https://raw.githubusercontent.com/gonzalovalenzuela/pi-console/deb-builds/pi-console_1.2.2g_all.deb
+wget https://github.com/gonzalovalenzuela/pi-console/releases/download/1.3/pi-console_1.3_all.deb
 sudo apt-get update
-sudo apt-get install -y ./pi-console_1.2.2g_all.deb
+sudo apt-get install -y ./pi-console_1.3_all.deb
 ```
 
 Use `apt-get install ./file.deb`, not `dpkg -i`, so `apt` installs the dependencies. Then open `http://<pi-ip>/`.
@@ -54,8 +54,8 @@ The installer creates the `pi-console` system user, the systemd services, the ng
 ## Update
 
 ```bash
-wget https://raw.githubusercontent.com/gonzalovalenzuela/pi-console/deb-builds/pi-console_1.2.2g_all.deb
-sudo apt-get install -y ./pi-console_1.2.2g_all.deb
+wget https://github.com/gonzalovalenzuela/pi-console/releases/download/1.3/pi-console_1.3_all.deb
+sudo apt-get install -y ./pi-console_1.3_all.deb
 pi-console-health
 ```
 
@@ -289,10 +289,10 @@ Code comments are in Spanish and English (English ones start with `EN:`). A gene
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE), from version 1.2.2g.
+[PolyForm Noncommercial 1.0.0](LICENSE), from version 1.3.
 
 - **Free** for personal use, hobby projects, study, education and non-profit organizations.
 - **Commercial use (for example, inside a company) and commercial derivative works require the author's written permission.** To ask for it, open an issue on GitHub.
-- Versions up to 1.2.2f were released under the MIT license; those copies keep that license.
+- Versions before 1.3 were released under the MIT license; those copies keep that license.
 
 Created with the help of AI.

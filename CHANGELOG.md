@@ -1,40 +1,30 @@
 # Changelog
 
-## 1.2.2g — 2026-10-23
+## 1.3 — 2026-10-23
 
-- **Nueva licencia: PolyForm Noncommercial 1.0.0** (antes MIT). Uso gratis para uso personal, hobby, estudio, educación y organizaciones sin fines de lucro. El uso comercial y los derivados comerciales requieren permiso escrito del autor. Las versiones hasta la 1.2.2f siguen con su licencia MIT.
+Reúne los cambios de los builds 1.2.2a a 1.2.2g.
+
+**Licencia**
+- Nueva licencia: **PolyForm Noncommercial 1.0.0** (antes MIT). Uso gratis para uso personal, hobby, estudio, educación y organizaciones sin fines de lucro. El uso comercial y los derivados comerciales requieren permiso escrito del autor. Las versiones anteriores siguen con su licencia MIT.
 - El paquete incluye `/usr/share/doc/pi-console/copyright` y `LICENSE`.
 
-## 1.2.2f — 2026-10-21
+**Nuevo**
+- **Overview: tarjetas ordenables.** Botón *Ordenar*: flechas ‹ › y manija ⠿ para arrastrar (las flechas sirven en iPad y celular). *Restablecer orden* vuelve al de siempre (UPS, Proxmox, Red, Pi). El orden se guarda en cada navegador y también se usa en modo kiosko.
+- **Formato de hora 24 h / 12 h.** Botón "24H/12H" junto al idioma. Por defecto 24 h. Se guarda en el navegador y vale para todos los módulos.
+- **UPS Monitor: tiempo en línea y disponibilidad.** Tiempo en línea desde el último corte, disponibilidad de 24 h, 7 d y 30 d, cortes de los últimos 30 días y último corte (fecha, duración y carga mínima). Al actualizar se reconstruyen los cortes pasados desde el historial (solo si el UPS informa voltaje de entrada). La disponibilidad aparece con al menos 1 hora de datos. El Overview muestra una línea con lo mismo.
+- **Overview: detalle de la Raspberry Pi.** El botón *Abrir* de la tarjeta Raspberry Pi muestra equipo, sistema, kernel, uptime, CPU total y por núcleo, frecuencia, carga, memoria y swap, discos, red con IP y tráfico, temperatura y estado de energía. Los administradores también ven usuarios conectados, procesos con más CPU y memoria, y servicios con falla. Se actualiza cada 5 s. También se ve en modo kiosko.
 
-- **Pruebas automáticas en el repositorio** (`tests/`, solo biblioteca estándar). 29 pruebas: cortes y disponibilidad del UPS, lectores de sesiones (utmp y logind), detalle de la Pi (qué ve un administrador y qué un lector), contrato de las APIs (sin sesión → 401, lectura sola no escribe, bloqueo de peticiones entre sitios), versión única en `VERSION`, `debian/control` y CHANGELOG, copias compartidas idénticas, textos en español e inglés con las mismas claves, y sintaxis de JS y shell. Se corren con `python3 -m unittest discover -s tests -t . -v` y en GitHub Actions (`tests.yml`, Python 3.11 y 3.13).
-- **Los módulos ya no hacen nada al importarse.** La carpeta de datos, los archivos antiguos y, en Net Monitor, el modo manual de una instalación nueva se preparan al arrancar el servicio, no al importar el archivo. Sin cambios para el usuario.
-- **Overview, modo kiosko:** el enlace *Abrir* de la tarjeta Raspberry Pi ahora también se ve (estaba oculto).
+**Seguridad**
+- Auditoría de lo nuevo: sin hallazgos críticos ni altos.
+- El detalle de la Pi comparte el resultado 2 s entre sesiones, para que muchas peticiones no carguen la Pi. Las direcciones MAC solo las ven los administradores.
+- Cortes del UPS: máximo 2000 por UPS, para que un UPS defectuoso no haga crecer la base.
 
-## 1.2.2e — 2026-10-21
+**Correcciones**
+- Detalle de la Pi: los usuarios conectados no aparecían en Raspberry Pi OS nuevo (Debian 13). Ahora se leen también de systemd-logind.
 
-- **Detalle de la Pi: usuarios conectados.** Mostraba "Nadie conectado" aunque hubiera una sesión SSH, porque las versiones nuevas de Raspberry Pi OS (Debian 13) ya no llenan `/run/utmp`. Ahora también lee las sesiones de systemd-logind (lo mismo que muestra `w`).
-
-## 1.2.2d — 2026-10-21
-
-Auditoría de seguridad de lo agregado en 1.2.2a–c. Sin hallazgos críticos ni altos; tres endurecimientos:
-- El detalle de la Pi (`/api/pidetail`) comparte el resultado 2 s entre sesiones y lo calcula un solo hilo a la vez, para que muchas peticiones no carguen la Raspberry Pi.
-- Las direcciones MAC del detalle de la Pi solo las ven los administradores.
-- Tabla de cortes del UPS: se conservan como máximo los 2000 cortes más recientes por UPS, para que un UPS defectuoso que alterne red/batería sin parar no haga crecer la base.
-
-## 1.2.2c — 2026-10-21
-
-- **UPS Monitor: tiempo en línea y disponibilidad.** Cada UPS muestra el tiempo en línea desde el último corte, la disponibilidad de 24 h, 7 d y 30 d, la cantidad de cortes de los últimos 30 días y el último corte (fecha, duración y carga mínima). Los cortes se guardan en `history.db` (tabla `outages`). Al actualizar se reconstruyen los cortes pasados desde el historial (tramos con voltaje de entrada bajo 20 V; solo si el UPS informa voltaje de entrada). La disponibilidad aparece cuando hay al menos 1 hora de datos.
-- **Overview: línea de cortes en la tarjeta UPS** (tiempo en línea, último corte y disponibilidad de 30 días).
-- **Overview: detalle de la Raspberry Pi.** El botón *Abrir* de la tarjeta Raspberry Pi muestra equipo, sistema, kernel, encendido y uptime, CPU total y por núcleo, frecuencia, carga, memoria y swap, discos, interfaces de red con IP y tráfico, temperatura y estado de energía (bajo voltaje y limitación). Los administradores también ven usuarios conectados, procesos con más CPU y memoria, y servicios con falla. Se actualiza cada 5 s.
-
-## 1.2.2b — 2026-10-20
-
-- **Overview: tarjetas ordenables.** Botón *Ordenar*: cada tarjeta muestra flechas ‹ › y una manija ⠿ para arrastrar (las flechas sirven en iPad y celular). *Restablecer orden* vuelve al de siempre (UPS, Proxmox, Red, Pi). El orden se guarda en cada navegador y también se usa en modo kiosko. La línea de tiempo siempre queda abajo.
-
-## 1.2.2a — 2026-10-20
-
-- **Formato de hora 24 h / 12 h.** Botón "24H/12H" junto al idioma (en el Resumen, antes del botón de idioma). Por defecto 24 h. Se guarda en el navegador y vale para todos los módulos. Afecta relojes, horas de gráficos, eventos, fechas con hora y registros.
+**Interno**
+- Pruebas automáticas en el repositorio (`tests/`, 31 pruebas, solo biblioteca estándar) y en GitHub Actions.
+- Los módulos ya no crean archivos ni carpetas al importarse; se preparan al arrancar el servicio.
 
 ## 1.2.2 — 2026-10-20
 
