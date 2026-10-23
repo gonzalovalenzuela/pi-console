@@ -289,4 +289,10 @@ Los comentarios del código están en español e inglés (los de inglés llevan 
 
 ## Licencia
 
-MIT — ver [LICENSE](LICENSE). Creado con ayuda de IA.
+[PolyForm Noncommercial 1.0.0](LICENSE), desde la versión 1.2.2g.
+
+- **Gratis** para uso personal, hobby, estudio, educación y organizaciones sin fines de lucro.
+- **El uso comercial (por ejemplo, dentro de una empresa) y los derivados comerciales requieren permiso escrito del autor.** Para pedirlo, abre un issue en GitHub.
+- Las versiones hasta la 1.2.2f se publicaron con licencia MIT; esas copias conservan esa licencia.
+
+Creado con ayuda de IA.

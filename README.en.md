@@ -289,4 +289,10 @@ Code comments are in Spanish and English (English ones start with `EN:`). A gene
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Created with the help of AI.
+[PolyForm Noncommercial 1.0.0](LICENSE), from version 1.2.2g.
+
+- **Free** for personal use, hobby projects, study, education and non-profit organizations.
+- **Commercial use (for example, inside a company) and commercial derivative works require the author's written permission.** To ask for it, open an issue on GitHub.
+- Versions up to 1.2.2f were released under the MIT license; those copies keep that license.
+
+Created with the help of AI.

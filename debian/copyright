@@ -1,0 +1,17 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: pi-console
+Upstream-Contact: https://github.com/gonzalovalenzuela/pi-console
+Source: https://github.com/gonzalovalenzuela/pi-console
+
+Files: *
+Copyright: 2026 Gonzalo Valenzuela
+License: PolyForm-Noncommercial-1.0.0
+ Licensed under the PolyForm Noncommercial License 1.0.0.
+ The full text is in /usr/share/doc/pi-console/LICENSE and at
+ https://polyformproject.org/licenses/noncommercial/1.0.0
+ .
+ Commercial use and commercial derivative works require the written
+ permission of the copyright holder.
+ .
+ Versions up to 1.2.2f were released under the MIT license; copies of those
+ versions keep that license.

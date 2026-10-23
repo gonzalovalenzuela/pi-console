@@ -12,6 +12,24 @@ class Versions(unittest.TestCase):
         top = re.search(r"^## (\S+)", (ROOT / "CHANGELOG.md").read_text(), re.M).group(1)
         self.assertEqual((ctrl, top), (v, v), "VERSION, debian/control y la primera entrada del CHANGELOG deben coincidir")
 
+class License(unittest.TestCase):
+    """Desde la 1.2.2g el proyecto es PolyForm Noncommercial 1.0.0 (uso comercial solo con permiso del autor)."""
+    def test_license_file_and_docs_agree(self):
+        lic = (ROOT / "LICENSE").read_text()
+        self.assertTrue(lic.startswith("Required Notice: Copyright"), "PolyForm exige la línea «Required Notice:»")
+        for clave in ("PolyForm Noncommercial License 1.0.0", "Noncommercial Purposes", "Personal Uses", "No Liability", "polyformproject.org/licenses/noncommercial/1.0.0"):
+            self.assertIn(clave, lic)
+        self.assertNotIn("Permission is hereby granted, free of charge", lic, "quedó texto de la licencia MIT")
+        for readme in ("README.md", "README.en.md"):
+            txt = (ROOT / readme).read_text()
+            self.assertIn("PolyForm Noncommercial 1.0.0", txt, readme)
+            self.assertNotRegex(txt, r"(?m)^MIT\b", f"{readme} todavía dice MIT")
+
+    def test_debian_copyright_names_the_same_license(self):
+        c = (ROOT / "debian/copyright").read_text()
+        self.assertIn("License: PolyForm-Noncommercial-1.0.0", c)
+        self.assertIn("Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/", c)
+
 class SharedAssets(unittest.TestCase):
     """Estos archivos se copian a mano a varias carpetas: si una copia cambia sola, la página se comporta distinto según el módulo."""
     SHARED = ["timefmt.js", "csp-bind.js", "footer.js", "ipcard.js", "ipcard.css"]

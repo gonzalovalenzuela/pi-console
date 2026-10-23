@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.2g — 2026-10-23
+
+- **Nueva licencia: PolyForm Noncommercial 1.0.0** (antes MIT). Uso gratis para uso personal, hobby, estudio, educación y organizaciones sin fines de lucro. El uso comercial y los derivados comerciales requieren permiso escrito del autor. Las versiones hasta la 1.2.2f siguen con su licencia MIT.
+- El paquete incluye `/usr/share/doc/pi-console/copyright` y `LICENSE`.
+
 ## 1.2.2f — 2026-10-21
 
 - **Pruebas automáticas en el repositorio** (`tests/`, solo biblioteca estándar). 29 pruebas: cortes y disponibilidad del UPS, lectores de sesiones (utmp y logind), detalle de la Pi (qué ve un administrador y qué un lector), contrato de las APIs (sin sesión → 401, lectura sola no escribe, bloqueo de peticiones entre sitios), versión única en `VERSION`, `debian/control` y CHANGELOG, copias compartidas idénticas, textos en español e inglés con las mismas claves, y sintaxis de JS y shell. Se corren con `python3 -m unittest discover -s tests -t . -v` y en GitHub Actions (`tests.yml`, Python 3.11 y 3.13).
